@@ -1,0 +1,1504 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tater Typer – Potato Typing Race Game | Potato Games</title>
+  <meta name="description" content="A free typing race game with potatoes. Type potato sentences to beat rival potatoes, outrun the Masher in Endless mode, or race a friend with a code.">
+  <link rel="icon" href="tatertyper-icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #17151c;
+      --panel: #221f29;
+      --panel-2: #2c2835;
+      --line: #3a3545;
+      --text: #f4efe8;
+      --muted: #a69fb2;
+      --accent: #ffb547;
+      --good: #3ecf8e;
+      --danger: #ff6b6b;
+      --butter: #ffe066;
+      --display: 'Fredoka', 'Trebuchet MS', system-ui, sans-serif;
+      --body: 'Nunito', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', 'Consolas', monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--body);
+      overflow: hidden;
+    }
+    #app { display: flex; flex-direction: column; height: 100%; max-width: 1100px; margin: 0 auto; padding: 12px 16px 16px; gap: 12px; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    h1 { margin: 0; font-family: var(--display); font-size: 28px; color: var(--accent); }
+    h1 span { color: var(--text); }
+    .icon-btn { border: 1px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 10px; padding: 6px 12px; font: 700 14px var(--body); cursor: pointer; }
+    .icon-btn:hover { color: var(--text); }
+
+    .track-wrap { flex: 1 1 auto; min-height: 220px; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: #6ec6ff; }
+    #track { display: block; width: 100%; height: 100%; }
+
+    .text-panel {
+      position: relative;
+      flex: 0 0 auto;
+      padding: 18px 20px;
+      border-radius: 16px;
+      background: var(--panel);
+      border: 2px solid var(--line);
+      cursor: text;
+      transition: border-color 0.15s;
+    }
+    .text-panel.focus { border-color: var(--accent); }
+    .text-panel.shake { animation: shake 0.25s; border-color: var(--danger); }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-6px); }
+      75% { transform: translateX(6px); }
+    }
+    #passage { font-family: var(--mono); font-size: 22px; line-height: 1.6; color: var(--muted); word-break: break-word; min-height: 72px; }
+    #passage .done { color: var(--good); }
+    #passage .cur { color: var(--bg); background: var(--accent); border-radius: 3px; }
+    #passage .cur.err { background: var(--danger); color: #fff; }
+    .hint { margin-top: 8px; font-size: 14px; color: var(--muted); }
+    #typer { position: absolute; left: 12px; top: 12px; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; }
+
+    .stats { display: flex; gap: 10px; flex-wrap: wrap; }
+    .stat { flex: 1 1 120px; padding: 10px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); }
+    .stat span { display: block; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat b { font: 700 24px var(--display); }
+    .butter-bar { height: 8px; margin-top: 6px; border-radius: 4px; background: var(--panel-2); overflow: hidden; }
+    .butter-bar i { display: block; height: 100%; width: 0; background: var(--butter); transition: width 0.1s; }
+
+    .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(10, 9, 14, 0.7); }
+    .overlay[hidden] { display: none; }
+    .card { width: min(520px, 100%); max-height: 100%; overflow-y: auto; padding: 26px 28px; border-radius: 20px; background: var(--panel); border: 2px solid var(--accent); text-align: center; }
+    .card h2 { margin: 0 0 6px; font: 700 36px var(--display); color: var(--accent); }
+    .card p { color: var(--muted); margin: 6px 0 16px; }
+    .how { text-align: left; margin: 0 0 18px; padding: 0; list-style: none; font-size: 15px; line-height: 1.45; }
+    .how li { padding: 5px 0 5px 24px; position: relative; color: var(--muted); }
+    .how li::before { content: '🥔'; position: absolute; left: 0; font-size: 13px; top: 6px; }
+    .how b { color: var(--text); }
+    .diffs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
+    .diff { padding: 12px 6px; border-radius: 14px; border: 2px solid var(--line); background: var(--panel-2); color: var(--text); cursor: pointer; font-family: var(--body); }
+    .diff b { display: block; font: 700 20px var(--display); }
+    .diff small { color: var(--muted); font-size: 12px; }
+    .diff.on { border-color: var(--accent); background: #3a2f22; }
+    .modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
+    #friend-panel { margin-top: 4px; }
+    .or { margin: 14px 0 8px; color: var(--muted); font-size: 14px; }
+    .join-row { display: flex; gap: 8px; justify-content: center; }
+    #code-input {
+      width: 130px; padding: 10px 12px; border-radius: 12px; border: 2px solid var(--line);
+      background: var(--panel-2); color: var(--text); font: 700 24px var(--mono); text-align: center; letter-spacing: 6px;
+    }
+    #code-input:focus { outline: none; border-color: var(--accent); }
+    .friend-code { margin: 6px 0 4px; font: 700 54px var(--mono); letter-spacing: 10px; color: var(--accent); }
+    .friend-status { min-height: 22px; margin: 10px 0 14px; color: var(--muted); font-size: 15px; }
+    .friend-status.good { color: var(--good); font-weight: 800; }
+    .friend-status.bad { color: var(--danger); font-weight: 800; }
+    .btn { padding: 12px 34px; border: 0; border-radius: 14px; background: var(--accent); color: #2a1a00; font: 700 20px var(--display); cursor: pointer; box-shadow: 0 4px 0 #b97c1f; }
+    .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #b97c1f; }
+    .btn.ghost { background: var(--panel-2); color: var(--text); box-shadow: 0 4px 0 #111; }
+    .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .place { font: 700 64px var(--display); line-height: 1; margin: 4px 0; }
+    .results-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; }
+    .results-grid div { padding: 10px; border-radius: 12px; background: var(--panel-2); }
+    .results-grid span { display: block; font-size: 12px; color: var(--muted); }
+    .results-grid b { font: 700 22px var(--display); }
+    .spuds { color: var(--accent); font: 700 20px var(--display); min-height: 26px; margin-bottom: 14px; }
+    .new-best { color: var(--good); font-weight: 800; min-height: 22px; }
+    kbd { padding: 1px 6px; border-radius: 5px; background: var(--panel-2); border-bottom: 2px solid #111; font: 700 13px var(--body); color: var(--text); }
+
+    @media (max-width: 600px) {
+      #passage { font-size: 18px; }
+      h1 { font-size: 22px; }
+      .stat b { font-size: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>Tater <span>Typer</span></h1>
+      <div class="row">
+        <button class="icon-btn" id="mute-btn">Sound: on</button>
+        <button class="icon-btn" id="menu-btn">Menu</button>
+      </div>
+    </header>
+    <div class="track-wrap"><canvas id="track"></canvas></div>
+    <div class="text-panel" id="text-panel">
+      <div id="passage"></div>
+      <div class="hint" id="hint">Get ready...</div>
+      <input id="typer" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Type here">
+    </div>
+    <div class="stats">
+      <div class="stat"><span>Speed</span><b id="s-wpm">0</b> <small>WPM</small></div>
+      <div class="stat"><span>Accuracy</span><b id="s-acc">100%</b></div>
+      <div class="stat"><span>Butter streak</span><b id="s-streak">0</b><div class="butter-bar"><i id="s-butter"></i></div></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="menu">
+    <div class="card">
+      <h2>Tater Typer</h2>
+      <p>The great potato race is on! Type fast to roll your potato to the finish line.</p>
+      <ul class="how">
+        <li><b>Type the fun facts</b> exactly as they're written: potatoes, food, animals, space and more. Every right letter rolls your potato forward, and you'll learn something too!</li>
+        <li><b>Wrong letter?</b> Your potato trips and won't move until you type the right one.</li>
+        <li><b>Butter boost:</b> type 25 letters in a row with no mistakes to throw a pat of butter. The racer closest to you slips and stops for a moment.</li>
+        <li><b>Endless:</b> the sentences never stop, and a giant potato masher chases you, getting faster every few seconds. See how far you can roll before you get mashed!</li>
+        <li><b>Race a friend:</b> one of you makes a race and gets a code, the other types the code in to join.</li>
+        <li><b>Win Spuds</b> for your place or distance, plus a bonus for typing fast.</li>
+      </ul>
+      <div class="modes" id="modes">
+        <button class="diff" data-mode="race"><b>Race</b><small>Beat 3 potatoes</small></button>
+        <button class="diff" data-mode="endless"><b>Endless</b><small id="best-endless">Outrun the Masher</small></button>
+        <button class="diff" data-mode="friend"><b>Friend</b><small>Race with a code</small></button>
+      </div>
+      <div class="diffs" id="diffs">
+        <button class="diff" data-diff="easy"><b>Easy</b><small id="best-easy">2 short facts</small></button>
+        <button class="diff" data-diff="normal"><b>Normal</b><small id="best-normal">2 full facts</small></button>
+        <button class="diff" data-diff="hard"><b>Hard</b><small id="best-hard">3 facts, numbers too</small></button>
+      </div>
+      <button class="btn" id="start-btn">Start race</button>
+      <div id="friend-panel" hidden>
+        <div id="friend-setup">
+          <button class="btn" id="host-btn">Make a race</button>
+          <div class="or">or join your friend's race</div>
+          <div class="join-row">
+            <input id="code-input" inputmode="numeric" maxlength="4" placeholder="Code" autocomplete="off" aria-label="Race code">
+            <button class="btn ghost" id="join-btn">Join</button>
+          </div>
+        </div>
+        <div id="friend-code" class="friend-code" hidden></div>
+        <div id="friend-status" class="friend-status"></div>
+        <div class="row">
+          <button class="btn" id="friend-start-btn" hidden>Start race</button>
+          <button class="btn ghost" id="leave-friend-btn" hidden>Leave</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="results" hidden>
+    <div class="card">
+      <div class="place" id="r-place">1st</div>
+      <p id="r-msg">You won!</p>
+      <div class="results-grid">
+        <div><span>Speed</span><b id="r-wpm">0 WPM</b></div>
+        <div><span>Accuracy</span><b id="r-acc">100%</b></div>
+        <div><span id="r-third-label">Time</span><b id="r-time">0.0s</b></div>
+      </div>
+      <div class="new-best" id="r-best"></div>
+      <div class="spuds" id="r-spuds"></div>
+      <div class="row">
+        <button class="btn" id="again-btn">Race again</button>
+        <button class="btn ghost" id="results-menu-btn">Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="potato-sdk.js"></script>
+  <script>
+  (() => {
+    // ---------- race texts: true facts about potatoes, food, animals, space and more ----------
+    // Every race mixes facts together, so the sentences come out different almost every time.
+    // Easy joins 2 short facts, Normal uses 2 full facts, Hard uses 3.
+    const FACTS = {
+      // short, lowercase, no punctuation (Easy)
+      easy: [
+        'potatoes grow under the ground',
+        'a potato is a kind of tuber',
+        'potatoes first came from south america',
+        'the dents on a potato are called eyes',
+        'new sprouts grow out of potato eyes',
+        'a potato is mostly water',
+        'potatoes have vitamin c in them',
+        'potatoes are full of starch',
+        'lots of people call potatoes spuds',
+        'some potatoes are purple inside',
+        'potatoes grow best in cool weather',
+        'potatoes last longer in a cool dark place',
+        'green potatoes can make you sick',
+        'potato leaves are not safe to eat',
+        'french fries are made from potatoes',
+        'potato chips are thin slices of fried potato',
+        'farmers dig potatoes out of the dirt',
+        'there are thousands of kinds of potatoes',
+        'potatoes are related to tomatoes',
+        'potato plants can have pretty flowers',
+        'potato plants were grown in space in 1995',
+        'china grows more potatoes than any other country',
+        'idaho grows lots of potatoes',
+        'sweet potatoes are a different kind of plant',
+        'a cut potato turns brown in the air',
+        'the skin of a potato has lots of fiber',
+        'potatoes give your body energy',
+        'tater tots are made from grated potato',
+        'hash browns are crispy fried potatoes',
+        'farmers plant seed potatoes to grow new ones',
+        'new potatoes have very thin skins',
+        'potatoes can be red or yellow or purple',
+        'russet potatoes are good for baking',
+        'potato starch can be used to make glue',
+        'potatoes are grown all over the world',
+        'the word potato comes from spanish',
+        'people have grown potatoes for thousands of years',
+        'one potato plant can grow lots of potatoes',
+        'gnocchi are dumplings made with potatoes',
+        'a few potatoes can light up a tiny bulb',
+        // food
+        'honey can stay good for a very long time',
+        'carrots were not always orange',
+        'an apple can float in water',
+        'bananas are a kind of berry',
+        'strawberries have seeds on the outside',
+        'peanuts grow under the ground',
+        'cheese is made from milk',
+        'popcorn pops because of water inside it',
+        'chocolate comes from cacao beans',
+        'tomatoes are a kind of fruit',
+        'lemons are full of vitamin c',
+        'bees make honey from flower nectar',
+        // animals, space and more
+        'an octopus has three hearts',
+        'a group of flamingos is called a flamboyance',
+        'the sun is a star',
+        'the moon has no air',
+        'sharks are older than trees',
+        'butterflies taste with their feet',
+        'adult elephants cannot jump',
+        'the blue whale is the biggest animal ever',
+        'penguins cannot fly but they swim fast',
+        'owls can turn their heads very far',
+        'earth is the third planet from the sun',
+        'koalas sleep most of the day',
+        'lightning is hotter than the sun',
+        'a snail has thousands of tiny teeth',
+        'dolphins sleep with half their brain at a time',
+        'jupiter is the biggest planet',
+      ],
+      // full sentences with capitals and punctuation (Normal and Hard)
+      full: [
+        'Potatoes were first grown in the Andes mountains of South America.',
+        'People in what is now Peru and Bolivia have grown potatoes for thousands of years.',
+        'The part of the potato plant that we eat is called a tuber.',
+        'A tuber is a swollen underground stem that stores food for the plant.',
+        'The little dents on a potato are called eyes, and new sprouts grow out of them.',
+        'Potatoes are in the nightshade family, along with tomatoes, peppers, and eggplants.',
+        'Sweet potatoes are not close relatives of regular potatoes; they belong to the morning glory family.',
+        'A raw potato is about 80 percent water.',
+        'When a potato sits in the light and turns green, it can build up a bitter chemical called solanine.',
+        'Potatoes last longest when they are stored somewhere cool, dark, and dry.',
+        'The leaves and stems of a potato plant are poisonous, so only the tubers are eaten.',
+        'Potato flowers can be white, pink, or purple.',
+        'Some potato plants grow small green fruits that look like tiny tomatoes, but they are not safe to eat.',
+        'There are more than 4,000 kinds of potatoes in the world.',
+        'Some potatoes have purple or blue flesh, and others have red or yellow skin.',
+        'Potatoes are one of the most important food crops on Earth, along with rice, wheat, and corn.',
+        'China grows more potatoes than any other country.',
+        'India is the second biggest potato grower in the world.',
+        'In 1995, potato plants were grown aboard the space shuttle Columbia.',
+        'Spanish explorers brought potatoes from South America to Europe in the 1500s.',
+        'When potatoes first reached Europe, many people did not trust them as food.',
+        'A French scientist named Antoine-Augustin Parmentier helped make potatoes popular in France.',
+        'Potatoes contain vitamin C, which helps keep your body healthy.',
+        'Potatoes are a good source of potassium, a mineral your muscles need.',
+        "A lot of a potato's fiber is in its skin.",
+        'Potatoes are full of starch, which your body turns into energy.',
+        'Farmers usually grow potatoes from seed potatoes, not from tiny seeds.',
+        'A seed potato is a whole potato, or a piece of one, that has at least one eye.',
+        'Farmers pile soil around growing potato plants so the tubers stay covered and out of the sun.',
+        'Most potatoes are ready to dig up about three or four months after planting.',
+        'New potatoes are young potatoes that are dug up early, so their skins are thin.',
+        'Russet potatoes have rough brown skin and are great for baking.',
+        'Waxy potatoes hold their shape when boiled, which makes them good for potato salad.',
+        'Floury potatoes turn soft and fluffy when cooked, which makes them great for mashing.',
+        'A famous story says potato chips were invented in Saratoga Springs, New York, in the 1850s.',
+        'Both Belgium and France claim that they invented french fries.',
+        'Idaho grows more potatoes than any other state in the United States.',
+        'Potatoes grow best in cool weather, not in hot summer heat.',
+        'In the 1840s, a plant disease called late blight destroyed potato crops in Ireland and other parts of Europe.',
+        'The International Potato Center, which studies and protects potatoes, is in Lima, Peru.',
+        'In the Andes, people make freeze-dried potatoes by letting them freeze at night and dry in the sun.',
+        'The word potato comes from the Spanish word patata.',
+        'Potatoes are often called spuds.',
+        'Tater tots were invented by a frozen food company in the 1950s.',
+        'Potato starch is used to make some kinds of paper, glue, and even plastic.',
+        'A few potatoes wired together can make enough electricity to light a tiny LED.',
+        'Some potatoes can be stored for months if they are kept cool and dark.',
+        'A single potato plant can grow several potatoes underground.',
+        'Fingerling potatoes are small, long potatoes that are shaped a little like fingers.',
+        'Poking holes in a potato before you microwave it lets the steam escape.',
+        'A cut potato turns brown when it touches the air, just like a sliced apple.',
+        'Putting cut potatoes in cold water helps stop them from turning brown.',
+        'Potatoes are grown in more than 100 countries around the world.',
+        'Potatoes can grow a lot of food on a small patch of land.',
+        'Potato leaves use sunlight to make food, which the plant stores in its tubers.',
+        'Hash browns are made from shredded or chopped potatoes that are fried until crispy.',
+        'Gnocchi are small Italian dumplings that are often made with potatoes.',
+        'Latkes are fried potato pancakes that many families eat during Hanukkah.',
+        'Poutine is a Canadian dish made of fries, cheese curds, and gravy.',
+        'Instant mashed potatoes are made by cooking, mashing, and drying real potatoes.',
+        'Potatoes also contain vitamin B6, which helps your body use energy from food.',
+        'Boiling a potato with its skin on helps it keep more of its vitamins.',
+        'Farmers grow potatoes high in the mountains and far up north where the weather is cold.',
+        'Potato sprouts and green skin should be cut away before the potato is cooked.',
+        'Potatoes form at the tips of special underground stems called stolons.',
+        'Potato plants can be grown in buckets, bags, or big pots, not just in fields.',
+        'Peru celebrates National Potato Day every year on May 30.',
+        'The United Nations named 2008 the International Year of the Potato.',
+        'The United Nations made May 30 the International Day of Potato.',
+        'Potatoes can be baked, boiled, mashed, roasted, fried, or turned into chips.',
+        // food
+        'Honey can stay good for a very long time if it is sealed tightly.',
+        'Carrots used to be mostly purple or yellow before orange carrots became popular.',
+        'Bananas are berries, but strawberries are not, at least to plant scientists.',
+        'Peanuts are not really nuts; they are legumes, like beans and peas.',
+        'Apples float in water because about a quarter of an apple is air.',
+        'Popcorn pops because the water inside each kernel turns to steam and bursts the shell.',
+        'Chocolate is made from the seeds of the cacao tree, which grows in hot, rainy places.',
+        'A pineapple plant usually grows only one pineapple at a time.',
+        'Cucumbers are about 96 percent water.',
+        'Many people in Europe once thought tomatoes were poisonous.',
+        'Rice is the main food for more than half of the people in the world.',
+        'Pizza as we know it today first became popular in Naples, Italy.',
+        'Lemons, oranges, and limes are all citrus fruits full of vitamin C.',
+        'Each strawberry carries about 200 tiny seeds on the outside.',
+        'Avocados are fruits, and they only ripen after they are picked.',
+        'Broccoli, cabbage, and cauliflower all come from the same wild plant.',
+        // animals
+        'An octopus has three hearts and blue blood.',
+        'A group of flamingos is called a flamboyance.',
+        'Sharks have been around longer than trees have existed on Earth.',
+        'The blue whale is the largest animal that has ever lived.',
+        'Butterflies taste their food using sensors on their feet.',
+        'Sea otters sometimes hold hands while they sleep so they do not drift apart.',
+        'Adult elephants cannot jump.',
+        'Owls can turn their heads about three quarters of the way around.',
+        'Koalas can sleep for up to 20 hours a day.',
+        "A hummingbird's heart can beat more than 1,000 times a minute.",
+        'Penguins cannot fly, but they are amazing swimmers.',
+        'Wood frogs can freeze solid in winter and thaw out alive in spring.',
+        'Giraffes have the same number of neck bones as people: seven.',
+        'Cats spend about two thirds of their lives asleep.',
+        'Dolphins sleep with one half of their brain at a time.',
+        // space and our planet
+        'A day on Venus is longer than a whole year on Venus.',
+        'About one million Earths could fit inside the Sun.',
+        'Light from the Sun takes about eight minutes to reach Earth.',
+        'There is no wind on the Moon, so astronaut footprints there can last a very long time.',
+        'Jupiter is the biggest planet in our solar system.',
+        'Saturn is so light for its size that it would float in a giant bathtub of water.',
+        'Lightning is about five times hotter than the surface of the Sun.',
+        'About 71 percent of Earth is covered by water.',
+        'The Pacific is the largest and deepest ocean on Earth.',
+        'The deepest part of the ocean is almost 11 kilometers down.',
+        'Mount Everest is the tallest mountain above sea level on Earth.',
+        // inventions and places
+        "The Wright brothers' first airplane flight in 1903 lasted only 12 seconds.",
+        'The Eiffel Tower grows a little taller in summer because heat makes metal expand.',
+        'Lightning can strike the same place more than once.',
+      ],
+    };
+    const INTROS = ['', '', '', 'Did you know? ', 'Fun fact: ', 'True story: ', 'Here is a true one: '];
+    const FACTS_PER_RACE = { easy: 2, normal: 2, hard: 3 };
+
+    // Facts are dealt like a shuffled deck: you see every one before any of them comes back.
+    // The deck is saved, so this carries over between plays.
+    const decks = {};
+    function drawFact(kind) {
+      const n = FACTS[kind].length;
+      let deck = decks[kind] || Potato.load('deck-' + kind, []);
+      if (!Array.isArray(deck) || deck.some((i) => !Number.isInteger(i) || i < 0 || i >= n)) deck = [];
+      if (!deck.length) {
+        deck = [...Array(n).keys()];
+        for (let i = n - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [deck[i], deck[j]] = [deck[j], deck[i]];
+        }
+      }
+      const fact = FACTS[kind][deck.pop()];
+      decks[kind] = deck;
+      Potato.save('deck-' + kind, deck);
+      return fact;
+    }
+    function makePassage(d) {
+      const kind = d === 'easy' ? 'easy' : 'full';
+      const facts = [];
+      while (facts.length < FACTS_PER_RACE[d]) {
+        const f = drawFact(kind);
+        if (!facts.includes(f)) facts.push(f);
+      }
+      if (d === 'easy') return facts.join(' and ');
+      return INTROS[Math.floor(Math.random() * INTROS.length)] + facts.join(' ');
+    }
+
+    // How fast the other potatoes type (words per minute), per difficulty.
+    const LEVELS = {
+      easy: [[10, 16], [14, 20], [18, 25]],
+      normal: [[22, 30], [28, 36], [34, 42]],
+      hard: [[36, 46], [44, 54], [52, 64]],
+    };
+    const RIVALS = [
+      { name: 'Hash Brown', color: '#8a5a2b', hat: 'beanie', face: 'grumpy' },
+      { name: 'Tater Tot', color: '#e3c06a', hat: 'party', face: 'happy' },
+      { name: 'Mashley', color: '#f2f2f2', hat: 'chef', face: 'sleepy' },
+      { name: 'Sir Spudrick', color: '#b5534a', hat: 'tophat', face: 'cool' },
+      { name: 'Lady Fingerling', color: '#7d4e9e', hat: 'crown', face: 'shock' },
+      { name: 'Baked Benny', color: '#e9813c', hat: 'cap', face: 'happy' },
+    ];
+    const BUTTER_EVERY = 25;
+    const PLACE_SPUDS = [12, 8, 5, 3];
+    // Endless mode: the Masher starts at this speed (WPM) and gets faster as you go.
+    const ENDLESS = {
+      startWpm: { easy: 12, normal: 20, hard: 30 },
+      rampWpm: 1.5,     // it speeds up by this much...
+      rampEvery: 5,     // ...every this many seconds
+      startGap: 45,     // head start, in letters
+      maxGap: 70,       // you can't get further ahead than this
+      slip: 1.6,        // seconds the Masher stops after slipping on butter
+      lettersPerSpud: 40,
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const canvas = $('track');
+    const ctx = canvas.getContext('2d');
+    const input = $('typer');
+
+    let diff = Potato.load('difficulty', 'normal');
+    if (!FACTS_PER_RACE[diff]) diff = 'normal';
+    let mode = 'menu'; // menu | countdown | race | done
+    let text = '', idx = 0, errors = 0, streak = 0, bestStreak = 0;
+    let racers = [], finishOrder = [], butters = [], dust = [];
+    let countdown = 0, raceTime = 0, playerTime = 0;
+    let errFlash = 0;
+    let gameMode = Potato.load('mode', 'race'); // race | endless | friend
+    if (gameMode !== 'endless' && gameMode !== 'friend') gameMode = 'race';
+    // endless mode
+    let dist = 0, shownDist = 0, gap = 0, masherWpm = 0, masherSlip = 0, sinceKey = 9, sentences = 0;
+    const endless = () => gameMode === 'endless';
+    const friendMode = () => gameMode === 'friend';
+
+    // ---------- sound ----------
+    let ac = null, muted = Potato.load('muted', false);
+    function audio() {
+      if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
+      if (ac.state === 'suspended') ac.resume();
+      return ac;
+    }
+    function tone(freq, dur, type = 'sine', vol = 0.08, delay = 0) {
+      if (muted) return;
+      const a = audio();
+      if (!a) return;
+      const t = a.currentTime + delay, o = a.createOscillator(), g = a.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, t);
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(a.destination);
+      o.start(t);
+      o.stop(t + dur + 0.02);
+    }
+    const sfx = {
+      key: () => tone(900 + Math.random() * 200, 0.03, 'triangle', 0.025),
+      miss: () => tone(140, 0.15, 'sawtooth', 0.06),
+      beep: (hi) => tone(hi ? 880 : 440, hi ? 0.35 : 0.15, 'square', 0.06),
+      butter: () => { tone(500, 0.1, 'triangle', 0.08); tone(750, 0.12, 'triangle', 0.08, 0.08); tone(300, 0.25, 'sine', 0.06, 0.2); },
+      win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.2, 'triangle', 0.1, i * 0.12)),
+      lose: () => [392, 330, 262].forEach((f, i) => tone(f, 0.22, 'triangle', 0.08, i * 0.14)),
+    };
+    function updateMuteLabel() { $('mute-btn').textContent = muted ? 'Sound: off' : 'Sound: on'; }
+    $('mute-btn').addEventListener('click', () => { muted = !muted; Potato.save('muted', muted); updateMuteLabel(); focusTyping(); });
+    updateMuteLabel();
+
+    // ---------- menu ----------
+    function bestFor(d) { return Potato.load('best-' + d, 0); }
+    function bestDistFor(d) { return Potato.load('endless-' + d, 0); }
+    function renderMenu() {
+      document.querySelectorAll('#diffs .diff').forEach((b) => b.classList.toggle('on', b.dataset.diff === diff));
+      document.querySelectorAll('#modes .diff').forEach((b) => b.classList.toggle('on', b.dataset.mode === gameMode));
+      const blurbs = { easy: '2 short facts', normal: '2 full facts', hard: '3 facts, numbers too' };
+      for (const d of Object.keys(FACTS_PER_RACE)) {
+        const best = endless() ? bestDistFor(d) : bestFor(d);
+        $('best-' + d).textContent = best ? `Best: ${best} ${endless() ? 'm' : 'WPM'}` : blurbs[d];
+      }
+      const bd = bestDistFor(diff);
+      $('best-endless').textContent = bd ? `Best: ${bd} m` : 'Outrun the Masher';
+      $('start-btn').textContent = endless() ? 'Start endless' : 'Start race';
+      $('start-btn').hidden = friendMode();
+      $('friend-panel').hidden = !friendMode();
+      renderFriendPanel();
+    }
+    document.querySelectorAll('#diffs .diff').forEach((b) => b.addEventListener('click', () => {
+      diff = b.dataset.diff;
+      Potato.save('difficulty', diff);
+      renderMenu();
+    }));
+    document.querySelectorAll('#modes .diff').forEach((b) => b.addEventListener('click', () => {
+      gameMode = b.dataset.mode;
+      Potato.save('mode', gameMode);
+      renderMenu();
+    }));
+    function showMenu() {
+      mode = 'menu';
+      $('results').hidden = true;
+      $('menu').hidden = false;
+      renderMenu();
+    }
+    $('start-btn').addEventListener('click', startRace);
+    $('again-btn').addEventListener('click', () => (friendMode() ? friendAgain() : startRace()));
+    $('results-menu-btn').addEventListener('click', showMenu);
+    $('menu-btn').addEventListener('click', showMenu);
+
+    // ---------- racing a friend ----------
+    // The two browsers connect straight to each other with PeerJS. Its free public server only helps
+    // them find each other using the race code; the race itself goes directly between you and your friend.
+    const PEERJS_URL = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
+    const PEER_PREFIX = 'potato-tatertyper-';
+    const HATS = ['none', 'cap', 'beanie', 'party', 'chef', 'tophat', 'crown', 'halo'];
+    const FACES = ['happy', 'sleepy', 'shock', 'grumpy', 'cool'];
+    const net = { peer: null, conn: null, host: false, friend: null, code: '' };
+    let peerLib = null;
+
+    function loadPeerJs() {
+      if (window.Peer) return Promise.resolve();
+      if (!peerLib) {
+        peerLib = new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = PEERJS_URL;
+          s.onload = resolve;
+          s.onerror = () => { peerLib = null; reject(new Error('PeerJS failed to load')); };
+          document.head.appendChild(s);
+        });
+      }
+      return peerLib;
+    }
+
+    function friendStatus(msg, kind) {
+      const el = $('friend-status');
+      el.textContent = msg;
+      el.className = 'friend-status' + (kind ? ' ' + kind : '');
+    }
+
+    function renderFriendPanel() {
+      const connected = !!(net.conn && net.conn.open && net.friend);
+      $('friend-setup').hidden = !!net.peer;
+      $('friend-code').hidden = !(net.host && net.code);
+      $('friend-code').textContent = net.code;
+      $('friend-start-btn').hidden = !(connected && net.host);
+      $('leave-friend-btn').hidden = !net.peer;
+    }
+
+    function leaveFriend(msg) {
+      send({ type: 'bye' });
+      if (net.conn) { try { net.conn.close(); } catch (e) { /* already closed */ } }
+      if (net.peer) { try { net.peer.destroy(); } catch (e) { /* already gone */ } }
+      Object.assign(net, { peer: null, conn: null, host: false, friend: null, code: '' });
+      renderFriendPanel();
+      friendStatus(msg || '', msg ? 'bad' : '');
+    }
+
+    function onlineError(err) {
+      if (err && (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error')) return "Couldn't reach the online race server. Check your internet and try again.";
+      return 'Something went wrong with the connection. Try again.';
+    }
+
+    async function hostRace() {
+      friendStatus('Connecting...');
+      try { await loadPeerJs(); } catch (e) { friendStatus("Couldn't load online racing. Check your internet.", 'bad'); return; }
+      const code = String(Math.floor(1000 + Math.random() * 9000));
+      const peer = new Peer(PEER_PREFIX + code);
+      Object.assign(net, { peer, host: true, code: '' });
+      renderFriendPanel();
+      peer.on('open', () => {
+        net.code = code;
+        renderFriendPanel();
+        friendStatus('Tell your friend this code. Waiting for them to join...');
+      });
+      peer.on('connection', (conn) => {
+        if (net.conn) { conn.on('open', () => conn.close()); return; } // already have a friend in this race
+        setupConn(conn);
+      });
+      peer.on('error', (err) => {
+        if (err.type === 'unavailable-id') { leaveFriend(); hostRace(); return; } // someone has that code, pick another
+        leaveFriend(onlineError(err));
+      });
+    }
+
+    async function joinRace() {
+      const code = $('code-input').value.replace(/\D/g, '');
+      if (code.length !== 4) { friendStatus("Type in the 4-digit code from your friend's screen.", 'bad'); return; }
+      friendStatus('Connecting...');
+      try { await loadPeerJs(); } catch (e) { friendStatus("Couldn't load online racing. Check your internet.", 'bad'); return; }
+      const peer = new Peer();
+      Object.assign(net, { peer, host: false, code });
+      renderFriendPanel();
+      peer.on('open', () => {
+        friendStatus(`Joining race ${code}...`);
+        setupConn(peer.connect(PEER_PREFIX + code, { reliable: true }));
+      });
+      peer.on('error', (err) => {
+        leaveFriend(err.type === 'peer-unavailable' ? `There's no race with code ${code}. Check the code and try again.` : onlineError(err));
+      });
+    }
+
+    function send(msg) {
+      if (net.conn && net.conn.open) net.conn.send(msg);
+    }
+
+    function setupConn(conn) {
+      net.conn = conn;
+      conn.on('open', () => {
+        const p = Potato.player;
+        send({ type: 'hello', name: p.name, look: { color: p.color, hat: p.hat, face: p.face } });
+      });
+      conn.on('data', onMessage);
+      conn.on('close', () => { if (net.conn === conn) friendLeft(); });
+    }
+
+    // Anything from the other browser is checked before we use it.
+    function cleanFriend(d) {
+      const name = String(d.name || 'Friend').replace(/[^\w\- ]/g, '').trim().slice(0, 16) || 'Friend';
+      const l = d.look && typeof d.look === 'object' ? d.look : {};
+      return {
+        name,
+        look: {
+          name,
+          color: /^#[0-9a-fA-F]{6}$/.test(l.color) ? l.color : '#c9925a',
+          hat: HATS.includes(l.hat) ? l.hat : 'none',
+          face: FACES.includes(l.face) ? l.face : 'happy',
+        },
+      };
+    }
+
+    const friendRacer = () => racers.find((r) => r.isFriend);
+
+    function onMessage(d) {
+      if (!d || typeof d.type !== 'string') return;
+      if (d.type === 'hello') {
+        net.friend = cleanFriend(d);
+        renderFriendPanel();
+        friendStatus(net.host ? `${net.friend.name} joined! Pick a difficulty and start the race.` : `You joined ${net.friend.name}'s race! Waiting for them to start...`, 'good');
+        sfx.beep(true);
+      } else if (d.type === 'start' && !net.host) {
+        if (typeof d.text !== 'string' || !d.text.length || d.text.length > 400) return;
+        startFriendRace(d.text);
+      } else if (d.type === 'again' && net.host) {
+        if (mode === 'done' || mode === 'menu') hostStart();
+      } else if (d.type === 'p') {
+        const f = friendRacer();
+        const c = Number(d.chars);
+        if (!f || !Number.isFinite(c)) return;
+        f.chars = Math.max(0, Math.min(text.length, c));
+        if (d.miss) f.trip = 0.35;
+      } else if (d.type === 'butter') {
+        const me = racers.find((r) => r.isPlayer), f = friendRacer();
+        if (!me || !f || mode !== 'race') return;
+        butters.push({ from: f, to: me, t: 0 });
+        $('hint').textContent = `${f.name} threw butter at you! Watch out!`;
+        sfx.butter();
+      } else if (d.type === 'finish') {
+        const f = friendRacer();
+        if (!f || f.finished) return;
+        f.chars = text.length;
+        f.finished = true;
+        finishOrder.push(f);
+      } else if (d.type === 'bye') {
+        friendLeft();
+      }
+    }
+
+    function friendLeft() {
+      const name = net.friend ? net.friend.name : 'Your friend';
+      leaveFriend(`${name} left the race.`);
+      if (mode === 'race' || mode === 'countdown') $('hint').textContent = `${name} left. Finish the race anyway!`;
+      if (mode === 'done') $('r-spuds').textContent = `${name} left the race.`;
+    }
+
+    // The host picks the sentence so both players type the same one.
+    function hostStart() {
+      if (!net.host || !net.friend) return;
+      const t = pickText();
+      send({ type: 'start', text: t });
+      startFriendRace(t);
+    }
+
+    function friendAgain() {
+      if (!net.friend) { showMenu(); return; }
+      if (net.host) hostStart();
+      else {
+        send({ type: 'again' });
+        $('r-spuds').textContent = `Asked ${net.friend.name} for a rematch...`;
+      }
+    }
+
+    function startFriendRace(t) {
+      audio();
+      $('menu').hidden = true;
+      $('results').hidden = true;
+      text = t;
+      idx = 0; errors = 0; streak = 0; bestStreak = 0;
+      finishOrder = []; butters = []; dust = [];
+      raceTime = 0; playerTime = 0;
+      racers = [
+        { name: Potato.player.name || 'You', look: Potato.player, chars: 0, isPlayer: true, finished: false, slip: 0, trip: 0, lane: 0 },
+        { name: net.friend.name, look: net.friend.look, chars: 0, isFriend: true, finished: false, slip: 0, trip: 0, lane: 1 },
+      ];
+      mode = 'countdown';
+      countdown = 3.5;
+      renderPassage();
+      updateStats();
+      $('hint').textContent = `Racing ${net.friend.name}! Get ready...`;
+      focusTyping();
+    }
+
+    $('host-btn').addEventListener('click', hostRace);
+    $('join-btn').addEventListener('click', joinRace);
+    $('code-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); joinRace(); } e.stopPropagation(); });
+    $('friend-start-btn').addEventListener('click', hostStart);
+    $('leave-friend-btn').addEventListener('click', () => leaveFriend());
+    window.addEventListener('pagehide', () => send({ type: 'bye' }));
+
+    // ---------- race setup ----------
+    function pickText() {
+      return makePassage(diff);
+    }
+
+    function startRace() {
+      audio();
+      $('menu').hidden = true;
+      $('results').hidden = true;
+      text = pickText();
+      idx = 0; errors = 0; streak = 0; bestStreak = 0;
+      finishOrder = []; butters = []; dust = [];
+      raceTime = 0; playerTime = 0;
+      if (endless()) {
+        dist = 0; shownDist = 0; sentences = 0; sinceKey = 9;
+        gap = ENDLESS.startGap;
+        masherWpm = ENDLESS.startWpm[diff];
+        masherSlip = 0;
+        racers = [{ name: Potato.player.name || 'You', look: Potato.player, chars: 0, isPlayer: true, finished: false, slip: 0, trip: 0, lane: 0 }];
+        mode = 'countdown';
+        countdown = 3.5;
+        renderPassage();
+        updateStats();
+        $('hint').textContent = 'Get ready... the Masher is warming up!';
+        focusTyping();
+        return;
+      }
+      const rivals = RIVALS.slice().sort(() => Math.random() - 0.5).slice(0, 3);
+      racers = [{ name: Potato.player.name || 'You', look: Potato.player, chars: 0, isPlayer: true, finished: false, slip: 0, trip: 0 }];
+      LEVELS[diff].forEach(([lo, hi], k) => {
+        const wpm = lo + Math.random() * (hi - lo);
+        racers.push({ name: rivals[k].name, look: rivals[k], chars: 0, cps: (wpm * 5) / 60, mood: 1, moodT: 0, pause: 0, slip: 0, trip: 0, finished: false });
+      });
+      // shuffle lanes so you aren't always on top
+      racers.sort(() => Math.random() - 0.5);
+      racers.forEach((r, k) => { r.lane = k; });
+      mode = 'countdown';
+      countdown = 3.5;
+      renderPassage();
+      updateStats();
+      $('hint').textContent = 'Get ready...';
+      focusTyping();
+    }
+
+    // ---------- typing ----------
+    function focusTyping() { input.focus({ preventScroll: true }); }
+    $('text-panel').addEventListener('click', focusTyping);
+    input.addEventListener('focus', () => $('text-panel').classList.add('focus'));
+    input.addEventListener('blur', () => $('text-panel').classList.remove('focus'));
+
+    window.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === 'Enter') {
+        if (mode === 'menu') { e.preventDefault(); if (friendMode()) hostStart(); else startRace(); }
+        else if (mode === 'done' && !$('results').hidden) { e.preventDefault(); $('again-btn').click(); }
+        return;
+      }
+      if (e.key === 'Escape') { showMenu(); return; }
+      if (e.key.length !== 1) return;
+      if (mode === 'menu' || (mode === 'done' && !$('results').hidden)) return;
+      e.preventDefault(); // handled here, so the hidden input doesn't also get it
+      typeChar(e.key);
+    });
+    // Phones send characters through the hidden input instead of keydown.
+    input.addEventListener('input', () => {
+      for (const ch of input.value) typeChar(ch);
+      input.value = '';
+    });
+
+    function typeChar(ch) {
+      if (mode !== 'race') return;
+      const me = racers.find((r) => r.isPlayer);
+      if (me.slip > 0) return; // slipped on your friend's butter: no typing for a moment
+      if (ch === text[idx]) {
+        idx++;
+        streak++;
+        bestStreak = Math.max(bestStreak, streak);
+        me.chars = idx;
+        sfx.key();
+        if (endless()) {
+          dist++;
+          sinceKey = 0;
+          gap = Math.min(ENDLESS.maxGap, gap + 1);
+        }
+        if (streak % BUTTER_EVERY === 0) throwButter(me);
+        if (idx >= text.length) {
+          if (endless()) {
+            // On to the next sentence; the road keeps going.
+            sentences++;
+            text = pickText();
+            idx = 0;
+            $('hint').textContent = `Sentence ${sentences} done! Keep rolling...`;
+          } else finishPlayer(me);
+        }
+        if (friendMode()) send({ type: 'p', chars: idx });
+      } else {
+        errors++;
+        streak = 0;
+        me.trip = 0.35;
+        if (friendMode()) send({ type: 'p', chars: idx, miss: true });
+        errFlash = 0.25;
+        sfx.miss();
+        const panel = $('text-panel');
+        panel.classList.remove('shake');
+        void panel.offsetWidth;
+        panel.classList.add('shake');
+      }
+      renderPassage();
+      updateStats();
+    }
+
+    // Butter boost: the racer closest to you (ahead first) slips and stops for a moment.
+    function throwButter(me) {
+      if (endless()) {
+        butters.push({ from: me, to: null, t: 0 });
+        sfx.butter();
+        $('hint').textContent = 'Butter boost! The Masher is about to slip!';
+        return;
+      }
+      const others = racers.filter((r) => !r.isPlayer && !r.finished);
+      if (!others.length) return;
+      const ahead = others.filter((r) => r.chars >= me.chars).sort((a, b) => a.chars - b.chars);
+      const target = ahead[0] || others.sort((a, b) => b.chars - a.chars)[0];
+      butters.push({ from: me, to: target, t: 0 });
+      sfx.butter();
+      $('hint').textContent = `Butter boost! ${target.name} is about to slip!`;
+      if (target.isFriend) send({ type: 'butter' });
+    }
+
+    function finishPlayer(me) {
+      me.finished = true;
+      playerTime = raceTime;
+      finishOrder.push(me);
+      if (friendMode()) send({ type: 'finish' });
+      mode = 'done';
+      $('hint').textContent = 'Finished!';
+      const place = finishOrder.indexOf(me) + 1;
+      (place === 1 ? sfx.win : sfx.lose)();
+      setTimeout(() => showResults(place), 1400);
+    }
+
+    const typedCount = () => (endless() ? dist : idx);
+    function wpmNow() {
+      const t = mode === 'done' ? playerTime : raceTime;
+      return t > 0.5 ? (typedCount() / 5) / (t / 60) : 0;
+    }
+    function accuracy() { const n = typedCount(); return n + errors ? n / (n + errors) : 1; }
+
+    // Endless: the Masher caught you.
+    function mashed() {
+      mode = 'done';
+      playerTime = raceTime;
+      racers[0].trip = 9;
+      sfx.lose();
+      $('hint').textContent = 'MASHED!';
+      setTimeout(showEndlessResults, 1400);
+    }
+
+    function showEndlessResults() {
+      const wpm = Math.round(wpmNow());
+      $('r-place').textContent = 'MASHED!';
+      $('r-place').style.color = '#ff6b6b';
+      $('r-msg').textContent = `You rolled ${dist} m and survived ${playerTime.toFixed(1)} seconds before the Masher got you.`;
+      $('r-wpm').textContent = `${wpm} WPM`;
+      $('r-acc').textContent = `${Math.round(accuracy() * 100)}%`;
+      $('r-third-label').textContent = 'Distance';
+      $('r-time').textContent = `${dist} m`;
+      const best = bestDistFor(diff);
+      if (dist > best) {
+        Potato.save('endless-' + diff, dist);
+        $('r-best').textContent = `New endless record on ${diff[0].toUpperCase() + diff.slice(1)}!`;
+      } else $('r-best').textContent = best ? `Record: ${best} m` : '';
+      const spuds = Math.floor(dist / ENDLESS.lettersPerSpud) + Math.floor(wpm / 10);
+      if (spuds > 0) Potato.earn(spuds);
+      Potato.score(wpm);
+      $('r-spuds').textContent = Potato.inHub ? `+${spuds} Spuds` : '';
+      $('again-btn').textContent = 'Run again';
+      $('results').hidden = false;
+    }
+
+    function showResults(place) {
+      $('r-third-label').textContent = 'Time';
+      $('again-btn').textContent = 'Race again';
+      const wpm = Math.round(wpmNow());
+      const acc = accuracy();
+      const names = ['1st', '2nd', '3rd', '4th'];
+      $('r-place').textContent = names[place - 1];
+      $('r-place').style.color = ['#ffd43b', '#d7dde4', '#e0a36a', '#a69fb2'][place - 1];
+      const f = friendRacer();
+      if (f) $('r-msg').textContent = place === 1 ? `You beat ${f.name}!` : `${f.name} won this time. Rematch?`;
+      else $('r-msg').textContent = place === 1 ? 'You won the potato race!' : place === 2 ? 'So close! Second place.' : place === 3 ? 'Third place. Keep practicing!' : 'Last place... the fries believe in you!';
+      $('r-wpm').textContent = `${wpm} WPM`;
+      $('r-acc').textContent = `${Math.round(acc * 100)}%`;
+      $('r-time').textContent = `${playerTime.toFixed(1)}s`;
+      const best = bestFor(diff);
+      if (f) $('r-best').textContent = ''; // friend races don't count toward your solo records
+      else if (wpm > best) {
+        Potato.save('best-' + diff, wpm);
+        $('r-best').textContent = `New best on ${diff[0].toUpperCase() + diff.slice(1)}!`;
+      } else $('r-best').textContent = '';
+      const spuds = PLACE_SPUDS[place - 1] + Math.floor(wpm / 10);
+      Potato.earn(spuds);
+      Potato.score(wpm);
+      $('r-spuds').textContent = Potato.inHub ? `+${spuds} Spuds` : '';
+      $('results').hidden = false;
+    }
+
+    // ---------- passage display ----------
+    function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    function renderPassage() {
+      const done = esc(text.slice(0, idx));
+      const cur = text[idx] === undefined ? '' : esc(text[idx]);
+      const rest = esc(text.slice(idx + 1));
+      const curHtml = cur ? `<span class="cur${errFlash > 0 ? ' err' : ''}">${cur === ' ' ? '&nbsp;' : cur}</span>` : '';
+      $('passage').innerHTML = `<span class="done">${done}</span>${curHtml}<span>${rest}</span>`;
+    }
+    function updateStats() {
+      $('s-wpm').textContent = Math.round(wpmNow());
+      $('s-acc').textContent = `${Math.round(accuracy() * 100)}%`;
+      $('s-streak').textContent = streak;
+      $('s-butter').style.width = `${((streak % BUTTER_EVERY) / BUTTER_EVERY) * 100}%`;
+    }
+
+    // ---------- simulation ----------
+    function update(dt) {
+      if (errFlash > 0) {
+        errFlash -= dt;
+        if (errFlash <= 0) renderPassage();
+      }
+      if (mode === 'countdown') {
+        const before = Math.ceil(countdown - 0.5);
+        countdown -= dt;
+        const after = Math.ceil(countdown - 0.5);
+        if (after !== before && after >= 1) sfx.beep(false);
+        if (countdown <= 0.5) {
+          mode = 'race';
+          sfx.beep(true);
+          $('hint').textContent = 'GO! Type the sentence above.';
+        }
+      }
+      if (endless() && (mode === 'race' || mode === 'done')) {
+        sinceKey += dt;
+        shownDist += (dist - shownDist) * Math.min(1, dt * 10);
+        if (racers[0] && racers[0].trip > 0 && mode === 'race') racers[0].trip -= dt;
+        if (mode === 'race') {
+          raceTime += dt;
+          masherWpm = ENDLESS.startWpm[diff] + Math.floor(raceTime / ENDLESS.rampEvery) * ENDLESS.rampWpm;
+          if (masherSlip > 0) masherSlip -= dt;
+          else gap -= ((masherWpm * 5) / 60) * dt;
+          if (gap <= 0) { gap = 0; mashed(); }
+          updateStats();
+        }
+      } else if (mode === 'race' || mode === 'done') {
+        raceTime += dt;
+        for (const r of racers) {
+          if (r.trip > 0) r.trip -= dt;
+          if ((r.isPlayer || r.isFriend) && r.slip > 0) r.slip -= dt; // butter wears off
+          if (r.isPlayer || r.isFriend || r.finished) continue; // a real friend moves by their own typing
+          if (r.slip > 0) { r.slip -= dt; continue; }
+          if (r.pause > 0) { r.pause -= dt; continue; }
+          // computer racers speed up and slow down a little, and sometimes fumble a key
+          r.moodT -= dt;
+          if (r.moodT <= 0) { r.moodT = 0.4 + Math.random() * 0.6; r.mood = 0.75 + Math.random() * 0.5; }
+          if (Math.random() < dt * 0.18) { r.pause = 0.3 + Math.random() * 0.6; r.trip = 0.3; }
+          r.chars = Math.min(text.length, r.chars + r.cps * r.mood * dt);
+          if (r.chars >= text.length) { r.finished = true; finishOrder.push(r); }
+        }
+        if (mode === 'race') updateStats();
+      }
+      for (const b of butters) {
+        b.t += dt / 0.55;
+        if (b.t >= 1 && !b.hit) {
+          b.hit = true;
+          if (!b.to) masherSlip = ENDLESS.slip;
+          else if (!b.to.finished) { b.to.slip = 1.4; b.to.trip = 1.4; }
+        }
+      }
+      butters = butters.filter((b) => b.t < 1.6);
+      for (const d of dust) { d.x += d.vx * dt; d.y += d.vy * dt; d.life -= dt; }
+      dust = dust.filter((d) => d.life > 0);
+    }
+
+    // ---------- drawing ----------
+    let W = 0, H = 0, dpr = 1;
+    function resize() {
+      const r = canvas.getBoundingClientRect();
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      W = r.width; H = r.height;
+      canvas.width = Math.round(W * dpr);
+      canvas.height = Math.round(H * dpr);
+    }
+    window.addEventListener('resize', resize);
+
+    function layout() {
+      const top = H * 0.26;
+      const lanes = Math.max(2, racers.length || 4);
+      const laneH = (H - top - 10) / lanes;
+      const startX = Math.min(130, W * 0.2), finishX = W - 50;
+      return { top, laneH, lanes, startX, finishX };
+    }
+    function racerPos(r, L, time) {
+      const p = text.length ? r.chars / text.length : 0;
+      const moving = (mode === 'race' || mode === 'done') && !r.finished && r.slip <= 0 && r.trip <= 0;
+      const bob = moving ? Math.abs(Math.sin(time * 14 + r.lane)) * L.laneH * 0.08 : 0;
+      return { x: L.startX + p * (L.finishX - L.startX), y: L.top + L.laneH * (r.lane + 0.55) - bob };
+    }
+
+    // ---------- scenery: sky, stadium crowd, running track ----------
+    const TAU = Math.PI * 2;
+    const lg = (x0, y0, x1, y1, stops) => { const g = ctx.createLinearGradient(x0, y0, x1, y1); stops.forEach(([o, c]) => g.addColorStop(o, c)); return g; };
+    const rg = (x, y, r0, r1, stops) => { const g = ctx.createRadialGradient(x, y, r0, x, y, r1); stops.forEach(([o, c]) => g.addColorStop(o, c)); return g; };
+    const seeded = (s) => () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646;
+    // Rubbery track texture, made once.
+    const TRACK_TEX = (() => {
+      const c = document.createElement('canvas');
+      c.width = c.height = 64;
+      const p = c.getContext('2d'), r = seeded(5);
+      p.fillStyle = '#c4563c';
+      p.fillRect(0, 0, 64, 64);
+      for (let i = 0; i < 500; i++) { p.fillStyle = r() < 0.5 ? 'rgba(0,0,0,0.1)' : 'rgba(255,200,170,0.1)'; p.fillRect(r() * 64, r() * 64, 1.5, 1.5); }
+      return c;
+    })();
+    let trackPat = null;
+    // The crowd in the stands: little potato fans in all colors.
+    const FANS = (() => {
+      const r = seeded(21), cols = ['#c9925a', '#e3c06a', '#b5534a', '#e9813c', '#7d4e9e', '#f2f2f2', '#5fbf98', '#4a63c9'];
+      return Array.from({ length: 70 }, (_, i) => ({ x: r(), row: i % 3, color: cols[Math.floor(r() * cols.length)], phase: r() * TAU, flag: r() < 0.12, flagColor: ['#ff5e5e', '#ffd43b', '#4fa3f0'][i % 3] }));
+    })();
+    const LANE_COLORS = ['#ff5e5e', '#4fa3f0', '#3ecf8e', '#ffb547'];
+
+    // Sky with clouds and hills. `scroll` slides things along in endless mode.
+    function drawSky(top, scroll, time) {
+      ctx.fillStyle = lg(0, 0, 0, top, [[0, '#4fa9ee'], [1, '#cdeeff']]);
+      ctx.fillRect(0, 0, W, top);
+      const sx = W * 0.84, sy = top * 0.28;
+      ctx.fillStyle = rg(sx, sy, 4, top * 0.5, [[0, 'rgba(255,245,200,0.9)'], [0.3, 'rgba(255,235,170,0.35)'], [1, 'rgba(255,235,170,0)']]);
+      ctx.fillRect(sx - top * 0.5, sy - top * 0.5, top, top);
+      ctx.fillStyle = '#fff6cf';
+      ctx.beginPath(); ctx.arc(sx, sy, Math.max(8, top * 0.12), 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      for (let i = 0; i < 4; i++) {
+        const span = W + 200;
+        const cx = ((i * 260 + time * (10 + i * 3) - scroll * 0.1) % span + span) % span - 100, cy = top * (0.18 + (i % 2) * 0.15);
+        ctx.beginPath(); ctx.ellipse(cx, cy, 38, 12, 0, 0, TAU); ctx.ellipse(cx + 24, cy - 7, 24, 12, 0, 0, TAU); ctx.ellipse(cx - 22, cy - 3, 20, 10, 0, 0, TAU); ctx.fill();
+      }
+      for (const [col, amp, base, spd] of [['#9cc977', 14, 0.62, 0.15], ['#7bb04a', 10, 0.78, 0.3]]) {
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.moveTo(0, top);
+        for (let x = 0; x <= W; x += 16) { const wx = x + scroll * spd; ctx.lineTo(x, top * base - Math.sin(wx / 110) * amp - Math.sin(wx / 47) * amp * 0.4); }
+        ctx.lineTo(W, top);
+        ctx.fill();
+      }
+    }
+
+    // Grandstand with a cheering crowd, from y0 down to the top of the track.
+    function drawStands(y0, top, scroll, time) {
+      const h = top - y0;
+      ctx.fillStyle = lg(0, y0, 0, top, [[0, '#5b6270'], [1, '#3a3f49']]);
+      ctx.fillRect(0, y0, W, h);
+      for (let row = 0; row < 3; row++) {
+        const ry = y0 + (row + 0.7) * (h * 0.26);
+        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        ctx.fillRect(0, ry + h * 0.08, W, 2);
+        for (const f of FANS) {
+          if (f.row !== row) continue;
+          const span = W + 40;
+          const fx = ((f.x * span - scroll * 0.6) % span + span) % span - 20;
+          const cheer = mode === 'race' || mode === 'done' ? Math.abs(Math.sin(time * 6 + f.phase)) * h * 0.06 : Math.abs(Math.sin(time * 1.5 + f.phase)) * h * 0.02;
+          const r = Math.max(4, h * 0.075);
+          const fy = ry - cheer;
+          ctx.fillStyle = f.color;
+          ctx.beginPath(); ctx.ellipse(fx, fy, r * 0.82, r, 0, 0, TAU); ctx.fill();
+          ctx.fillStyle = '#1d1a17';
+          ctx.beginPath(); ctx.arc(fx - r * 0.3, fy - r * 0.15, r * 0.14, 0, TAU); ctx.arc(fx + r * 0.3, fy - r * 0.15, r * 0.14, 0, TAU); ctx.fill();
+          if (f.flag) {
+            ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(fx + r, fy); ctx.lineTo(fx + r, fy - r * 2.6); ctx.stroke();
+            ctx.fillStyle = f.flagColor;
+            const wave = Math.sin(time * 8 + f.phase) * 2;
+            ctx.beginPath(); ctx.moveTo(fx + r, fy - r * 2.6); ctx.lineTo(fx + r + 12, fy - r * 2.2 + wave); ctx.lineTo(fx + r, fy - r * 1.8); ctx.fill();
+          }
+        }
+      }
+      // front wall with ad boards
+      const wy = top - h * 0.22;
+      ctx.fillStyle = '#2a2d35';
+      ctx.fillRect(0, wy, W, h * 0.22);
+      const ads = [['TYPE FAST!', '#ff7a59'], ['SPUD CUP', '#4fa3f0'], ['GO GO GO', '#3ecf8e'], ['FRY-NISH LINE', '#ffb547']];
+      const bw = 170, span = ads.length * bw;
+      ctx.font = `800 ${Math.max(9, h * 0.13)}px Nunito, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (let k = -1; k < Math.ceil(W / bw) + 1; k++) {
+        const off = ((scroll * 0.6) % span + span) % span;
+        const x = k * bw - (off % bw);
+        const [txt, col] = ads[((k + Math.floor(off / bw)) % ads.length + ads.length) % ads.length];
+        ctx.fillStyle = col;
+        ctx.fillRect(x + 4, wy + 3, bw - 8, h * 0.22 - 6);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(txt, x + bw / 2, wy + h * 0.11);
+      }
+    }
+
+    function trackFill() {
+      if (!trackPat) trackPat = ctx.createPattern(TRACK_TEX, 'repeat');
+      return trackPat;
+    }
+
+    // A potato in running gear: legs, sneakers, a headband, and a shadow on the track.
+    function drawRunner(r, x, y, size, time, moving, laneColor, squash) {
+      const legLen = size * 0.28, footY = y + size * 0.5 + legLen;
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath(); ctx.ellipse(x, footY + 2, size * 0.5, size * 0.1, 0, 0, TAU); ctx.fill();
+      const swing = moving ? Math.sin(time * 18 + (r.lane || 0)) : 0;
+      for (const side of [-1, 1]) {
+        const s = swing * side;
+        const hipX = x + side * size * 0.14, hipY = y + size * 0.38;
+        const fx = hipX + s * size * 0.22, fy = footY - Math.max(0, -s) * size * 0.08;
+        ctx.strokeStyle = '#6b4423';
+        ctx.lineWidth = Math.max(2, size * 0.07);
+        ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(fx, fy - size * 0.04); ctx.stroke();
+        ctx.fillStyle = laneColor;
+        ctx.beginPath(); ctx.ellipse(fx + size * 0.06, fy, size * 0.13, size * 0.07, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(fx - size * 0.05, fy + size * 0.02, size * 0.22, size * 0.035);
+      }
+      Potato.drawAvatar(ctx, x, y, size, r.look, { facing: 1, squash });
+      // headband
+      ctx.save();
+      ctx.beginPath(); ctx.ellipse(x, y, size * 0.41, size * 0.51, 0, 0, TAU); ctx.clip();
+      ctx.fillStyle = laneColor;
+      ctx.fillRect(x - size, y - size * 0.3, size * 2, size * 0.09);
+      ctx.restore();
+      if (moving) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        ctx.lineWidth = 2;
+        for (let k = 0; k < 3; k++) { const ly = y - size * 0.2 + k * size * 0.2; ctx.beginPath(); ctx.moveTo(x - size * 0.6, ly); ctx.lineTo(x - size * 0.95 - (k % 2) * 6, ly); ctx.stroke(); }
+      }
+    }
+
+    function drawCountdown() {
+      const n = Math.ceil(countdown - 0.5);
+      const label = n >= 1 ? String(n) : 'GO!';
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.font = `700 ${Math.min(96, H * 0.4)}px Fredoka, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.lineWidth = 8;
+      ctx.strokeStyle = '#17151c';
+      ctx.strokeText(label, W / 2, H / 2);
+      ctx.fillStyle = '#ffb547';
+      ctx.fillText(label, W / 2, H / 2);
+    }
+
+    // Endless mode: one long road that scrolls by, with the Masher chasing you.
+    function drawEndless(time) {
+      const top = H * 0.3;
+      const PX = 14; // pixels per letter typed
+      const scroll = shownDist * PX;
+      const standTop = top * 0.5;
+      drawSky(standTop, scroll * 0.3, time);
+      drawStands(standTop, top, scroll, time);
+      // the track, scrolling past
+      ctx.save();
+      ctx.translate(-(scroll % 64), 0);
+      ctx.fillStyle = trackFill();
+      ctx.fillRect(0, top, W + 64, H - top);
+      ctx.restore();
+      ctx.fillStyle = lg(0, top, 0, H, [[0, 'rgba(0,0,0,0.25)'], [0.3, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.15)']]);
+      ctx.fillRect(0, top, W, H - top);
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.fillRect(0, top + (H - top) * 0.22, W, 3);
+      ctx.fillRect(0, H - 8, W, 3);
+      const dash = 80, so = scroll % (dash * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      for (let x = -so; x < W; x += dash * 2) ctx.fillRect(x, top + (H - top) * 0.6, dash, 3);
+      const groundY = top + (H - top) * 0.62;
+      const size = Math.min(84, (H - top) * 0.42);
+      const playerX = W * 0.66;
+      // distance signs every 50 m
+      const firstSign = Math.ceil((shownDist - playerX / PX) / 50) * 50;
+      for (let m = Math.max(50, firstSign); (m - shownDist) * PX + playerX < W + 40; m += 50) {
+        const x = (m - shownDist) * PX + playerX;
+        ctx.fillStyle = '#6b4423';
+        ctx.fillRect(x - 3, top + 14, 6, 34);
+        ctx.fillStyle = '#f4efe8';
+        ctx.fillRect(x - 24, top + 4, 48, 20);
+        ctx.fillStyle = '#17151c';
+        ctx.font = '700 13px Fredoka, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${m} m`, x, top + 14);
+      }
+      // you
+      const me = racers[0];
+      const moving = mode === 'race' && sinceKey < 0.35;
+      const bob = moving ? Math.abs(Math.sin(time * 14)) * size * 0.1 : 0;
+      if (moving && Math.random() < 0.4) dust.push({ x: playerX - size * 0.4, y: groundY + size * 0.4, vx: -60 - Math.random() * 40, vy: -10 - Math.random() * 15, life: 0.5 });
+      for (const d of dust) {
+        ctx.fillStyle = `rgba(230,200,160,${d.life})`;
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, 3 + (0.5 - d.life) * 8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (me) {
+        ctx.save();
+        ctx.translate(playerX, groundY - size * 0.25 - bob);
+        if (me.trip > 0) ctx.rotate(Math.sin(time * 30) * 0.2);
+        drawRunner(me, 0, 0, size, time, moving, LANE_COLORS[0], mode === 'done' ? 0.8 : me.trip > 0 ? 0.3 : 0);
+        ctx.restore();
+      }
+      // the Masher
+      const mx = playerX - (size * 0.5 + 20) - gap * ((playerX - size) / ENDLESS.maxGap);
+      const slam = masherSlip > 0 ? 0 : Math.abs(Math.sin(time * 5)) * size * 0.35;
+      const headY = groundY + size * 0.45 - slam;
+      ctx.save();
+      ctx.translate(mx, 0);
+      if (masherSlip > 0) {
+        ctx.fillStyle = 'rgba(255,224,102,0.85)';
+        ctx.beginPath();
+        ctx.ellipse(0, groundY + size * 0.5, size * 0.9, size * 0.14, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.rotate(Math.sin(time * 16) * 0.12);
+      }
+      ctx.fillStyle = '#6b4423'; // wooden handle
+      ctx.fillRect(-7, headY - size * 1.6, 14, size * 1.35);
+      ctx.fillStyle = '#c9ced8'; // metal neck
+      ctx.fillRect(-4, headY - size * 0.3, 8, size * 0.3);
+      ctx.fillStyle = '#aab1bd'; // masher head
+      ctx.fillRect(-size * 0.55, headY - 8, size * 1.1, 16);
+      ctx.fillStyle = '#17151c';
+      for (let k = -2; k <= 2; k++) ctx.fillRect(k * size * 0.2 - 3, headY - 4, 6, 8);
+      // angry eyes on the handle
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(-3, headY - size * 1.3, 5, 0, Math.PI * 2);
+      ctx.arc(9, headY - size * 1.3, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#d63a3a';
+      ctx.beginPath();
+      ctx.arc(-1, headY - size * 1.3, 2.5, 0, Math.PI * 2);
+      ctx.arc(11, headY - size * 1.3, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      // danger glow when it's close
+      const danger = Math.max(0, 1 - gap / 15);
+      if (danger > 0 && mode === 'race') {
+        ctx.fillStyle = `rgba(214,58,58,${danger * (0.25 + 0.15 * Math.sin(time * 12))})`;
+        ctx.fillRect(0, 0, W, H);
+      }
+      // flying butter
+      for (const b of butters) {
+        if (b.t > 1) continue;
+        const x = playerX + (mx - playerX) * b.t, y = groundY - Math.sin(b.t * Math.PI) * 70;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(b.t * 8);
+        ctx.fillStyle = '#ffe066';
+        ctx.strokeStyle = '#c9a227';
+        ctx.lineWidth = 2;
+        ctx.fillRect(-9, -6, 18, 12);
+        ctx.strokeRect(-9, -6, 18, 12);
+        ctx.restore();
+      }
+      // distance and Masher speed
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.font = '700 30px Fredoka, sans-serif';
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = 'rgba(23,21,28,0.6)';
+      ctx.strokeText(`${dist} m`, 14, 10);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(`${dist} m`, 14, 10);
+      ctx.font = '700 14px Nunito, sans-serif';
+      const best = bestDistFor(diff);
+      ctx.strokeText(best ? `Record: ${best} m` : 'No record yet', 14, 46);
+      ctx.fillText(best ? `Record: ${best} m` : 'No record yet', 14, 46);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = masherSlip > 0 ? '#ffe066' : '#ffb3b3';
+      const label = masherSlip > 0 ? 'Masher: SLIPPING!' : `Masher: ${Math.round(masherWpm)} WPM`;
+      ctx.strokeText(label, W - 14, 12);
+      ctx.fillText(label, W - 14, 12);
+      if (mode === 'countdown') drawCountdown();
+    }
+
+    function draw(time) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (W < 60 || H < 80) return; // the track isn't laid out yet (or is squashed too small to draw)
+      if (endless() && mode !== 'menu') { drawEndless(time); return; }
+      const L = layout();
+      const standTop = L.top * 0.5;
+      drawSky(standTop, 0, time);
+      drawStands(standTop, L.top, 0, time);
+      // running track lanes
+      ctx.fillStyle = trackFill();
+      ctx.fillRect(0, L.top, W, H - L.top);
+      ctx.fillStyle = lg(0, L.top, 0, L.top + 30, [[0, 'rgba(0,0,0,0.3)'], [1, 'rgba(0,0,0,0)']]);
+      ctx.fillRect(0, L.top, W, 30);
+      // your lane glows a little
+      const me = racers.find((r) => r.isPlayer);
+      if (me) {
+        ctx.fillStyle = 'rgba(255,214,90,0.16)';
+        ctx.fillRect(0, L.top + me.lane * L.laneH, W, L.laneH);
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      for (let k = 0; k <= L.lanes; k++) ctx.fillRect(0, Math.min(H - 3, L.top + k * L.laneH), W, 2.5);
+      // lane numbers painted on the track
+      ctx.font = `800 ${Math.max(14, L.laneH * 0.5)}px Fredoka, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      for (let k = 0; k < L.lanes; k++) ctx.fillText(String(k + 1), L.startX - 54, L.top + L.laneH * (k + 0.62));
+      // start and finish lines
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.fillRect(L.startX - 2, L.top, 4, H - L.top);
+      const sq = 8;
+      for (let y = L.top, row = 0; y < H; y += sq, row++) {
+        for (let c = 0; c < 3; c++) {
+          ctx.fillStyle = (row + c) % 2 ? '#111' : '#fff';
+          ctx.fillRect(L.finishX - 4 + c * sq, y, sq, sq);
+        }
+      }
+      // waving checkered flag and banner at the finish
+      ctx.fillStyle = '#ddd';
+      ctx.fillRect(L.finishX + 8, L.top - 44, 3, 44);
+      for (let fy = 0; fy < 4; fy++) for (let fx = 0; fx < 5; fx++) {
+        const wave = Math.sin(time * 6 + fx * 0.8) * 2;
+        ctx.fillStyle = (fx + fy) % 2 ? '#111' : '#fff';
+        ctx.fillRect(L.finishX + 11 + fx * 6, L.top - 44 + fy * 5 + wave, 6, 5);
+      }
+      ctx.fillStyle = lg(0, L.top - 30, 0, L.top - 10, [[0, '#ff5e5e'], [1, '#c62828']]);
+      ctx.fillRect(L.finishX - 44, L.top - 30, 52, 20);
+      ctx.fillStyle = '#fff';
+      ctx.font = '700 12px Fredoka, sans-serif';
+      ctx.fillText('FINISH', L.finishX - 18, L.top - 20);
+
+      // racers
+      const size = Math.min(L.laneH * 0.5, 42);
+      for (const r of racers) {
+        const p = racerPos(r, L, time);
+        // name tag at the start of the lane
+        ctx.textAlign = 'left';
+        ctx.font = `800 ${Math.max(11, Math.min(14, L.laneH * 0.24))}px Nunito, sans-serif`;
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+        const tag = r.isPlayer ? `${r.name} (you)` : r.name;
+        ctx.strokeText(tag, 8, L.top + L.laneH * (r.lane + 0.2));
+        ctx.fillStyle = r.isPlayer ? '#ffe066' : '#fff';
+        ctx.fillText(tag, 8, L.top + L.laneH * (r.lane + 0.2));
+        // butter puddle when slipping
+        if (r.slip > 0) {
+          ctx.fillStyle = 'rgba(255,224,102,0.8)';
+          ctx.beginPath();
+          ctx.ellipse(p.x, p.y + size * 0.42, size * 0.7, size * 0.16, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // dust behind runners
+        const moving = (mode === 'race' || mode === 'done') && !r.finished && r.slip <= 0 && r.trip <= 0;
+        if (moving && Math.random() < 0.3) dust.push({ x: p.x - size * 0.4, y: p.y + size * 0.4, vx: -30 - Math.random() * 30, vy: -10 - Math.random() * 15, life: 0.5 });
+        ctx.save();
+        ctx.translate(p.x, p.y - size * 0.22);
+        if (r.slip > 0) ctx.rotate(Math.sin(time * 18) * 0.5);
+        else if (r.trip > 0) ctx.rotate(Math.sin(time * 30) * 0.2);
+        drawRunner(r, 0, 0, size, time, moving, LANE_COLORS[r.lane % LANE_COLORS.length], r.trip > 0 ? 0.3 : 0);
+        ctx.restore();
+        // finishing place
+        const place = finishOrder.indexOf(r);
+        if (place >= 0) {
+          ctx.fillStyle = ['#ffd43b', '#d7dde4', '#e0a36a', '#a69fb2'][place];
+          ctx.beginPath();
+          ctx.arc(p.x - size * 0.75, p.y - size * 0.35, 11, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#17151c';
+          ctx.font = '700 12px Fredoka, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(String(place + 1), p.x - size * 0.75, p.y - size * 0.34);
+        }
+      }
+      for (const d of dust) {
+        ctx.fillStyle = `rgba(230,200,160,${d.life})`;
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, 3 + (0.5 - d.life) * 6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // flying butter pats
+      for (const b of butters) {
+        if (b.t > 1) continue;
+        const a = racerPos(b.from, L, time), c = racerPos(b.to, L, time);
+        const x = a.x + (c.x - a.x) * b.t, y = a.y + (c.y - a.y) * b.t - Math.sin(b.t * Math.PI) * 50;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(b.t * 8);
+        ctx.fillStyle = '#ffe066';
+        ctx.strokeStyle = '#c9a227';
+        ctx.lineWidth = 2;
+        ctx.fillRect(-9, -6, 18, 12);
+        ctx.strokeRect(-9, -6, 18, 12);
+        ctx.restore();
+      }
+      if (mode === 'countdown') drawCountdown();
+    }
+
+    let last = performance.now();
+    function loop(now) {
+      requestAnimationFrame(loop); // ask for the next frame first, so one bad frame can't freeze the game
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      update(dt);
+      if (canvas.clientWidth !== Math.round(W) || canvas.clientHeight !== Math.round(H)) resize();
+      draw(now / 1000);
+    }
+
+    // Show a demo lineup behind the menu.
+    function demoLineup() {
+      racers = [{ name: 'You', look: Potato.player, chars: 0, isPlayer: true, lane: 0 }]
+        .concat(RIVALS.slice(0, 3).map((r, k) => ({ name: r.name, look: r, chars: 0, lane: k + 1 })));
+      text = 'x';
+    }
+
+    Potato.onReady((p) => {
+      demoLineup();
+      racers[0].look = p;
+      racers[0].name = p.name;
+    });
+    // Handy for poking at the game from the browser console: TaterTyper.state
+    window.TaterTyper = { get state() { return { mode, gameMode, text, idx, racers, finishOrder, net }; } };
+
+    demoLineup();
+    resize();
+    renderMenu();
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>
