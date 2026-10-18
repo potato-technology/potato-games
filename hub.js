@@ -533,7 +533,20 @@ function render() {
   if (page === 'avatar') renderAvatar();
   if (page === 'shop') renderShop();
   if (page === 'about') renderAbout();
+  fillAds();
 }
+
+// ---------- ads ----------
+// Ad slots on hidden pages have no width yet, so each one only becomes an
+// "adsbygoogle" slot (and gets filled) the first time it shows up on screen.
+function fillAds() {
+  document.querySelectorAll('ins.ad-slot:not(.adsbygoogle)').forEach((slot) => {
+    if (!slot.offsetWidth) return;
+    slot.classList.add('adsbygoogle');
+    try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch (e) { /* ad blocked or offline */ }
+  });
+}
+window.addEventListener('resize', fillAds);
 
 // ---------- about page ----------
 function renderAbout() {
