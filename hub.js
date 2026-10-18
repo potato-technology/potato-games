@@ -519,7 +519,7 @@ document.querySelectorAll('#shop-tabs button').forEach((b) => b.addEventListener
 }));
 
 // ---------- routing ----------
-const PAGES = ['play', 'avatar', 'shop'];
+const PAGES = ['play', 'avatar', 'shop', 'about'];
 function currentPage() {
   const h = location.hash.slice(1);
   return PAGES.includes(h) ? h : 'play';
@@ -532,6 +532,14 @@ function render() {
   if (page === 'play') renderPlay();
   if (page === 'avatar') renderAvatar();
   if (page === 'shop') renderShop();
+  if (page === 'about') renderAbout();
+}
+
+// ---------- about page ----------
+function renderAbout() {
+  // The Potato King himself: golden potato, crown, shades.
+  paintAvatar($('#about-avatar'), { color: '#e3c06a', hat: 'crown', face: 'cool' });
+  $('#about-games').textContent = GAMES.length;
 }
 window.addEventListener('hashchange', render);
 document.fonts?.ready.then(render);
