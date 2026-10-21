@@ -243,9 +243,12 @@
     // World layout (logical 1000 x 600, letterboxed)
     // =====================================================================
     const VW = 1000, VH = 600;
+    const SX0 = -200, SX1 = VW + 200, SY0 = -160, SY1 = VH + 160;   // scenery reaches past the view on wide or tall screens
+    const YT = -900, YB = VH + 900;   // plain sky above and lakebed below for very tall screens
     const WL = 228;          // water line
     const PXM = 35;          // pixels per metre of depth
     const TRIP_LEN = 180;    // seconds per trip
+    const RED_ZONE = 0.8;    // line tension above this is the red "let go!" zone (it fills slowly, then snaps at 1)
     const RARITY = [
       { name: 'Common', color: '#b8c7cc', weight: 60, shy: 1 },
       { name: 'Rare', color: '#4dabf7', weight: 26, shy: 0.85 },
@@ -491,7 +494,7 @@
     let clock = 0;      // global animation time
     const input = { held: false, pressed: false, keys: {}, ptr: false };
 
-    function makeScene(li, forTrip) {
+    function makeScene(li, forTrip, thumb) {
       const L = LOCS[li];
       const sc = {
         li, L, trip: !!forTrip, t: 0, pFixed: forTrip ? null : 0.36,
@@ -503,12 +506,12 @@
         shake: 0, flash: 0, banner: null, spawnT: 1, jumpT: rand(3, 7), lastTick: 99, ended: false, lastWord: null,
         snapLine: 0, tutStep: 0, hint: '', hintT: 0,
       };
-      buildDecor(sc);
+      buildDecor(sc, thumb);
       for (let i = 0; i < 7; i++) spawnFish(sc, true);
       return sc;
     }
 
-    function buildDecor(sc) {
+    function buildDecor(sc, thumb) {
       const li = sc.li, r = seeded(1234 + li * 77);
       sc.weeds = [];
       const n = li === 3 ? 14 : 26;
@@ -534,10 +537,10 @@
       for (let i = 0; i < 6; i++) sc.clouds.push({ x: r() * 1200 - 100, y: 30 + r() * 90, s: 0.6 + r() * 0.8, v: 4 + r() * 8 });
       sc.birds = [];
       sc.snow = [];
-      if (li === 3) for (let i = 0; i < 70; i++) sc.snow.push({ x: r() * VW, y: r() * VH, v: 20 + r() * 30, s: 1 + r() * 2.2, ph: r() * 6 });
+      if (li === 3) for (let i = 0; i < 90; i++) sc.snow.push({ x: SX0 + r() * (SX1 - SX0), y: SY0 + r() * (SY1 - SY0), v: 20 + r() * 30, s: 1 + r() * 2.2, ph: r() * 6 });
       sc.flies = [];
       for (let i = 0; i < 10; i++) sc.flies.push({ x: 100 + r() * 800, y: 80 + r() * 130, ph: r() * 6 });
-      buildStatic(sc);
+      buildStatic(sc, thumb);
     }
     function pick2(r, a) { return a[Math.floor(r() * a.length)]; }
 
@@ -729,7 +732,7 @@
       if (Math.random() < dt * 0.08 && sc.birds.length < 3 && sc.li !== 3) sc.birds.push({ x: -40, y: rand(40, 140), v: rand(40, 70), ph: Math.random() * 6, s: rand(0.7, 1.1) });
       for (const b of sc.birds) { b.x += b.v * dt; b.ph += dt * 8; }
       sc.birds = sc.birds.filter((b) => b.x < 1060);
-      for (const s of sc.snow) { s.y += s.v * dt; s.ph += dt; s.x += Math.sin(s.ph) * 14 * dt; if (s.y > VH) { s.y = -5; s.x = Math.random() * VW; } }
+      for (const s of sc.snow) { s.y += s.v * dt; s.ph += dt; s.x += Math.sin(s.ph) * 14 * dt; if (s.y > SY1) { s.y = SY0; s.x = SX0 + Math.random() * (SX1 - SX0); } }
       for (const f of sc.flies) { f.ph += dt; }
     }
 
@@ -778,6 +781,7 @@
     }
     function engage(sc, f) {
       sc.engaged = f;
+      sc.earlyWarned = false;
       f.state = 'approach';
     }
     function spook(sc, text) {
@@ -790,7 +794,8 @@
     function startBite(sc, f) {
       sc.phase = 'bite';
       const rar = f.tr ? 1 : f.sp.rar;
-      sc.biteMax = sc.biteT = (f.tr ? 0.95 : 0.62 - rar * 0.05) * rod().hook;
+      // how long you have to tap after the bobber dives (better rods give you longer)
+      sc.biteMax = sc.biteT = (f.tr ? 1.1 : 0.85 - rar * 0.06) * rod().hook;
       sc.bob.dip = 24; sc.bob.vy = 0;
       splash(sc, sc.bob.x, 10, 0.7);
       sfx.bite();
@@ -821,7 +826,11 @@
           } else startBite(sc, f);
         }
       }
-      if (input.pressed && f && (f.state === 'nibble' || f.state === 'approach')) { spook(sc, 'Too early!'); return; }
+      if (input.pressed && f && (f.state === 'nibble' || f.state === 'approach')) {
+        // the first early tap is just a friendly warning; tap early again and the fish swims off
+        if (!sc.earlyWarned) { sc.earlyWarned = true; floater(sc, sc.bob.x, WL - 40, 'Not yet... wait for the dive!', '#ffe58a', 18); sfx.stop(); }
+        else { spook(sc, 'Too early!'); return; }
+      }
       if (!sc.engaged) {
         const lb = lure(), ba = bait();
         const night = isNight(sc);
@@ -902,7 +911,8 @@
       else target = holding ? 0.4 + 0.11 * str : 0.05 + 0.03 * str;
       const k = target > F.tension ? (bursting ? 2.6 : 2.0) : 1.7;
       let delta = (target - F.tension) * Math.min(1, k * dt);
-      if (delta > 0) delta = Math.min(delta, (bursting ? 0.95 : 0.7) * dt);
+      // the red zone fills up slowly, so there is time to see it and let go
+      if (delta > 0) delta = Math.min(delta, (F.tension > RED_ZONE ? 0.3 : bursting ? 0.95 : 0.7) * dt);
       F.tension += delta + (bursting ? (Math.random() - 0.5) * 0.02 : 0);
       F.tension = Math.max(0, F.tension);
       if (F.tension >= 1) { loseFish(sc, true); return; }
@@ -914,9 +924,9 @@
       if (bursting) F.dist += (50 + 20 * F.S * stamK) * (holding ? 0.35 : 1) * dt;
       F.dist = Math.min(F.dist, F.maxDist);
       const z = F.tension;
-      const rate = z >= 0.45 && z <= 0.85 ? 1 : z > 0.85 ? 1.3 : z > 0.2 ? 0.45 : 0.08;
+      const rate = z >= 0.45 && z <= RED_ZONE ? 1 : z > RED_ZONE ? 1.3 : z > 0.2 ? 0.45 : 0.08;
       F.stam = Math.max(0, F.stam - rate * dt / (4 + F.S * 2.6));
-      if (z > 0.86) sfx.strain();
+      if (z > RED_ZONE) sfx.strain();
       if (z < 0.16) F.slackT += dt; else F.slackT = Math.max(0, F.slackT - dt * 2);
       if (F.slackT > 2.4) { loseFish(sc, false); return; }
       // where the fish is
@@ -1871,31 +1881,34 @@
     // =====================================================================
     // Static scenery (rendered once per spot)
     // =====================================================================
+    // The scenery is drawn wider and deeper than the 1000 x 600 view (SX0..SX1, down to SY1),
+    // so wide or tall windows see more lake and shore instead of black bars.
     const staticCache = {};
-    function buildStatic(sc) {
-      if (staticCache[sc.li]) { sc.st = staticCache[sc.li]; return; }
-      const SCL = 2;
-      const far = document.createElement('canvas'); far.width = VW * SCL; far.height = (WL + 4) * SCL;
-      const gr = document.createElement('canvas'); gr.width = VW * SCL; gr.height = VH * SCL;
-      withCtx(far.getContext('2d'), () => { ctx.scale(SCL, SCL); drawFar(sc.li); });
-      withCtx(gr.getContext('2d'), () => { ctx.scale(SCL, SCL); drawGround(sc); });
-      sc.st = staticCache[sc.li] = { far, gr };
+    function buildStatic(sc, thumb) {
+      if (!thumb && staticCache[sc.li]) { sc.st = staticCache[sc.li]; return; }
+      const SCL = thumb ? 0.6 : 1.75, SW = SX1 - SX0;
+      const far = document.createElement('canvas'); far.width = Math.ceil(SW * SCL); far.height = Math.ceil((WL + 4) * SCL);
+      const gr = document.createElement('canvas'); gr.width = Math.ceil(SW * SCL); gr.height = Math.ceil(SY1 * SCL);
+      withCtx(far.getContext('2d'), () => { ctx.scale(SCL, SCL); ctx.translate(-SX0, 0); drawFar(sc.li); });
+      withCtx(gr.getContext('2d'), () => { ctx.scale(SCL, SCL); ctx.translate(-SX0, 0); drawGround(sc); });
+      sc.st = { far, gr };
+      if (!thumb) staticCache[sc.li] = sc.st;
     }
     function hills(y0, amp, freq, seed, c1, c2) {
       ctx.fillStyle = lin(0, y0 - amp, 0, WL, [[0, c1], [1, c2]]);
-      ctx.beginPath(); ctx.moveTo(0, WL + 4);
-      for (let x = 0; x <= VW; x += 8) ctx.lineTo(x, y0 - amp * (0.5 + 0.3 * Math.sin(x * freq + seed) + 0.2 * Math.sin(x * freq * 2.7 + seed * 3)));
-      ctx.lineTo(VW, WL + 4); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(SX0, WL + 4);
+      for (let x = SX0; x <= SX1; x += 8) ctx.lineTo(x, y0 - amp * (0.5 + 0.3 * Math.sin(x * freq + seed) + 0.2 * Math.sin(x * freq * 2.7 + seed * 3)));
+      ctx.lineTo(SX1, WL + 4); ctx.closePath(); ctx.fill();
     }
     function mountains(y0, h, seed, c1, c2, snow) {
       const r = seeded(seed);
-      ctx.beginPath(); ctx.moveTo(0, WL + 4);
+      ctx.beginPath(); ctx.moveTo(SX0 - 40, WL + 4);
       const peaks = [];
-      let x = -40;
-      while (x < VW + 80) { const w = 90 + r() * 120, ph = h * (0.55 + r() * 0.45); peaks.push([x + w / 2, y0 - ph, w]); x += w * 0.7; }
-      ctx.lineTo(-40, y0);
+      let x = SX0 - 40;
+      while (x < SX1 + 80) { const w = 90 + r() * 120, ph = h * (0.55 + r() * 0.45); peaks.push([x + w / 2, y0 - ph, w]); x += w * 0.7; }
+      ctx.lineTo(SX0 - 40, y0);
       for (const [px, py, w] of peaks) { ctx.lineTo(px - w / 2, y0); ctx.lineTo(px, py); ctx.lineTo(px + w / 2, y0); }
-      ctx.lineTo(VW + 40, WL + 4); ctx.closePath();
+      ctx.lineTo(SX1 + 40, WL + 4); ctx.closePath();
       ctx.fillStyle = lin(0, y0 - h, 0, y0, [[0, c1], [1, c2]]); ctx.fill();
       // shaded side
       for (const [px, py, w] of peaks) {
@@ -1939,17 +1952,21 @@
         hills(WL - 10, 50, 0.011, 4, '#6cbf5a', '#4f9a44');
         const r = seeded(9);
         for (let i = 0; i < 22; i++) roundTree(240 + r() * 760, WL - 4 - r() * 18, 0.7 + r() * 0.6, pick2(r, ['#4f9a3a', '#3f8a34', '#5aa842']));
+        const r2 = seeded(19);
+        for (let i = 0; i < 12; i++) { const x = r2() < 0.5 ? SX0 + r2() * -SX0 : VW + r2() * (SX1 - VW); roundTree(x, WL - 4 - r2() * 18, 0.7 + r2() * 0.6, pick2(r2, ['#4f9a3a', '#3f8a34', '#5aa842'])); }
         // little red barn far away
         ctx.fillStyle = '#c0442f'; ctx.fillRect(820, WL - 52, 40, 30);
         ctx.fillStyle = '#7a2a1c'; ctx.beginPath(); ctx.moveTo(814, WL - 52); ctx.lineTo(840, WL - 70); ctx.lineTo(866, WL - 52); ctx.closePath(); ctx.fill();
         ctx.fillStyle = '#fff'; ctx.fillRect(834, WL - 40, 12, 18);
-        ctx.fillStyle = '#5aa842'; ctx.fillRect(0, WL - 6, VW, 10);
+        ctx.fillStyle = '#5aa842'; ctx.fillRect(SX0, WL - 6, SX1 - SX0, 10);
       } else if (li === 1) {
         mountains(WL - 30, 150, 21, '#8a9ab8', '#5a6a88', true);
         mountains(WL - 10, 90, 33, '#5a7a7a', '#3f5a5a', false);
         const r = seeded(5);
         for (let i = 0; i < 50; i++) pine(200 + r() * 820, WL + 2 - r() * 12, 0.6 + r() * 0.7, pick2(r, ['#2f5a3a', '#2a4f36', '#386a44']), false);
-        ctx.fillStyle = '#3f6a44'; ctx.fillRect(0, WL - 4, VW, 8);
+        const r2 = seeded(29);
+        for (let i = 0; i < 26; i++) { const x = r2() < 0.5 ? SX0 + r2() * (200 - SX0) : 1000 + r2() * (SX1 - 1000); pine(x, WL + 2 - r2() * 12, 0.6 + r2() * 0.7, pick2(r2, ['#2f5a3a', '#2a4f36', '#386a44']), false); }
+        ctx.fillStyle = '#3f6a44'; ctx.fillRect(SX0, WL - 4, SX1 - SX0, 8);
       } else if (li === 2) {
         // distant islands and a lighthouse
         ctx.fillStyle = lin(0, WL - 60, 0, WL, [[0, '#6ab89a'], [1, '#3f8a6a']]);
@@ -1968,20 +1985,30 @@
         mountains(WL - 8, 90, 13, '#cbd8ea', '#90a8c8', true);
         const r = seeded(15);
         for (let i = 0; i < 44; i++) pine(240 + r() * 780, WL + 2 - r() * 12, 0.6 + r() * 0.7, pick2(r, ['#2a4a44', '#24423c', '#30564c']), true);
-        ctx.fillStyle = '#f2f6fb'; ctx.fillRect(0, WL - 4, VW, 8);
+        const r2 = seeded(39);
+        for (let i = 0; i < 22; i++) { const x = r2() < 0.5 ? SX0 + r2() * (240 - SX0) : 1020 + r2() * (SX1 - 1020); pine(x, WL + 2 - r2() * 12, 0.6 + r2() * 0.7, pick2(r2, ['#2a4a44', '#24423c', '#30564c']), true); }
+        ctx.fillStyle = '#f2f6fb'; ctx.fillRect(SX0, WL - 4, SX1 - SX0, 8);
       }
     }
     function drawGround(sc) {
       const li = sc.li, L = sc.L, r = seeded(42 + li);
       // the lakebed and shore, as one shape
       ctx.beginPath();
-      ctx.moveTo(-2, VH + 2);
-      for (let x = -2; x <= VW + 4; x += 4) ctx.lineTo(x, bottomY(x, li));
-      ctx.lineTo(VW + 4, VH + 2); ctx.closePath();
+      ctx.moveTo(SX0 - 2, SY1 + 2);
+      for (let x = SX0 - 2; x <= SX1 + 4; x += 4) ctx.lineTo(x, bottomY(x, li));
+      ctx.lineTo(SX1 + 4, SY1 + 2); ctx.closePath();
       ctx.fillStyle = lin(0, WL - 30, 0, VH, [[0, L.bank[0]], [0.1, L.bank[1]], [0.16, L.ground[0]], [0.55, L.ground[1]], [1, L.ground[2]]]);
       ctx.fill();
       ctx.save(); ctx.clip();
       // texture: pebbles and specks
+      const r3 = seeded(77 + li);
+      for (let i = 0; i < 300; i++) {
+        // extra specks out in the wide-screen margins
+        const x = r3() < 0.5 ? SX0 + r3() * -SX0 : VW + r3() * (SX1 - VW), y = bottomY(x, li) + r3() * 200;
+        if (y < WL + 4 && x > 0) continue;
+        const s = 0.8 + r3() * (li === 1 ? 4 : 2.4);
+        ellipse(x, y, s * 1.3, s, r3() < 0.5 ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)');
+      }
       for (let i = 0; i < 520; i++) {
         const x = r() * VW, y = bottomY(x, li) + r() * 120;
         if (y < WL + 4) continue;
@@ -1995,7 +2022,7 @@
       // light on the top edge
       ctx.restore();
       ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 3;
-      ctx.beginPath(); for (let x = 108; x <= VW; x += 4) ctx.lineTo(x, bottomY(x, li) + 1.5); ctx.stroke();
+      ctx.beginPath(); for (let x = 108; x <= SX1; x += 4) ctx.lineTo(x, bottomY(x, li) + 1.5); ctx.stroke();
       // rocks
       for (const k of sc.rocks) {
         const y = bottomY(k.x, li) + k.r * 0.35;
@@ -2019,6 +2046,12 @@
           ctx.strokeStyle = r() < 0.5 ? '#3f8a34' : '#5aa842'; ctx.lineWidth = 1.5;
           ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 2, y - 6, x + (r() - 0.5) * 6, y - 8 - r() * 8); ctx.stroke();
         }
+        for (let i = 0; i < 70; i++) {
+          const x = SX0 + r3() * -SX0, y = bottomY(x, li) + 1;
+          ctx.strokeStyle = r3() < 0.5 ? '#3f8a34' : '#5aa842'; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 2, y - 6, x + (r3() - 0.5) * 6, y - 8 - r3() * 8); ctx.stroke();
+        }
+        if (li === 0) for (let i = 0; i < 6; i++) { const x = SX0 + 20 + r3() * (-SX0 - 30), y = bottomY(x, li) + 1; for (let k = 0; k < 5; k++) { const a = k * 1.26; circle(x + Math.cos(a) * 3, y - 4 + Math.sin(a) * 3, 2.2, k % 2 ? '#ffffff' : '#ffe0f0'); } circle(x, y - 4, 1.6, '#ffd23f'); }
       }
       if (li === 0) {
         // cattails
@@ -2038,13 +2071,13 @@
       if (li === 2) palm(26, bottomY(26, li) + 2, 1.3, 30);
       if (li === 3) {
         ctx.fillStyle = '#ffffff';
-        ctx.beginPath(); ctx.moveTo(0, WL - 34); ctx.quadraticCurveTo(50, WL - 44, 110, WL - 24); ctx.lineTo(110, WL - 10); ctx.lineTo(0, WL - 10); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(SX0, WL - 36); ctx.quadraticCurveTo(SX0 / 2, WL - 30, 0, WL - 34); ctx.quadraticCurveTo(50, WL - 44, 110, WL - 24); ctx.lineTo(110, WL - 10); ctx.lineTo(SX0, WL - 10); ctx.closePath(); ctx.fill();
         pine(24, WL - 34, 1.5, '#24423c', true);
       }
     }
 
     function drawLocThumb(cv, li) {
-      const sc = makeScene(li, false);
+      const sc = makeScene(li, false, true);
       sc.pFixed = [0.3, 0.42, 0.28, 0.66][li];
       const c = cv.getContext('2d');
       withCtx(c, () => {
@@ -2060,11 +2093,11 @@
     // =====================================================================
     // Live scene drawing
     // =====================================================================
-    const STARS = Array.from({ length: 90 }, (_, i) => ({ x: hash(i + 1) * VW, y: hash(i + 99) * (WL - 40), s: 0.6 + hash(i + 7) * 1.4, ph: hash(i + 3) * 6 }));
+    const STARS = Array.from({ length: 120 }, (_, i) => ({ x: SX0 + hash(i + 1) * (SX1 - SX0), y: SY0 + hash(i + 99) * (WL - 40 - SY0), s: 0.6 + hash(i + 7) * 1.4, ph: hash(i + 3) * 6 }));
 
     function drawSky(sc, D, t) {
       ctx.fillStyle = lin(0, 0, 0, WL, [[0, D.top], [1, D.bot]]);
-      ctx.fillRect(0, 0, VW, WL + 2);
+      ctx.fillRect(SX0, YT, SX1 - SX0, WL + 2 - YT);
       if (D.night > 0) {
         for (const s of STARS) circle(s.x, s.y, s.s, `rgba(255,255,240,${D.night * (0.5 + 0.5 * Math.sin(t * 2 + s.ph))})`);
       }
@@ -2074,8 +2107,8 @@
         for (let b = 0; b < 3; b++) {
           ctx.fillStyle = lin(0, 20, 0, 170, [[0, `rgba(${b === 1 ? '190,90,255' : '80,255,170'},0)`], [0.4, `rgba(${b === 1 ? '190,90,255' : '80,255,170'},${0.22 * D.night})`], [1, 'rgba(80,255,170,0)']]);
           ctx.beginPath();
-          for (let x = 0; x <= VW; x += 20) ctx.lineTo(x, 40 + b * 18 + Math.sin(x * 0.008 + t * 0.6 + b * 2) * 26);
-          for (let x = VW; x >= 0; x -= 20) ctx.lineTo(x, 150 + b * 10 + Math.sin(x * 0.01 + t * 0.5 + b) * 20);
+          for (let x = SX0; x <= SX1; x += 20) ctx.lineTo(x, 40 + b * 18 + Math.sin(x * 0.008 + t * 0.6 + b * 2) * 26);
+          for (let x = SX1; x >= SX0; x -= 20) ctx.lineTo(x, 150 + b * 10 + Math.sin(x * 0.01 + t * 0.5 + b) * 20);
           ctx.closePath(); ctx.fill();
         }
         ctx.restore();
@@ -2120,9 +2153,9 @@
 
     function waterPath(t) {
       ctx.beginPath();
-      ctx.moveTo(0, VH + 2);
-      for (let x = 0; x <= VW; x += 10) ctx.lineTo(x, surfY(x, t));
-      ctx.lineTo(VW, VH + 2); ctx.closePath();
+      ctx.moveTo(SX0, YB + 2);
+      for (let x = SX0; x <= SX1; x += 10) ctx.lineTo(x, surfY(x, t));
+      ctx.lineTo(SX1, YB + 2); ctx.closePath();
     }
 
     function drawWeed(w, li, t) {
@@ -2194,12 +2227,12 @@
       if (sc.li === 3) {
         // ice shelf
         ctx.fillStyle = lin(0, WL - 22, 0, WL + 24, [[0, '#ffffff'], [0.25, '#dff0ff'], [1, 'rgba(140,190,230,0.75)']]);
-        ctx.beginPath(); ctx.moveTo(0, WL - 22); ctx.lineTo(244, WL - 22); ctx.lineTo(248, WL - 6);
-        for (let x = 248; x >= 0; x -= 16) ctx.lineTo(x, WL + 14 + Math.sin(x * 0.3) * 6);
+        ctx.beginPath(); ctx.moveTo(SX0, WL - 22); ctx.lineTo(244, WL - 22); ctx.lineTo(248, WL - 6);
+        for (let x = 248; x >= SX0; x -= 16) ctx.lineTo(x, WL + 14 + Math.sin(x * 0.3) * 6);
         ctx.closePath(); ctx.fill();
         ctx.strokeStyle = 'rgba(120,170,220,0.6)'; ctx.lineWidth = 1.2;
         ctx.beginPath(); ctx.moveTo(150, WL - 18); ctx.lineTo(170, WL - 4); ctx.lineTo(160, WL + 6); ctx.moveTo(60, WL - 16); ctx.lineTo(76, WL); ctx.stroke();
-        ctx.fillStyle = 'rgba(255,255,255,0.9)'; rr(0, WL - 26, 246, 6, 3); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.9)'; rr(SX0, WL - 26, 246 - SX0, 6, 3); ctx.fill();
         // bucket
         ctx.fillStyle = lin(170, 0, 192, 0, [[0, '#2a6ab0'], [1, '#1a4a80']]);
         ctx.beginPath(); ctx.moveTo(168, WL - 44); ctx.lineTo(192, WL - 44); ctx.lineTo(189, WL - 22); ctx.lineTo(171, WL - 22); ctx.closePath(); ctx.fill();
@@ -2443,7 +2476,7 @@
     function drawScene(sc, t, live) {
       const D = dayInfo(sc), L = sc.L, R = rig(sc);
       drawSky(sc, D, t);
-      ctx.drawImage(sc.st.far, 0, 0, VW, WL + 4);
+      ctx.drawImage(sc.st.far, SX0, 0, SX1 - SX0, WL + 4);
       // birds
       for (const b of sc.birds) {
         const f = Math.sin(b.ph) * 5 * b.s;
@@ -2463,7 +2496,7 @@
       ctx.fillStyle = lin(0, WL, 0, VH, [[0, L.water[0]], [0.25, L.water[1]], [0.65, L.water[2]], [1, L.water[3]]]);
       ctx.fill();
       ctx.fillStyle = lin(0, WL, 0, WL + 40, [[0, rgbaStr(D.bot, 0.35)], [1, rgbaStr(D.bot, 0)]]);
-      ctx.fillRect(0, WL - 4, VW, 44);
+      ctx.fillRect(SX0, WL - 4, SX1 - SX0, 44);
       // light rays
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       for (let i = 0; i < 7; i++) {
@@ -2477,7 +2510,8 @@
       const sx = ((t * 20) % 1300) - 150;
       ctx.fillStyle = rgba(L.water[3], 0.35);
       for (let i = 0; i < 9; i++) { const fx = sx + (i % 3) * 16 + Math.floor(i / 3) * 9, fy = WL + 200 + Math.floor(i / 3) * 10 + Math.sin(t * 2 + i) * 3; ctx.beginPath(); ctx.ellipse(fx, fy, 6, 2.2, 0, 0, Math.PI * 2); ctx.moveTo(fx - 5, fy); ctx.lineTo(fx - 10, fy - 3); ctx.lineTo(fx - 10, fy + 3); ctx.fill(); }
-      ctx.drawImage(sc.st.gr, 0, 0, VW, VH);
+      ctx.drawImage(sc.st.gr, SX0, 0, SX1 - SX0, SY1);
+      ctx.fillStyle = L.ground[2]; ctx.fillRect(SX0, SY1 - 1, SX1 - SX0, YB - SY1 + 1);
       drawDockPosts(sc);
       // lily pad stems
       if (sc.li === 0) { ctx.strokeStyle = 'rgba(60,120,50,0.6)'; ctx.lineWidth = 1.5; for (const p of sc.pads) { ctx.beginPath(); ctx.moveTo(p.x, WL + 2); ctx.quadraticCurveTo(p.x + Math.sin(t + p.a) * 8, (WL + bottomY(p.x, 0)) / 2, p.x - 4, bottomY(p.x, 0)); ctx.stroke(); } }
@@ -2504,7 +2538,7 @@
       ctx.fill();
       // surface
       ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1.6;
-      ctx.beginPath(); for (let x = 0; x <= VW; x += 10) ctx.lineTo(x, surfY(x, t)); ctx.stroke();
+      ctx.beginPath(); for (let x = SX0; x <= SX1; x += 10) ctx.lineTo(x, surfY(x, t)); ctx.stroke();
       for (let i = 0; i < 26; i++) {
         const gx = (i * 41 + Math.sin(t * 0.5 + i) * 20 + t * (sc.L.current || 6)) % VW, ga = (0.25 + 0.25 * Math.sin(t * 3 + i * 1.7)) * D.light;
         ctx.strokeStyle = `rgba(255,255,255,${ga})`; ctx.lineWidth = 1.2;
@@ -2561,8 +2595,8 @@
       // snow
       for (const s of sc.snow) circle(s.x, s.y, s.s, 'rgba(255,255,255,0.85)');
       // light & dark of the time of day
-      if (D.sunset > 0) { ctx.fillStyle = `rgba(255,120,60,${D.sunset * 0.12})`; ctx.fillRect(0, 0, VW, VH); }
-      if (D.night > 0) { ctx.fillStyle = `rgba(6,12,40,${D.night * 0.42})`; ctx.fillRect(0, 0, VW, VH); }
+      if (D.sunset > 0) { ctx.fillStyle = `rgba(255,120,60,${D.sunset * 0.12})`; ctx.fillRect(SX0, YT, SX1 - SX0, YB - YT); }
+      if (D.night > 0) { ctx.fillStyle = `rgba(6,12,40,${D.night * 0.42})`; ctx.fillRect(SX0, YT, SX1 - SX0, YB - YT); }
       // things that glow at night
       if (D.night > 0) {
         ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -2588,7 +2622,7 @@
     // =====================================================================
     // HUD & catch card
     // =====================================================================
-    function panel(x, y, w, h, r = 12, a = 0.55) { ctx.fillStyle = `rgba(6,20,30,${a})`; rr(x, y, w, h, r); ctx.fill(); }
+    function panel(x, y, w, h, r = 12, a = 0.72) { ctx.fillStyle = `rgba(6,20,30,${a})`; rr(x, y, w, h, r); ctx.fill(); ctx.strokeStyle = `rgba(160,220,255,${a * 0.25})`; ctx.lineWidth = 1.2; ctx.stroke(); }
     function drawHud(sc, t) {
       const D = dayInfo(sc), R = rig(sc);
       const left = Math.max(0, TRIP_LEN - sc.t);
@@ -2692,7 +2726,7 @@
         label(b.text, VW / 2 - w / 2 + 40, y + 7, 14, '#3a2000', 'left', 900);
         ctx.restore();
       }
-      if (sc.flash > 0) { ctx.fillStyle = `rgba(255,60,60,${sc.flash})`; ctx.fillRect(0, 0, VW, VH); }
+      if (sc.flash > 0) { ctx.fillStyle = `rgba(255,60,60,${sc.flash})`; ctx.fillRect(SX0, YT, SX1 - SX0, YB - YT); }
     }
 
     function drawFightPanel(sc, t) {
@@ -2710,19 +2744,19 @@
       const tx = x + 56, ty = y + 54, tw = w - 72;
       label('LINE', x + 16, ty + 9, 10, '#a8d8ea', 'left', 900);
       ctx.fillStyle = 'rgba(255,255,255,0.1)'; rr(tx, ty, tw, 18, 8); ctx.fill();
-      ctx.fillStyle = 'rgba(79,224,160,0.22)'; ctx.fillRect(tx + tw * 0.45, ty, tw * 0.4, 18);
-      ctx.fillStyle = 'rgba(255,90,90,0.3)'; ctx.fillRect(tx + tw * 0.85, ty, tw * 0.15, 18);
+      ctx.fillStyle = 'rgba(79,224,160,0.22)'; ctx.fillRect(tx + tw * 0.45, ty, tw * (RED_ZONE - 0.45), 18);
+      ctx.fillStyle = 'rgba(255,90,90,0.3)'; ctx.fillRect(tx + tw * RED_ZONE, ty, tw * (1 - RED_ZONE), 18);
       const z = clamp(F.tension, 0, 1);
-      ctx.fillStyle = z > 0.85 ? '#ff5a5a' : z > 0.45 ? '#4fe0a0' : z > 0.16 ? '#ffd43b' : '#8aa0b0';
+      ctx.fillStyle = z > RED_ZONE ? '#ff5a5a' : z > 0.45 ? '#4fe0a0' : z > 0.16 ? '#ffd43b' : '#8aa0b0';
       rr(tx, ty + 3, Math.max(6, tw * z), 12, 6); ctx.fill();
       ctx.fillStyle = '#fff'; ctx.fillRect(tx + tw * z - 1.5, ty - 2, 3, 22);
       let msg = '', col = '#fff';
-      if (z > 0.85) { msg = 'LET GO!'; col = '#ff8a7a'; }
+      if (z > RED_ZONE) { msg = 'LET GO!'; col = '#ff8a7a'; }
       else if (F.slackT > 0.7) { msg = 'SLACK! Reel in!'; col = '#ffd43b'; }
       else if (F.burstT > 0) { msg = 'It\'s pulling!'; col = '#ffb070'; }
       else if (z >= 0.45) { msg = 'Perfect!'; col = '#4fe0a0'; }
       if (msg) {
-        const s = z > 0.85 ? 1 + Math.sin(t * 30) * 0.1 : 1;
+        const s = z > RED_ZONE ? 1 + Math.sin(t * 30) * 0.1 : 1;
         ctx.save(); ctx.translate(VW / 2, y - 18); ctx.scale(s, s); outlined(msg, 0, 0, 22, col); ctx.restore();
       }
       if (F.tell || F.burstT > 0) outlined('!!', F.x, F.y - 26 - Math.abs(Math.sin(t * 12)) * 4, 20, '#ff8a5a');
@@ -2734,7 +2768,7 @@
       const col = f.tr ? '#ffd43b' : RARITY[f.sp.rar].color;
       ctx.save();
       ctx.globalAlpha = a;
-      ctx.fillStyle = 'rgba(0,10,20,0.35)'; ctx.fillRect(0, 0, VW, VH);
+      ctx.fillStyle = 'rgba(0,10,20,0.35)'; ctx.fillRect(SX0, YT, SX1 - SX0, YB - YT);
       ctx.translate(VW / 2, 290); ctx.scale(s, s);
       // sun rays
       ctx.save(); ctx.rotate(t * 0.4);
@@ -2846,7 +2880,7 @@
       if (!scene) return;
       ctx.setTransform(dpr * view.s, 0, 0, dpr * view.s, dpr * view.ox, dpr * view.oy);
       ctx.save();
-      ctx.beginPath(); ctx.rect(0, 0, VW, VH); ctx.clip();
+      ctx.beginPath(); ctx.rect(SX0, YT, SX1 - SX0, YB - YT); ctx.clip();
       if (scene.shake > 0) ctx.translate((Math.random() - 0.5) * scene.shake, (Math.random() - 0.5) * scene.shake);
       drawScene(scene, clock, true);
       if (scene.trip && (mode === 'play' || mode === 'paused')) drawHud(scene, clock);
@@ -2858,7 +2892,7 @@
       const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
       last = now;
       update(dt);
-      frame();
+      if (!window.LuckyLake.noDraw) frame();
     }
 
     // Handy for testing from the console: LuckyLake.state, LuckyLake.startTrip(0), ...

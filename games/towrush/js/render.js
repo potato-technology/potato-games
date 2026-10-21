@@ -3,7 +3,8 @@ const Render = (() => {
   const C = CONFIG;
   const W = World;
   const TAU = Math.PI * 2;
-  const FONT = "'Trebuchet MS', 'Segoe UI', system-ui, sans-serif";
+  const FONT = "'Nunito', 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif";
+  const DISPLAY = "'Fredoka', 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif";
 
   function rr(ctx, x, y, w, h, r) {
     ctx.beginPath();
@@ -362,7 +363,7 @@ const Render = (() => {
     ctx.strokeRect(z.x, z.y, z.w, z.h);
     ctx.setLineDash([]);
     ctx.fillStyle = towing ? '#5ee07a' : 'rgba(255,210,63,0.7)';
-    ctx.font = `bold 26px ${FONT}`;
+    ctx.font = `bold 26px ${DISPLAY}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(towing ? 'DROP OFF HERE' : 'YOUR TOW YARD', z.x + z.w / 2, z.y + 40);
@@ -430,7 +431,7 @@ const Render = (() => {
     ctx.closePath();
     ctx.fill();
     ctx.fillStyle = '#fff';
-    ctx.font = `bold 40px ${FONT}`;
+    ctx.font = `bold 40px ${DISPLAY}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('POLICE', x + w / 2 + 30, y + bh / 2);
@@ -810,6 +811,28 @@ const Render = (() => {
         ctx.moveTo(p.x, p.y);
         ctx.lineTo(p.x - p.vx * 0.03, p.y - p.vy * 0.03);
         ctx.stroke();
+      } else if (p.type === 'ring') {
+        ctx.strokeStyle = `rgba(94,224,122,${k})`;
+        ctx.lineWidth = 6 * k + 1;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 30 + (1 - k) * 90, 0, TAU);
+        ctx.stroke();
+      } else if (p.type === 'confetti') {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot || 0);
+        ctx.globalAlpha = Math.min(1, k * 2);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+        ctx.restore();
+      } else if (p.type === 'coin') {
+        ctx.globalAlpha = Math.min(1, k * 2);
+        const sx = Math.abs(Math.cos(p.rot || 0));
+        ctx.fillStyle = '#b8860b';
+        ctx.beginPath(); ctx.ellipse(p.x, p.y + 1.5, 7 * sx + 1, 7, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#ffd23f';
+        ctx.beginPath(); ctx.ellipse(p.x, p.y, 7 * sx + 1, 7, 0, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 1;
       } else if (p.type === 'flame') {
         ctx.fillStyle = `rgba(255,${Math.floor(90 + k * 150)},${Math.floor(40 + k * 60)},${k})`;
         ctx.beginPath();
@@ -868,7 +891,7 @@ const Render = (() => {
     ctx.textBaseline = 'middle';
     for (const f of g.floaters) {
       ctx.globalAlpha = Math.min(1, f.life);
-      ctx.font = `bold 24px ${FONT}`;
+      ctx.font = `bold 24px ${DISPLAY}`;
       ctx.lineWidth = 5;
       ctx.strokeStyle = 'rgba(0,0,0,0.6)';
       ctx.strokeText(f.text, f.x, f.y);
@@ -880,7 +903,7 @@ const Render = (() => {
 
   // ---------- HUD ----------
   function panel(ctx, x, y, w, h) {
-    ctx.fillStyle = 'rgba(16,18,24,0.78)';
+    ctx.fillStyle = lin(0, y, 0, y + h, [[0, 'rgba(34,38,48,0.86)'], [1, 'rgba(14,16,22,0.86)']]);
     rr(ctx, x, y, w, h, 12);
     ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.08)';
@@ -889,7 +912,7 @@ const Render = (() => {
   }
 
   function text(ctx, s, x, y, size, color, align = 'left', weight = 'bold') {
-    ctx.font = `${weight} ${size}px ${FONT}`;
+    ctx.font = size >= 22 ? `600 ${size}px ${DISPLAY}` : `${weight === 'bold' ? 800 : 600} ${size}px ${FONT}`;
     ctx.fillStyle = color;
     ctx.textAlign = align;
     ctx.textBaseline = 'middle';
@@ -1110,13 +1133,13 @@ const Render = (() => {
       ctx.strokeText(label, 0, -30);
       ctx.fillStyle = '#ffd23f';
       ctx.fillText(label, 0, -30);
-      ctx.font = `bold 40px ${FONT}`;
+      ctx.font = `bold 40px ${DISPLAY}`;
       ctx.lineWidth = 6;
       ctx.strokeText(s.toLocaleString(), 0, 4);
       ctx.fillStyle = '#fff';
       ctx.fillText(s.toLocaleString(), 0, 4);
       if (d.combo > 1) {
-        ctx.font = `bold 26px ${FONT}`;
+        ctx.font = `bold 26px ${DISPLAY}`;
         const comboColors = ['#fff', '#fff', '#7af0ff', '#5ee07a', '#ffd23f', '#ff6b3d'];
         ctx.strokeText(`x${d.combo}`, 0, 40);
         ctx.fillStyle = comboColors[d.combo];
@@ -1136,7 +1159,7 @@ const Render = (() => {
     } else if (d.flash) {
       const f = d.flash;
       ctx.globalAlpha = Math.min(1, f.life * 2);
-      ctx.font = `bold 30px ${FONT}`;
+      ctx.font = `bold 30px ${DISPLAY}`;
       ctx.lineWidth = 6;
       ctx.strokeStyle = 'rgba(0,0,0,0.6)';
       ctx.strokeText(f.label, cx, cy - 10);
@@ -1228,7 +1251,7 @@ const Render = (() => {
       const a = Math.min(1, b.life * 2, (3 - b.life) * 6);
       ctx.globalAlpha = Math.max(0, a);
       const y = sh * 0.3;
-      ctx.font = `bold 44px ${FONT}`;
+      ctx.font = `bold 44px ${DISPLAY}`;
       ctx.lineWidth = 7;
       ctx.strokeStyle = 'rgba(0,0,0,0.65)';
       ctx.textAlign = 'center';
@@ -1295,7 +1318,38 @@ const Render = (() => {
     ctx.fillStyle = rad(sw / 2, sh / 2, Math.min(sw, sh) * 0.35, Math.max(sw, sh) * 0.75, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.32)']]);
     ctx.fillRect(0, 0, sw, sh);
 
-    if (showHud) drawHUD(ctx, g, sw, sh);
+    if (showHud) {
+      // the sun goes down as the shift goes on: a warm sunset glow in the last part of the shift
+      const late = Math.max(0, 1 - g.time / C.shiftSeconds - 0.45) / 0.55;
+      if (late > 0) {
+        ctx.fillStyle = `rgba(255,120,40,${0.13 * late})`;
+        ctx.fillRect(0, 0, sw, sh);
+        ctx.fillStyle = rad(sw / 2, sh / 2, Math.min(sw, sh) * 0.3, Math.max(sw, sh) * 0.8, [[0, 'rgba(40,20,60,0)'], [1, `rgba(40,20,60,${0.25 * late})`]]);
+        ctx.fillRect(0, 0, sw, sh);
+      }
+      // nitro speed lines streaking past the edges of the screen
+      if (g.truck.boosting && !(g.jail > 0)) {
+        ctx.save();
+        ctx.translate(sw / 2, sh / 2);
+        for (let k = 0; k < 26; k++) {
+          const a = (k / 26) * TAU + (Math.floor(g.clock * 20) % 7) * 0.13;
+          const r0 = Math.min(sw, sh) * (0.36 + ((k * 37 + Math.floor(g.clock * 30)) % 10) * 0.03), len = 70 + (k % 4) * 40;
+          ctx.strokeStyle = `rgba(170,240,255,${0.16 + (k % 3) * 0.08})`;
+          ctx.lineWidth = 2 + (k % 3);
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0);
+          ctx.lineTo(Math.cos(a) * (r0 + len), Math.sin(a) * (r0 + len));
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+      // a red flash at the edges after a big crash
+      if (g.flash > 0) {
+        ctx.fillStyle = rad(sw / 2, sh / 2, Math.min(sw, sh) * 0.25, Math.max(sw, sh) * 0.7, [[0, 'rgba(255,40,30,0)'], [1, `rgba(255,40,30,${g.flash})`]]);
+        ctx.fillRect(0, 0, sw, sh);
+      }
+      drawHUD(ctx, g, sw, sh);
+    }
   }
 
   return { frame, money };

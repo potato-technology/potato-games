@@ -61,8 +61,31 @@
     }
     #passage { font-family: var(--mono); font-size: 22px; line-height: 1.6; color: var(--muted); word-break: break-word; min-height: 72px; }
     #passage .done { color: var(--good); }
-    #passage .cur { color: var(--bg); background: var(--accent); border-radius: 3px; }
-    #passage .cur.err { background: var(--danger); color: #fff; }
+    #passage .cw { color: var(--text); background: rgba(255,181,71,0.1); border-radius: 5px; box-shadow: 0 2px 0 rgba(255,181,71,0.55); padding: 1px 0; }
+    #passage .cur { color: var(--bg); background: var(--accent); border-radius: 3px; animation: blink 1s steps(1) infinite; }
+    #passage .cur.err { background: var(--danger); color: #fff; animation: none; }
+    @keyframes blink { 50% { background: #ffd28a; } }
+    .prog { position: relative; height: 10px; margin-top: 12px; border-radius: 5px; background: var(--panel-2); overflow: hidden; }
+    .prog i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 5px; background: linear-gradient(90deg, #3ecf8e, #7ee8b5); transition: width 0.12s; }
+    .hint-row { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+    .place-tag { font: 700 15px var(--display); color: var(--accent); white-space: nowrap; }
+    .butter-bar.hot { box-shadow: 0 0 10px rgba(255,224,102,0.7); }
+    .butter-bar.hot i { background: linear-gradient(90deg, #ffe066, #ff9f43); }
+    .xp { margin: 0 0 14px; }
+    .xp-top { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); font-weight: 800; margin-bottom: 4px; }
+    .xp-top b { color: var(--accent); font: 700 15px var(--display); }
+    .xp-bar { height: 10px; border-radius: 5px; background: var(--panel-2); overflow: hidden; }
+    .xp-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ffb547, #ffe066); }
+    .locker-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; margin: 8px 0 16px; }
+    .lk { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px; border-radius: 12px; border: 2px solid var(--line); background: var(--panel-2); color: var(--text); cursor: pointer; font: 700 14px var(--body); }
+    .lk canvas { width: 72px; height: 48px; }
+    .lk small { color: var(--muted); font-size: 11px; }
+    .lk.on { border-color: var(--accent); background: #3a2f22; }
+    .lk.locked { opacity: 0.45; cursor: default; }
+    .locker-h { text-align: left; font: 700 18px var(--display); color: var(--text); margin: 6px 0 0; }
+    .xp-line { color: var(--accent); font-weight: 800; min-height: 20px; margin-bottom: 6px; }
+    .confetti { position: fixed; top: -12px; width: 10px; height: 14px; border-radius: 2px; pointer-events: none; animation: fall linear forwards; z-index: 50; }
+    @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
     .hint { margin-top: 8px; font-size: 14px; color: var(--muted); }
     #typer { position: absolute; left: 12px; top: 12px; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; }
 
@@ -125,6 +148,7 @@
     <header>
       <h1>Tater <span>Typer</span></h1>
       <div class="row">
+        <button class="icon-btn" id="pause-btn" hidden>Pause</button>
         <button class="icon-btn" id="mute-btn">Sound: on</button>
         <button class="icon-btn" id="menu-btn">Menu</button>
       </div>
@@ -132,7 +156,8 @@
     <div class="track-wrap"><canvas id="track"></canvas></div>
     <div class="text-panel" id="text-panel">
       <div id="passage"></div>
-      <div class="hint" id="hint">Get ready...</div>
+      <div class="prog"><i id="prog-fill"></i></div>
+      <div class="hint-row"><div class="hint" id="hint">Get ready...</div><div class="place-tag" id="place-tag"></div></div>
       <input id="typer" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Type here">
     </div>
     <div class="stats">
@@ -146,6 +171,10 @@
     <div class="card">
       <h2>Tater Typer</h2>
       <p>The great potato race is on! Type fast to roll your potato to the finish line.</p>
+      <div class="xp">
+        <div class="xp-top"><span><b id="xp-level">Level 1</b> typist</span><span id="xp-text">0 / 250 XP</span></div>
+        <div class="xp-bar"><i id="xp-fill"></i></div>
+      </div>
       <ul class="how">
         <li><b>Type the fun facts</b> exactly as they're written: potatoes, food, animals, space and more. Every right letter rolls your potato forward, and you'll learn something too!</li>
         <li><b>Wrong letter?</b> Your potato trips and won't move until you type the right one.</li>
@@ -153,6 +182,7 @@
         <li><b>Endless:</b> the sentences never stop, and a giant potato masher chases you, getting faster every few seconds. See how far you can roll before you get mashed!</li>
         <li><b>Race a friend:</b> one of you makes a race and gets a code, the other types the code in to join.</li>
         <li><b>Win Spuds</b> for your place or distance, plus a bonus for typing fast.</li>
+        <li><b>Level up:</b> every right letter is 1 XP. New levels unlock cool sneakers and trails in the <b>Locker</b>.</li>
       </ul>
       <div class="modes" id="modes">
         <button class="diff" data-mode="race"><b>Race</b><small>Beat 3 potatoes</small></button>
@@ -164,7 +194,10 @@
         <button class="diff" data-diff="normal"><b>Normal</b><small id="best-normal">2 full facts</small></button>
         <button class="diff" data-diff="hard"><b>Hard</b><small id="best-hard">3 facts, numbers too</small></button>
       </div>
-      <button class="btn" id="start-btn">Start race</button>
+      <div class="row">
+        <button class="btn" id="start-btn">Start race</button>
+        <button class="btn ghost" id="locker-btn">Locker</button>
+      </div>
       <div id="friend-panel" hidden>
         <div id="friend-setup">
           <button class="btn" id="host-btn">Make a race</button>
@@ -194,11 +227,33 @@
         <div><span id="r-third-label">Time</span><b id="r-time">0.0s</b></div>
       </div>
       <div class="new-best" id="r-best"></div>
+      <div class="xp-line" id="r-xp"></div>
       <div class="spuds" id="r-spuds"></div>
       <div class="row">
         <button class="btn" id="again-btn">Race again</button>
         <button class="btn ghost" id="results-menu-btn">Menu</button>
       </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="pause" hidden>
+    <div class="card">
+      <h2>Paused</h2>
+      <p>Take a breath and stretch your fingers. Everyone is frozen until you come back.</p>
+      <button class="btn" id="resume-btn">Resume</button>
+      <p style="margin:12px 0 0;font-size:13px">Press <kbd>Enter</kbd> to keep racing.</p>
+    </div>
+  </div>
+
+  <div class="overlay" id="locker" hidden>
+    <div class="card" style="width:min(640px,100%)">
+      <h2>Locker</h2>
+      <p style="margin:0">Level up by typing to unlock new gear for your potato.</p>
+      <div class="locker-h">Sneakers</div>
+      <div class="locker-list" id="shoe-list"></div>
+      <div class="locker-h">Trails</div>
+      <div class="locker-list" id="trail-list"></div>
+      <button class="btn" id="locker-done-btn">Done</button>
     </div>
   </div>
 
@@ -465,9 +520,46 @@
       lettersPerSpud: 40,
     };
 
+    // ---------- levels and the locker ----------
+    // Every right letter is 1 XP. Each level needs a bit more XP than the last one.
+    const xpForLevel = (L) => 125 * L * (L + 1); // total XP you need to go past level L
+    const SHOES = [
+      { id: 'lane', name: 'Lane color', level: 1 },
+      { id: 'red', name: 'Red hot', level: 2, color: '#ff4d4d' },
+      { id: 'ocean', name: 'Ocean', level: 3, color: '#2f9bff' },
+      { id: 'lime', name: 'Lime zap', level: 4, color: '#8be03a' },
+      { id: 'grape', name: 'Grape', level: 5, color: '#9b5cff' },
+      { id: 'gold', name: 'Gold', level: 7, color: '#ffcf3a' },
+      { id: 'rainbow', name: 'Rainbow', level: 10 },
+    ];
+    const TRAILS = [
+      { id: 'none', name: 'Speed lines', level: 1 },
+      { id: 'sparkle', name: 'Sparkles', level: 3 },
+      { id: 'butter', name: 'Butter drops', level: 5 },
+      { id: 'fire', name: 'Fire', level: 6 },
+      { id: 'hearts', name: 'Hearts', level: 8 },
+      { id: 'rainbow', name: 'Rainbow', level: 11 },
+      { id: 'stars', name: 'Shooting stars', level: 13 },
+    ];
+    let xp = Math.max(0, Number(Potato.load('xp', 0)) || 0);
+    let locker = Potato.load('locker', null);
+    if (!locker || typeof locker !== 'object') locker = {};
+    if (!SHOES.some((s) => s.id === locker.shoe)) locker.shoe = 'lane';
+    if (!TRAILS.some((t) => t.id === locker.trail)) locker.trail = 'none';
+    function levelOf(n) { let L = 1; while (n >= xpForLevel(L) && L < 99) L++; return L; }
+    const myLook = () => Object.assign({}, Potato.player, { shoe: locker.shoe, trail: locker.trail });
+    function addXp(n) {
+      const before = levelOf(xp);
+      xp += Math.max(0, Math.round(n));
+      Potato.save('xp', xp);
+      const after = levelOf(xp);
+      const unlocks = [...SHOES, ...TRAILS].filter((u) => u.level > before && u.level <= after).map((u) => u.name);
+      return { before, after, unlocks };
+    }
+
     const $ = (id) => document.getElementById(id);
     const canvas = $('track');
-    const ctx = canvas.getContext('2d');
+    let ctx = canvas.getContext('2d');
     const input = $('typer');
 
     let diff = Potato.load('difficulty', 'normal');
@@ -477,6 +569,7 @@
     let racers = [], finishOrder = [], butters = [], dust = [];
     let countdown = 0, raceTime = 0, playerTime = 0;
     let errFlash = 0;
+    let gained = 0, xpAwarded = false; // XP earned this race
     let gameMode = Potato.load('mode', 'race'); // race | endless | friend
     if (gameMode !== 'endless' && gameMode !== 'friend') gameMode = 'race';
     // endless mode
@@ -533,7 +626,53 @@
       $('start-btn').hidden = friendMode();
       $('friend-panel').hidden = !friendMode();
       renderFriendPanel();
+      renderXp();
     }
+    function renderXp() {
+      const L = levelOf(xp), lo = L > 1 ? xpForLevel(L - 1) : 0, hi = xpForLevel(L);
+      $('xp-level').textContent = `Level ${L}`;
+      $('xp-text').textContent = `${(xp - lo).toLocaleString()} / ${(hi - lo).toLocaleString()} XP`;
+      $('xp-fill').style.width = `${Math.min(100, ((xp - lo) / (hi - lo)) * 100)}%`;
+    }
+
+    // The locker: pick your sneakers and trail. Little previews are drawn on canvases.
+    function renderLocker() {
+      const L = levelOf(xp);
+      for (const [listId, items, key] of [['shoe-list', SHOES, 'shoe'], ['trail-list', TRAILS, 'trail']]) {
+        const box = $(listId);
+        box.innerHTML = '';
+        for (const it of items) {
+          const open = L >= it.level;
+          const b = document.createElement('button');
+          b.className = 'lk' + (locker[key] === it.id ? ' on' : '') + (open ? '' : ' locked');
+          const c = document.createElement('canvas');
+          c.width = 144; c.height = 96;
+          const name = document.createElement('span');
+          name.textContent = it.name;
+          const sm = document.createElement('small');
+          sm.textContent = open ? (locker[key] === it.id ? 'Wearing it' : 'Tap to wear') : `🔒 Level ${it.level}`;
+          b.append(c, name, sm);
+          if (open) b.addEventListener('click', () => { locker[key] = it.id; Potato.save('locker', locker); renderLocker(); sfx.beep(true); });
+          box.appendChild(b);
+          drawLockerPreview(c, key === 'shoe' ? it.id : locker.shoe, key === 'trail' ? it.id : locker.trail);
+        }
+      }
+    }
+    function drawLockerPreview(c, shoe, trail) {
+      const p = c.getContext('2d');
+      const main = ctx;
+      ctx = p;
+      p.clearRect(0, 0, c.width, c.height);
+      p.fillStyle = '#c4563c';
+      p.fillRect(0, 58, c.width, 38);
+      const r = { look: Object.assign({}, Potato.player, { shoe, trail }), lane: 0, trailFx: [] };
+      for (let k = 0; k < 14; k++) emitTrail(r, 82 - k * 5, 52 + Math.sin(k) * 4, k * 0.07, true);
+      for (const f of r.trailFx) drawTrailBit(f);
+      drawRunner(r, 92, 40, 40, 0.3, true, LANE_COLORS[0], 0);
+      ctx = main;
+    }
+    $('locker-btn').addEventListener('click', () => { $('menu').hidden = true; $('locker').hidden = false; renderLocker(); });
+    $('locker-done-btn').addEventListener('click', () => { $('locker').hidden = true; showMenu(); });
     document.querySelectorAll('#diffs .diff').forEach((b) => b.addEventListener('click', () => {
       diff = b.dataset.diff;
       Potato.save('difficulty', diff);
@@ -546,6 +685,8 @@
     }));
     function showMenu() {
       mode = 'menu';
+      paused = false;
+      $('pause').hidden = true;
       $('results').hidden = true;
       $('menu').hidden = false;
       renderMenu();
@@ -655,7 +796,7 @@
       net.conn = conn;
       conn.on('open', () => {
         const p = Potato.player;
-        send({ type: 'hello', name: p.name, look: { color: p.color, hat: p.hat, face: p.face } });
+        send({ type: 'hello', name: p.name, look: { color: p.color, hat: p.hat, face: p.face, shoe: locker.shoe, trail: locker.trail } });
       });
       conn.on('data', onMessage);
       conn.on('close', () => { if (net.conn === conn) friendLeft(); });
@@ -672,6 +813,8 @@
           color: /^#[0-9a-fA-F]{6}$/.test(l.color) ? l.color : '#c9925a',
           hat: HATS.includes(l.hat) ? l.hat : 'none',
           face: FACES.includes(l.face) ? l.face : 'happy',
+          shoe: SHOES.some((s) => s.id === l.shoe) ? l.shoe : 'lane', // older versions don't send these, so they get the defaults
+          trail: TRAILS.some((t) => t.id === l.trail) ? l.trail : 'none',
         },
       };
     }
@@ -742,11 +885,11 @@
       $('menu').hidden = true;
       $('results').hidden = true;
       text = t;
-      idx = 0; errors = 0; streak = 0; bestStreak = 0;
+      idx = 0; errors = 0; streak = 0; bestStreak = 0; gained = 0; xpAwarded = false; trailFx = [];
       finishOrder = []; butters = []; dust = [];
       raceTime = 0; playerTime = 0;
       racers = [
-        { name: Potato.player.name || 'You', look: Potato.player, chars: 0, isPlayer: true, finished: false, slip: 0, trip: 0, lane: 0 },
+        { name: Potato.player.name || 'You', look: myLook(), chars: 0, isPlayer: true, finished: false, slip: 0, trip: 0, lane: 0 },
         { name: net.friend.name, look: net.friend.look, chars: 0, isFriend: true, finished: false, slip: 0, trip: 0, lane: 1 },
       ];
       mode = 'countdown';
@@ -774,7 +917,7 @@
       $('menu').hidden = true;
       $('results').hidden = true;
       text = pickText();
-      idx = 0; errors = 0; streak = 0; bestStreak = 0;
+      idx = 0; errors = 0; streak = 0; bestStreak = 0; gained = 0; xpAwarded = false; trailFx = [];
       finishOrder = []; butters = []; dust = [];
       raceTime = 0; playerTime = 0;
       if (endless()) {
@@ -782,7 +925,7 @@
         gap = ENDLESS.startGap;
         masherWpm = ENDLESS.startWpm[diff];
         masherSlip = 0;
-        racers = [{ name: Potato.player.name || 'You', look: Potato.player, chars: 0, isPlayer: true, finished: false, slip: 0, trip: 0, lane: 0 }];
+        racers = [{ name: Potato.player.name || 'You', look: myLook(), chars: 0, isPlayer: true, finished: false, slip: 0, trip: 0, lane: 0 }];
         mode = 'countdown';
         countdown = 3.5;
         renderPassage();
@@ -792,7 +935,7 @@
         return;
       }
       const rivals = RIVALS.slice().sort(() => Math.random() - 0.5).slice(0, 3);
-      racers = [{ name: Potato.player.name || 'You', look: Potato.player, chars: 0, isPlayer: true, finished: false, slip: 0, trip: 0 }];
+      racers = [{ name: Potato.player.name || 'You', look: myLook(), chars: 0, isPlayer: true, finished: false, slip: 0, trip: 0 }];
       LEVELS[diff].forEach(([lo, hi], k) => {
         const wpm = lo + Math.random() * (hi - lo);
         racers.push({ name: rivals[k].name, look: rivals[k], chars: 0, cps: (wpm * 5) / 60, mood: 1, moodT: 0, pause: 0, slip: 0, trip: 0, finished: false });
@@ -816,6 +959,12 @@
 
     window.addEventListener('keydown', (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (!$('locker').hidden) { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); $('locker-done-btn').click(); } return; }
+      if (paused) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaused(false); }
+        else if (e.key === 'Escape') { setPaused(false); showMenu(); }
+        return;
+      }
       if (e.key === 'Enter') {
         if (mode === 'menu') { e.preventDefault(); if (friendMode()) hostStart(); else startRace(); }
         else if (mode === 'done' && !$('results').hidden) { e.preventDefault(); $('again-btn').click(); }
@@ -833,13 +982,28 @@
       input.value = '';
     });
 
+    // ---------- pause (solo races only; a friend can't be frozen) ----------
+    let paused = false;
+    const canPause = () => (mode === 'race' || mode === 'countdown') && !friendMode();
+    function setPaused(on) {
+      if (on && !canPause()) return;
+      paused = !!on;
+      $('pause').hidden = !paused;
+      if (!paused) { last = performance.now(); focusTyping(); }
+    }
+    $('pause-btn').addEventListener('click', () => setPaused(true));
+    $('resume-btn').addEventListener('click', () => setPaused(false));
+    window.addEventListener('blur', () => setPaused(true));
+    document.addEventListener('visibilitychange', () => { if (document.hidden) setPaused(true); });
+
     function typeChar(ch) {
-      if (mode !== 'race') return;
+      if (mode !== 'race' || paused) return;
       const me = racers.find((r) => r.isPlayer);
       if (me.slip > 0) return; // slipped on your friend's butter: no typing for a moment
       if (ch === text[idx]) {
         idx++;
         streak++;
+        gained++;
         bestStreak = Math.max(bestStreak, streak);
         me.chars = idx;
         sfx.key();
@@ -922,7 +1086,29 @@
       setTimeout(showEndlessResults, 1400);
     }
 
+    function awardXp() {
+      if (xpAwarded) return;
+      xpAwarded = true;
+      const res = addXp(gained);
+      let s = `+${gained} XP`;
+      if (res.after > res.before) s += ` · LEVEL UP! You're level ${res.after}!` + (res.unlocks.length ? ` New in your Locker: ${res.unlocks.join(', ')}` : '');
+      $('r-xp').textContent = s;
+    }
+    function confetti() {
+      for (let i = 0; i < 70; i++) {
+        const el = document.createElement('div');
+        el.className = 'confetti';
+        el.style.left = Math.random() * 100 + 'vw';
+        el.style.background = ['#ffd43b', '#ffb547', '#3ecf8e', '#7af0ff', '#ff5e8a', '#b28dff'][i % 6];
+        el.style.animationDuration = 1.8 + Math.random() * 1.6 + 's';
+        el.style.animationDelay = Math.random() * 0.6 + 's';
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 4200);
+      }
+    }
+
     function showEndlessResults() {
+      awardXp();
       const wpm = Math.round(wpmNow());
       $('r-place').textContent = 'MASHED!';
       $('r-place').style.color = '#ff6b6b';
@@ -945,6 +1131,8 @@
     }
 
     function showResults(place) {
+      awardXp();
+      if (place === 1) confetti();
       $('r-third-label').textContent = 'Time';
       $('again-btn').textContent = 'Race again';
       const wpm = Math.round(wpmNow());
@@ -973,22 +1161,46 @@
 
     // ---------- passage display ----------
     function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    // The word you're on gets a soft highlight so it's easy to keep your place.
     function renderPassage() {
-      const done = esc(text.slice(0, idx));
+      const ws = idx > 0 ? text.lastIndexOf(' ', idx - 1) + 1 : 0;
+      let we = text.indexOf(' ', idx);
+      if (we < 0) we = text.length;
+      const done = esc(text.slice(0, ws));
+      const wordDone = esc(text.slice(ws, idx));
       const cur = text[idx] === undefined ? '' : esc(text[idx]);
-      const rest = esc(text.slice(idx + 1));
+      const wordRest = esc(text.slice(idx + 1, Math.max(idx + 1, we)));
+      const rest = esc(text.slice(Math.max(idx + 1, we)));
       const curHtml = cur ? `<span class="cur${errFlash > 0 ? ' err' : ''}">${cur === ' ' ? '&nbsp;' : cur}</span>` : '';
-      $('passage').innerHTML = `<span class="done">${done}</span>${curHtml}<span>${rest}</span>`;
+      $('passage').innerHTML = `<span class="done">${done}</span><span class="cw"><span class="done">${wordDone}</span>${curHtml}${wordRest}</span><span>${rest}</span>`;
+    }
+    const ORD = ['1st', '2nd', '3rd', '4th'];
+    function placeText() {
+      if (mode === 'menu') return '';
+      const me = racers.find((r) => r.isPlayer);
+      if (!me) return '';
+      if (endless()) return mode === 'race' ? `Masher is ${Math.max(0, Math.round(gap))} letters behind` : '';
+      if (me.finished) return `Finished ${ORD[finishOrder.indexOf(me)] || ''}`;
+      const ahead = racers.filter((r) => r !== me && (r.finished || r.chars > me.chars)).length;
+      return `${ORD[ahead]} place`;
     }
     function updateStats() {
       $('s-wpm').textContent = Math.round(wpmNow());
       $('s-acc').textContent = `${Math.round(accuracy() * 100)}%`;
       $('s-streak').textContent = streak;
       $('s-butter').style.width = `${((streak % BUTTER_EVERY) / BUTTER_EVERY) * 100}%`;
+      $('s-butter').parentNode.classList.toggle('hot', streak >= 10);
+      // progress through the sentence, and where you are in the race
+      $('prog-fill').style.width = `${text.length > 1 ? (idx / text.length) * 100 : 0}%`;
+      $('place-tag').textContent = placeText();
     }
 
     // ---------- simulation ----------
     function update(dt) {
+      updateTrails(dt);
+      const pv = canPause();
+      if (pv === $('pause-btn').hidden) $('pause-btn').hidden = !pv;
+      if (paused) return;
       if (errFlash > 0) {
         errFlash -= dt;
         if (errFlash <= 0) renderPassage();
@@ -1173,6 +1385,52 @@
       return trackPat;
     }
 
+    // ---------- sneakers and trails from the locker ----------
+    let trailFx = [];
+    function shoeColor(r, laneColor, time, side) {
+      const id = r.look && r.look.shoe;
+      if (id === 'rainbow') return `hsl(${(time * 220 + side * 70) % 360},90%,60%)`;
+      const s = SHOES.find((q) => q.id === id);
+      return s && s.color ? s.color : laneColor;
+    }
+    function emitTrail(r, x, y, age, still) {
+      const kind = r.look && r.look.trail;
+      if (!kind || kind === 'none') return;
+      const list = r.trailFx || trailFx;
+      if (list.length > 260) return;
+      const f = { kind, x: x + (Math.random() - 0.5) * 6, y: y + (Math.random() - 0.5) * 10, vx: still ? 0 : -20 - Math.random() * 30, vy: 0, life: 0.7, max: 0.7, hue: (performance.now() / 4) % 360, rot: Math.random() * 6 };
+      if (kind === 'fire') { f.vy = still ? 0 : -30 - Math.random() * 20; f.life = f.max = 0.45; }
+      if (kind === 'butter') f.vy = still ? 0 : 40;
+      if (kind === 'hearts') f.vy = still ? 0 : -25;
+      if (kind === 'rainbow') { f.life = f.max = 0.5; f.vx = still ? 0 : -10; f.y = y; }
+      f.life -= age || 0;
+      if (f.life > 0) list.push(f);
+    }
+    function updateTrails(dt) {
+      for (const f of trailFx) { f.x += f.vx * dt; f.y += f.vy * dt; f.life -= dt; f.rot += dt * 4; }
+      trailFx = trailFx.filter((f) => f.life > 0);
+    }
+    function starPath(x, y, r, pts = 5) {
+      ctx.beginPath();
+      for (let i = 0; i < pts * 2; i++) { const a = -Math.PI / 2 + (i * Math.PI) / pts, rr = i % 2 ? r * 0.45 : r; ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+      ctx.closePath();
+    }
+    function drawTrailBit(f) {
+      const k = Math.max(0, f.life / f.max);
+      ctx.globalAlpha = k;
+      if (f.kind === 'sparkle') { ctx.fillStyle = k > 0.5 ? '#fff6c2' : '#ffd43b'; starPath(f.x, f.y, 2 + k * 3, 4); ctx.fill(); }
+      else if (f.kind === 'butter') { ctx.fillStyle = '#ffe066'; ctx.fillRect(f.x - 3, f.y - 2, 6, 4); ctx.fillStyle = 'rgba(201,162,39,0.8)'; ctx.fillRect(f.x - 3, f.y + 1, 6, 1.2); }
+      else if (f.kind === 'fire') { ctx.fillStyle = `rgba(255,${Math.floor(90 + k * 140)},40,1)`; ctx.beginPath(); ctx.arc(f.x, f.y, 1.5 + k * 5, 0, TAU); ctx.fill(); }
+      else if (f.kind === 'hearts') {
+        const s = 2 + k * 3;
+        ctx.fillStyle = '#ff6fa8';
+        ctx.beginPath(); ctx.moveTo(f.x, f.y + s); ctx.bezierCurveTo(f.x - s * 1.6, f.y - s * 0.2, f.x - s * 0.7, f.y - s * 1.4, f.x, f.y - s * 0.4); ctx.bezierCurveTo(f.x + s * 0.7, f.y - s * 1.4, f.x + s * 1.6, f.y - s * 0.2, f.x, f.y + s); ctx.fill();
+      } else if (f.kind === 'rainbow') {
+        ['#ff5e5e', '#ffb547', '#ffe066', '#3ecf8e', '#4fa3f0', '#9b5cff'].forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(f.x - 4, f.y - 9 + i * 3, 8, 3); });
+      } else if (f.kind === 'stars') { ctx.fillStyle = `hsl(${(f.hue + f.rot * 40) % 360},95%,65%)`; starPath(f.x, f.y, 2.5 + k * 3.5); ctx.fill(); }
+      ctx.globalAlpha = 1;
+    }
+
     // A potato in running gear: legs, sneakers, a headband, and a shadow on the track.
     function drawRunner(r, x, y, size, time, moving, laneColor, squash) {
       const legLen = size * 0.28, footY = y + size * 0.5 + legLen;
@@ -1187,7 +1445,7 @@
         ctx.lineWidth = Math.max(2, size * 0.07);
         ctx.lineCap = 'round';
         ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(fx, fy - size * 0.04); ctx.stroke();
-        ctx.fillStyle = laneColor;
+        ctx.fillStyle = shoeColor(r, laneColor, time, side);
         ctx.beginPath(); ctx.ellipse(fx + size * 0.06, fy, size * 0.13, size * 0.07, 0, 0, TAU); ctx.fill();
         ctx.fillStyle = '#fff';
         ctx.fillRect(fx - size * 0.05, fy + size * 0.02, size * 0.22, size * 0.035);
@@ -1199,7 +1457,7 @@
       ctx.fillStyle = laneColor;
       ctx.fillRect(x - size, y - size * 0.3, size * 2, size * 0.09);
       ctx.restore();
-      if (moving) {
+      if (moving && !(r.look && r.look.trail && r.look.trail !== 'none')) {
         ctx.strokeStyle = 'rgba(255,255,255,0.5)';
         ctx.lineWidth = 2;
         for (let k = 0; k < 3; k++) { const ly = y - size * 0.2 + k * size * 0.2; ctx.beginPath(); ctx.moveTo(x - size * 0.6, ly); ctx.lineTo(x - size * 0.95 - (k % 2) * 6, ly); ctx.stroke(); }
@@ -1211,14 +1469,23 @@
       const label = n >= 1 ? String(n) : 'GO!';
       ctx.fillStyle = 'rgba(0,0,0,0.25)';
       ctx.fillRect(0, 0, W, H);
+      // each number pops in big, then settles
+      const frac = (((countdown - 0.5) % 1) + 1) % 1;
+      const pop = 1 + Math.max(0, frac - 0.6) * 1.4;
+      ctx.save();
+      ctx.translate(W / 2, H / 2);
+      ctx.scale(pop, pop);
+      ctx.globalAlpha = Math.min(1, 0.4 + frac * 1.5);
       ctx.font = `700 ${Math.min(96, H * 0.4)}px Fredoka, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.lineWidth = 8;
+      ctx.lineJoin = 'round';
       ctx.strokeStyle = '#17151c';
-      ctx.strokeText(label, W / 2, H / 2);
-      ctx.fillStyle = '#ffb547';
-      ctx.fillText(label, W / 2, H / 2);
+      ctx.strokeText(label, 0, 0);
+      ctx.fillStyle = n >= 1 ? '#ffb547' : '#3ecf8e';
+      ctx.fillText(label, 0, 0);
+      ctx.restore();
     }
 
     // Endless mode: one long road that scrolls by, with the Masher chasing you.
@@ -1271,6 +1538,8 @@
         ctx.arc(d.x, d.y, 3 + (0.5 - d.life) * 8, 0, Math.PI * 2);
         ctx.fill();
       }
+      if (me && moving && Math.random() < 0.8) emitTrail(me, playerX - size * 0.5, groundY - size * 0.35, 0);
+      for (const f of trailFx) drawTrailBit(f);
       if (me) {
         ctx.save();
         ctx.translate(playerX, groundY - size * 0.25 - bob);
@@ -1291,25 +1560,41 @@
         ctx.fill();
         ctx.rotate(Math.sin(time * 16) * 0.12);
       }
-      ctx.fillStyle = '#6b4423'; // wooden handle
-      ctx.fillRect(-7, headY - size * 1.6, 14, size * 1.35);
-      ctx.fillStyle = '#c9ced8'; // metal neck
-      ctx.fillRect(-4, headY - size * 0.3, 8, size * 0.3);
-      ctx.fillStyle = '#aab1bd'; // masher head
-      ctx.fillRect(-size * 0.55, headY - 8, size * 1.1, 16);
-      ctx.fillStyle = '#17151c';
-      for (let k = -2; k <= 2; k++) ctx.fillRect(k * size * 0.2 - 3, headY - 4, 6, 8);
-      // angry eyes on the handle
+      // a shadow that grows as the Masher slams down
+      ctx.fillStyle = `rgba(0,0,0,${0.18 + (1 - slam / (size * 0.35)) * 0.15})`;
+      ctx.beginPath(); ctx.ellipse(0, groundY + size * 0.55, size * 0.6, size * 0.1, 0, 0, Math.PI * 2); ctx.fill();
+      // wooden handle with a grain and a shiny edge
+      const hw = size * 0.2, mtop = headY - size * 1.65;
+      ctx.fillStyle = lg(-hw, 0, hw, 0, [[0, '#8a5a2b'], [0.4, '#b07a45'], [1, '#5e3a1a']]);
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-hw, mtop, hw * 2, size * 1.38, hw) : ctx.rect(-hw, mtop, hw * 2, size * 1.38); ctx.fill();
+      ctx.strokeStyle = 'rgba(60,35,15,0.35)'; ctx.lineWidth = 1.5;
+      for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.moveTo(-hw * 0.5 + k * hw * 0.5, mtop + 10); ctx.quadraticCurveTo(-hw * 0.3 + k * hw * 0.5, mtop + size * 0.6, -hw * 0.5 + k * hw * 0.5, mtop + size * 1.2); ctx.stroke(); }
+      ctx.fillStyle = '#e04848'; // red grip band
+      ctx.fillRect(-hw, mtop + size * 0.95, hw * 2, size * 0.12);
+      // metal neck and the masher head with its wavy wire
+      ctx.fillStyle = lg(-6, 0, 6, 0, [[0, '#8d96a2'], [0.5, '#eef1f5'], [1, '#7b8390']]);
+      ctx.fillRect(-5, headY - size * 0.3, 10, size * 0.3);
+      ctx.strokeStyle = '#c9ced8'; ctx.lineWidth = Math.max(3, size * 0.07); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      for (let k = 0; k <= 8; k++) { const px = -size * 0.55 + (k * size * 1.1) / 8, py = headY + (k % 2 ? 6 : -6); k ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.2; ctx.stroke();
+      ctx.fillStyle = lg(0, headY - 16, 0, headY - 6, [[0, '#eef1f5'], [1, '#8d96a2']]);
+      ctx.fillRect(-size * 0.58, headY - 14, size * 1.16, 7);
+      // cartoon face on the handle: grumpy eyebrows, big eyes that watch you, and a toothy grin
+      const fy = mtop + size * 0.38;
+      for (const ex of [-hw * 0.45, hw * 0.45]) {
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(ex, fy, hw * 0.42, hw * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#17151c'; ctx.beginPath(); ctx.arc(ex + hw * 0.14, fy + 1, hw * 0.2, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex + hw * 0.2, fy - 1.5, hw * 0.07, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.strokeStyle = '#3a2410'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-hw * 0.85, fy - hw * 0.75); ctx.lineTo(-hw * 0.1, fy - hw * 0.45); ctx.moveTo(hw * 0.85, fy - hw * 0.75); ctx.lineTo(hw * 0.1, fy - hw * 0.45); ctx.stroke();
+      ctx.fillStyle = '#3a2410';
+      ctx.beginPath(); ctx.ellipse(0, fy + hw * 0.9, hw * 0.55, hw * 0.28, 0, 0, Math.PI); ctx.fill();
       ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.arc(-3, headY - size * 1.3, 5, 0, Math.PI * 2);
-      ctx.arc(9, headY - size * 1.3, 5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#d63a3a';
-      ctx.beginPath();
-      ctx.arc(-1, headY - size * 1.3, 2.5, 0, Math.PI * 2);
-      ctx.arc(11, headY - size * 1.3, 2.5, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.fillRect(-hw * 0.4, fy + hw * 0.9, hw * 0.25, hw * 0.14); ctx.fillRect(hw * 0.15, fy + hw * 0.9, hw * 0.25, hw * 0.14);
+      if (masherSlip > 0) { ctx.fillStyle = '#7fd0ff'; ctx.beginPath(); ctx.arc(hw * 1.2, fy - 4, 3, 0, Math.PI * 2); ctx.fill(); }
       ctx.restore();
       // danger glow when it's close
       const danger = Math.max(0, 1 - gap / 15);
@@ -1403,6 +1688,7 @@
       ctx.font = '700 12px Fredoka, sans-serif';
       ctx.fillText('FINISH', L.finishX - 18, L.top - 20);
 
+      for (const f of trailFx) drawTrailBit(f);
       // racers
       const size = Math.min(L.laneH * 0.5, 42);
       for (const r of racers) {
@@ -1426,6 +1712,7 @@
         // dust behind runners
         const moving = (mode === 'race' || mode === 'done') && !r.finished && r.slip <= 0 && r.trip <= 0;
         if (moving && Math.random() < 0.3) dust.push({ x: p.x - size * 0.4, y: p.y + size * 0.4, vx: -30 - Math.random() * 30, vy: -10 - Math.random() * 15, life: 0.5 });
+        if (moving && Math.random() < 0.7) emitTrail(r, p.x - size * 0.5, p.y - size * 0.15, 0);
         ctx.save();
         ctx.translate(p.x, p.y - size * 0.22);
         if (r.slip > 0) ctx.rotate(Math.sin(time * 18) * 0.5);
@@ -1481,18 +1768,18 @@
 
     // Show a demo lineup behind the menu.
     function demoLineup() {
-      racers = [{ name: 'You', look: Potato.player, chars: 0, isPlayer: true, lane: 0 }]
+      racers = [{ name: 'You', look: myLook(), chars: 0, isPlayer: true, lane: 0 }]
         .concat(RIVALS.slice(0, 3).map((r, k) => ({ name: r.name, look: r, chars: 0, lane: k + 1 })));
       text = 'x';
     }
 
     Potato.onReady((p) => {
       demoLineup();
-      racers[0].look = p;
+      racers[0].look = myLook();
       racers[0].name = p.name;
     });
     // Handy for poking at the game from the browser console: TaterTyper.state
-    window.TaterTyper = { get state() { return { mode, gameMode, text, idx, racers, finishOrder, net }; } };
+    window.TaterTyper = { get state() { return { mode, gameMode, text, idx, racers, finishOrder, net, gap, xp, locker, paused }; }, setGap(v) { gap = v; }, startRace };
 
     demoLineup();
     resize();

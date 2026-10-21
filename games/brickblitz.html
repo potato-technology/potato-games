@@ -112,7 +112,7 @@
         <li><b>Launch</b> the ball with <kbd>Space</kbd> or a click. Hit it with the paddle's edges to aim sideways!</li>
         <li><b>Catch power-ups</b>: multi-ball, wide paddle, lasers (fire with <kbd>Space</kbd>), fireball, slow ball, sticky paddle, shield and extra lives. Dodge the grey ones!</li>
         <li>Break lots of bricks without touching the paddle for a <b>combo</b>. Blast <b>explosive bricks</b> for chain reactions!</li>
-        <li>Earn up to <b>3 stars</b> per level, catch <b>coins</b>, and spend them on upgrades, paddle skins and ball trails. <kbd>P</kbd> pauses.</li>
+        <li>Earn up to <b>3 stars</b> per level, catch <b>coins</b>, and spend them on upgrades, paddle skins and ball trails. <kbd>P</kbd> pauses, <kbd>M</kbd> mutes.</li>
       </ul>
       <div class="row">
         <button class="btn" id="play-btn">Play</button>
@@ -421,10 +421,10 @@
       { name: 'Moon Vault', map: [
         '$...........$',
         '.............',
-        '..###lll###..',
-        '..#$$$$$$$#..',
-        '..#$$$*$$$#..',
-        '..###lll###..',
+        '..##lllll##..',
+        '..l$$$$$$$l..',
+        '..l$$$*$$$l..',
+        '..##lllll##..',
         '.k.........k.',
         '.ttttt?ttttt.',
         '.bbbbbbbbbbb.',
@@ -455,13 +455,13 @@
         '...bbbbbbb...',
       ] },
       { name: 'Black Hole', map: [
-        '...#######...',
-        '..#vvvvvvv#..',
-        '.#vv33333vv#.',
+        '...#vvvvv#...',
+        '..vvvvvvvvv..',
+        '.vvv33333vvv.',
         '.#v33***33v#.',
-        '.#vv33333vv#.',
-        '..#vvvvvvv#..',
-        '...##...##...',
+        '.vvv33333vvv.',
+        '..vvvvvvvvv..',
+        '...#vvvvv#...',
         '.............',
         '~~~~.........',
       ] },
@@ -599,6 +599,15 @@
         '.............',
         'k...~~~~~...k',
       ] },
+    ];
+
+    // Star goals per level: [score, par seconds]. Measured with BrickBlitz.simLevel(n, 0.25), a wobbly
+    // kid-style autopilot that is late to the ball and misjudges bounces: most of its clears hit the
+    // score goal and beat par, so the hard star is keeping every ball.
+    const STAR_GOALS = [
+      [4300, 140], [5700, 205], [8700, 230], [4400, 145], [8600, 270], [4700, 170], [6500, 265], [7900, 185], [6500, 230], [7800, 280],
+      [4500, 135], [4400, 140], [4200, 135], [5000, 155], [6100, 150], [6200, 165], [5300, 215], [6100, 195], [6800, 185], [5700, 100],
+      [6600, 215], [7200, 150], [6100, 195], [9500, 200], [5900, 140], [6400, 155], [5100, 155], [3900, 100], [10400, 320], [10700, 295],
     ];
 
     // =====================================================================
@@ -744,6 +753,8 @@
       bonus: () => ok('bonus', 60) && tone(1047, 0.08, 'triangle', 0.05),
       fanfare: () => [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, 0.18, 'triangle', 0.08, i * 0.1)),
       firework: () => ok('fw', 90) && noise(0.25, 0.05, 1800),
+      whoosh: () => { noise(0.35, 0.04, 1400); [262, 330, 392].forEach((f, i) => tone(f, 0.12, 'triangle', 0.035, 0.12 + i * 0.07)); },
+      last: () => { tone(988, 0.08, 'square', 0.03); tone(1319, 0.3, 'triangle', 0.06, 0.06, 400); },
     };
 
     // =====================================================================
@@ -795,10 +806,11 @@
       const breakable = bricks.filter((b) => b.type !== 'metal');
       const pts = breakable.reduce((s, b) => s + b.pts, 0);
       const hits = breakable.reduce((s, b) => s + b.hp, 0);
+      const G = STAR_GOALS[n - 1];
       return {
         n, name: def.name, bricks, grid, groups,
-        target: Math.round((pts * 1.2 + 900) / 100) * 100,
-        par: Math.round(45 + hits * 2.1 + (bricks.some((b) => b.type === 'lock') ? 12 : 0) + (bricks.some((b) => b.type === 'metal') ? 10 : 0)),
+        target: G ? G[0] : Math.round((pts * 1.2 + 900) / 100) * 100,
+        par: G ? G[1] : Math.round(45 + hits * 2.1 + (bricks.some((b) => b.type === 'lock') ? 12 : 0) + (bricks.some((b) => b.type === 'metal') ? 10 : 0)),
         total: breakable.length,
       };
     }
@@ -821,7 +833,7 @@
         while (first < n && !mech.test(LEVELS[first - 1].map.join(''))) first++;
         if (first === n) return mech.tip;
       }
-      if (n === 1) return 'Break every brick to clear the level. Catch the falling power-ups!';
+      if (n === 1) return 'Break every brick to clear the level. In the first 3 levels a safety shield catches your first miss!';
       if (starsIn(n) === 3) return 'You already have all 3 stars here. Go for a new high score!';
       return WORLDS[worldOf(n)].tip;
     }
@@ -834,7 +846,7 @@
     let introLevel = 1;
     const keys = {};
     let pointer = { x: VW / 2, held: false, active: false };
-    let autopilot = false;
+    let autopilot = false, autoSkill = 1, simulating = false;
     let menuWorld = 0;
 
     const baseWidth = () => 96 + save.up.width * 12;
@@ -854,18 +866,25 @@
         coinsGot: 0, time: 0, started: false,
         fx: { wide: 0, tiny: 0, laser: 0, fire: 0, slow: 0, fast: 0, sticky: 0 },
         shield: 0, laserCD: 0, speedUp: 0,
-        baseSpeed: 335 + (n - 1) * 4.5,
+        // the ball starts a little slower in the first world and speeds up gently level by level
+        baseSpeed: 300 + (n - 1) * 5,
         remaining: L.total, keyOpen: false,
-        shake: 0, flash: 0, flashColor: '#fff', banner: null,
-        done: false, failed: false, endT: 0, bonusLeft: 0, bonusT: 0, fwT: 0,
+        shake: 0, flash: 0, flashColor: '#fff', banner: null, zoom: 0, slowmo: 0, danger: 0,
+        done: false, failed: false, endT: 0, bonusLeft: 0, bonusT: 0, fwT: 0, introT: BRICK_INTRO,
         tut: save.tutorial ? 0 : 1, tutT: 0, autoT: 0, sinceBreak: 0, homing: false, homingShown: false,
       };
+      // a free safety net in the first levels, and after a couple of tries on a tough one
+      const helper = n <= 3 || (failCount[n] || 0) >= 2;
+      if (helper) run.shield = 1;
       newBall();
       mode = 'play';
       menuWorld = worldOf(n);
       hideOverlays();
-      showBanner(`Level ${n}`, L.name, WORLDS[worldOf(n)].accent);
+      showBanner(`Level ${n}`, helper && n > 3 ? 'Helper shield is on. You can do it!' : L.name, WORLDS[worldOf(n)].accent);
+      sfx.whoosh();
     }
+    const BRICK_INTRO = 0.85;
+    const failCount = {};
 
     function newBall() {
       run.balls.push({ x: run.paddle.x, y: PAD_Y - BALL_R - 1, vx: 0, vy: 0, stuck: true, off: rand(-12, 12), trail: [], idle: 0, spin: 0 });
@@ -878,10 +897,12 @@
       return s;
     }
 
-    function launchStuck() {
+    function launchStuck(onlySticky) {
       let any = false;
+      if (run.introT > 0) return false;
       for (const b of run.balls) {
-        if (!b.stuck) continue;
+        if (!b.stuck || (onlySticky && !b.glued)) continue;
+        b.glued = false;
         const t = clamp(b.off / (run.paddle.w / 2), -1, 1);
         const a = t * 0.9 + (Math.abs(t) < 0.1 ? rand(-0.25, 0.25) : 0);
         const s = ballSpeed();
@@ -969,7 +990,7 @@
       const luck = save.up.luck;
       if (b.type === 'coin') for (let i = 0; i < 3; i++) spawnCoin(cx + rand(-14, 14), cy, rand(-50, 50), rand(-160, -60));
       else if (Math.random() < 0.07 + luck * 0.02) spawnCoin(cx, cy, rand(-30, 30), -80);
-      if (b.type === 'bonus') spawnCap(cx, cy, rollPower());
+      if (b.type === 'bonus') spawnCap(cx, cy, rollPower(true));
       else if (Math.random() < 0.1 + luck * 0.03) spawnCap(cx, cy, rollPower());
       if (b.type === 'bomb') run.booms.push({ x: cx, y: cy, t: 0.09 });
       if (b.type === 'key') unlockAll(cx, cy);
@@ -1004,9 +1025,10 @@
       }
     }
 
-    function rollPower() {
-      const luck = save.up.luck;
-      const list = Object.entries(POWERS).map(([id, p]) => [id, p.good ? p.w : p.w * (1 - luck * 0.25)]);
+    // "?" bricks only ever give good power-ups. Random drops can be grey ones, but rarely in the first world.
+    function rollPower(goodOnly) {
+      const luck = save.up.luck, early = run && run.n <= 10 ? (run.n <= 3 ? 0 : 0.5) : 1;
+      const list = Object.entries(POWERS).filter(([, p]) => p.good || !goodOnly).map(([id, p]) => [id, p.good ? p.w : p.w * early * (1 - luck * 0.25)]);
       let tot = list.reduce((s, [, w]) => s + w, 0), r = Math.random() * tot;
       for (const [id, w] of list) { r -= w; if (r <= 0) return id; }
       return 'multi';
@@ -1070,7 +1092,9 @@
       run.bonusLeft = run.lives; run.bonusT = 0.5;
       run.shake = Math.max(run.shake, 8);
       run.flash = 0.5; run.flashColor = '#ffffff';
-      sfx.fanfare();
+      run.slowmo = 0.55; run.zoom = 1;
+      sfx.last();
+      setTimeout(() => sfx.fanfare(), 260);
       for (const b of run.balls) burst(b.x, b.y, 18, ['#ffffff', '#3ef2ff', '#ff4fd8']);
       run.balls.length = 0;
       for (const c of run.coins) { run.coinsGot++; float(c.x, c.y, '+1', '#ffd93d', 14); }
@@ -1116,15 +1140,20 @@
       menuT += dt;
       if (mode !== 'play' || !run) return;
       const r = run, p = r.paddle, fx = r.fx;
+      // the final brick plays out in slow motion
+      if (r.slowmo > 0) { r.slowmo = Math.max(0, r.slowmo - dt); dt *= 0.3; }
+      r.zoom = Math.max(0, r.zoom - dt * 2.5);
+      if (r.introT > 0) r.introT = Math.max(0, r.introT - dt);
+      r.danger = r.lives === 1 && !r.done ? Math.min(1, r.danger + dt * 2) : Math.max(0, r.danger - dt * 2);
       if (!r.done && r.started) { r.time += dt; r.sinceBreak += dt; }
       // the last few bricks can be hard to reach: after a while the ball starts homing in on them
-      r.homing = !r.done && (r.homingShown || (r.remaining <= 4 && r.sinceBreak > 8));
+      r.homing = !r.done && (r.homingShown || (r.remaining <= 6 && r.sinceBreak > 6));
       if (r.homing && !r.homingShown) { r.homingShown = true; float(FX + FW / 2, 380, "Homing ball activated!", "#c6ff4d", 22, true); sfx.combo(); }
 
       // timers
       for (const k of TIMED) if (fx[k] > 0) {
         fx[k] = Math.max(0, fx[k] - dt);
-        if (fx[k] === 0 && k === 'sticky') launchStuck();
+        if (fx[k] === 0 && k === 'sticky') launchStuck(true);
       }
       r.laserCD = Math.max(0, r.laserCD - dt);
       r.shake = Math.max(0, r.shake - dt * 40);
@@ -1142,8 +1171,9 @@
       const left = keys.ArrowLeft || keys.KeyA, right = keys.ArrowRight || keys.KeyD;
       const ox = p.x;
       if (autopilot && !r.done) {
-        const tx = autoTarget();
-        p.x += clamp(tx - p.x, -1500 * dt, 1500 * dt);
+        const tx = autoSkill >= 1 ? autoTarget() : humanTarget(dt);
+        const vmax = autoSkill >= 1 ? 1500 : 650 + autoSkill * 650;
+        p.x += clamp(tx - p.x, -vmax * dt, vmax * dt);
         r.autoT += dt;
         if (r.autoT > 0.35 && r.balls.some((b) => b.stuck)) { r.autoT = 0; launchStuck(); }
         if (fx.laser > 0) fireLaser();
@@ -1300,6 +1330,7 @@
       const ns = cur + (want - cur) * Math.min(1, dt * 3);
       b.vx *= ns / cur; b.vy *= ns / cur;
       b.idle += dt;
+      if (b.squash) b.squash = Math.max(0, b.squash - dt * 6);
       if (b.idle > 9) { b.idle = 0; rotateVel(b, rand(-0.35, 0.35)); }
       b.spin += dt * (b.vx / 20);
       if (r.homing && b.vy < 0) homeIn(b, dt);
@@ -1383,7 +1414,7 @@
     }
 
     function wallHit(b, x, y) {
-      sfx.wall();
+      sfx.wall(); b.squash = 1;
       fixAngle(b);
       for (let i = 0; i < 3; i++) addPart({ k: 'spark', x, y, vx: rand(-60, 60), vy: rand(-60, 60), life: 0.2, max: 0.2, size: 1.8, color: WORLDS[worldOf(run.n)].accent2 });
     }
@@ -1398,12 +1429,12 @@
       fixAngle(b);
       b.y = PAD_Y - BALL_R;
       b.idle = 0;
-      p.squash = 1;
+      p.squash = 1; b.squash = 1;
       if (r.combo >= 3) float(b.x, PAD_Y - 24, `${r.combo} combo`, '#9ff9ff', 14);
       r.combo = 0;
       sfx.paddle();
       for (let i = 0; i < 4; i++) addPart({ k: 'spark', x: b.x, y: PAD_Y, vx: rand(-90, 90), vy: rand(-140, -40), life: 0.25, max: 0.25, size: 2, color: '#ffffff' });
-      if (r.fx.sticky > 0 && !r.done) { b.stuck = true; b.off = b.x - p.x; b.vx = 0; b.vy = 0; }
+      if (r.fx.sticky > 0 && !r.done) { b.stuck = true; b.glued = true; b.off = b.x - p.x; b.vx = 0; b.vy = 0; }
     }
 
     function brickAt(c, rr) {
@@ -1455,6 +1486,7 @@
       if (dot < 0) { b.vx -= 2 * dot * nx; b.vy -= 2 * dot * ny; }
       if (br.group) b.vx += br.group.dir * br.group.speed * 0.3 * Math.abs(nx);
       fixAngle(b);
+      b.squash = 1;
       hitBrick(br, b);
     }
 
@@ -1464,6 +1496,8 @@
       if (style === 'fire' && Math.random() < (fire ? 0.9 : 0.5)) addPart({ k: 'spark', x: b.x + rand(-3, 3), y: b.y + rand(-3, 3), vx: rand(-30, 30) - b.vx * 0.1, vy: rand(-30, 30) - b.vy * 0.1, life: rand(0.2, 0.45), max: 0.45, size: rand(1.5, 3), color: pick(['#ffd36b', '#ff8a3c', '#ff5a3c']) });
       else if (style === 'stars' && Math.random() < 0.4) addPart({ k: 'star', x: b.x + rand(-5, 5), y: b.y + rand(-5, 5), vx: rand(-20, 20), vy: rand(-20, 20), life: 0.6, max: 0.6, size: rand(2, 4), color: pick(['#ffffff', '#cfe0ff', '#ffe9a8']) });
       else if (style === 'gold' && Math.random() < 0.45) addPart({ k: 'spark', x: b.x, y: b.y, vx: rand(-50, 50), vy: rand(-50, 50), life: 0.4, max: 0.4, size: 2, color: '#ffd93d' });
+      // a big combo makes the ball crackle with energy
+      if (run.combo >= 10 && Math.random() < 0.5) addPart({ k: 'star', x: b.x + rand(-6, 6), y: b.y + rand(-6, 6), vx: rand(-40, 40) - b.vx * 0.15, vy: rand(-40, 40) - b.vy * 0.15, life: 0.35, max: 0.35, size: rand(2, 3.5), color: run.combo >= 20 ? '#ff4fd8' : '#ffd93d' });
     }
 
     function autoTarget() {
@@ -1485,6 +1519,43 @@
       let u = (x - lo) % (2 * span); if (u < 0) u += 2 * span;
       x = u > span ? lo + 2 * span - u : lo + u;
       return x + Math.sin(r.time * 1.7) * r.paddle.w * 0.32;
+    }
+    // A less-than-perfect autopilot for testing how hard levels feel for kids (autoSkill 0..1).
+    // It reacts late, misjudges where bouncing balls land, and only corrects as the ball gets close.
+    function humanTarget(dt) {
+      const r = run, A = r.auto || (r.auto = { think: 0, x: r.paddle.x, ball: null, err: 0, off: 0 });
+      A.think -= dt;
+      if (A.think > 0) return A.x;
+      A.think = 0.1 + (1 - autoSkill) * 0.16;
+      let best = null, bt = Infinity;
+      for (const b of r.balls) {
+        if (b.stuck || b.vy <= 0) continue;
+        const tt = (PAD_Y - BALL_R - b.y) / b.vy;
+        if (tt >= 0 && tt < bt) { bt = tt; best = b; }
+      }
+      if (!best) {
+        const cap = r.caps.find((c) => POWERS[c.type].good && c.y > 420 && Math.abs(c.x - r.paddle.x) < 160);
+        A.x = cap ? cap.x : A.x + (FX + FW / 2 - A.x) * 0.05;
+        A.ball = null;
+        return A.x;
+      }
+      let x = best.x + best.vx * bt;
+      const lo = FX + BALL_R, hi = FR - BALL_R, span = hi - lo;
+      let u = (x - lo) % (2 * span); if (u < 0) u += 2 * span;
+      x = u > span ? lo + 2 * span - u : lo + u;
+      if (A.ball !== best) {
+        // a new ball is coming down: pick how wrong our first guess is, and maybe look away for a moment
+        A.ball = best;
+        const travel = Math.abs(best.vx * bt);
+        A.err = (Math.random() * 2 - 1) * (1 - autoSkill) * (30 + travel * 0.45);
+        A.off = (Math.random() * 2 - 1) * r.paddle.w * 0.3;
+        if (Math.random() < (1 - autoSkill) * 0.3) A.think = 0.25 + Math.random() * 0.45 * (1 - autoSkill);
+      }
+      // weaker players chase where the ball IS more than where it WILL land
+      const guess = best.x + (x - best.x) * (0.25 + 0.75 * autoSkill);
+      const k = clamp(bt / 0.9, 0.12, 1);
+      A.x = guess + (x - guess) * (1 - k) + A.err * k + A.off;
+      return A.x;
     }
 
     // =====================================================================
@@ -1522,15 +1593,15 @@
         save.stars[r.n] = Math.max(prevStars, stars);
         save.cleared[r.n] = true;
         if (newBest) save.best[r.n] = r.score;
-      }
+        failCount[r.n] = 0;
+      } else if (!simulating) failCount[r.n] = (failCount[r.n] || 0) + 1;
       save.bestCombo = Math.max(save.bestCombo, r.bestCombo);
       const bonusCoins = r.failed ? 0 : 5 + stars * 5;
       save.coins += r.coinsGot + bonusCoins;
       save.tutorial = true;
       persist();
       const spuds = r.failed ? 1 + Math.floor(r.coinsGot / 15) : 3 + stars * 2 + Math.floor(r.coinsGot / 10) + (firstClear ? 2 : 0);
-      Potato.earn(spuds);
-      Potato.score(totalStars());
+      if (!simulating) { Potato.earn(spuds); Potato.score(totalStars()); }
 
       $('r-title').textContent = r.failed ? 'Out of balls!' : stars === 3 ? 'Perfect blitz!' : 'Level clear!';
       [...$('r-stars').children].forEach((s, i) => { s.className = i < stars ? 'on' : ''; });
@@ -1539,7 +1610,10 @@
       $('r-combo').textContent = String(r.bestCombo);
       $('r-coins').textContent = r.failed ? String(r.coinsGot) : `${r.coinsGot} + ${bonusCoins}`;
       const notes = [];
-      if (r.failed) notes.push(`Only ${r.remaining} brick${r.remaining === 1 ? '' : 's'} left!` + (r.coinsGot ? ` You keep the ${r.coinsGot} coin${r.coinsGot === 1 ? '' : 's'} you caught.` : ' Grab power-ups to help you out.'));
+      if (r.failed) {
+        notes.push(`Only ${r.remaining} brick${r.remaining === 1 ? '' : 's'} left!` + (r.coinsGot ? ` You keep the ${r.coinsGot} coin${r.coinsGot === 1 ? '' : 's'} you caught.` : ' Grab power-ups to help you out.'));
+        if ((failCount[r.n] || 0) >= 2 && r.n > 3) notes.push('Your next try starts with a helper shield!');
+      }
       else {
         if (newBest && prevBest) notes.push('New high score!');
         if (stars > prevStars && prevStars) notes.push(`+${stars - prevStars} new star${stars - prevStars > 1 ? 's' : ''}!`);
@@ -2295,10 +2369,18 @@
       ctx.fillStyle = rad(b.x, b.y, 0, BALL_R * 3.4, [[0, rgba(col, 0.55)], [1, 'rgba(0,0,0,0)']]);
       ctx.fillRect(b.x - BALL_R * 3.4, b.y - BALL_R * 3.4, BALL_R * 6.8, BALL_R * 6.8);
       ctx.restore();
-      ctx.fillStyle = fire ? rad(b.x - 2, b.y - 2, 0, BALL_R, [[0, '#ffffe0'], [0.5, '#ffc44a'], [1, '#ff4a1a']])
-        : rad(b.x - 2.5, b.y - 2.5, 0.5, BALL_R + 1, [[0, '#ffffff'], [0.55, '#eef6ff'], [1, shade(col, -20)]]);
-      ctx.beginPath(); ctx.arc(b.x, b.y, BALL_R, 0, TAU); ctx.fill();
+      // squash on bounces, stretch a little along the direction of travel
+      const sp = b.vx || b.vy ? Math.hypot(b.vx, b.vy) : 0, sq = b.squash || 0;
+      const st = clamp(sp / 2600, 0, 0.16);
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      if (sp > 0) ctx.rotate(Math.atan2(b.vy, b.vx));
+      ctx.scale(1 + st - sq * 0.26, 1 - st * 0.6 + sq * 0.2);
+      ctx.fillStyle = fire ? rad(-1, -2, 0, BALL_R, [[0, '#ffffe0'], [0.5, '#ffc44a'], [1, '#ff4a1a']])
+        : rad(-1.5, -2.5, 0.5, BALL_R + 1, [[0, '#ffffff'], [0.55, '#eef6ff'], [1, shade(col, -20)]]);
+      ctx.beginPath(); ctx.arc(0, 0, BALL_R, 0, TAU); ctx.fill();
       ctx.lineWidth = 1; ctx.strokeStyle = fire ? '#a02000' : 'rgba(30,40,80,0.5)'; ctx.stroke();
+      ctx.restore();
       circle(b.x - 2.4, b.y - 2.6, 2, 'rgba(255,255,255,0.95)');
     }
 
@@ -2326,18 +2408,29 @@
       ctx.restore();
     }
 
-    function drawBricks(t) {
+    // At the start of a level the bricks drop into place row by row with a little bounce.
+    function introDrop(b) {
       const r = run;
+      if (!r || r.introT <= 0) return [0, 1];
+      const delay = b.r * 0.045 + Math.abs(b.c - 6) * 0.018;
+      const k = clamp((BRICK_INTRO - r.introT - delay) / 0.38, 0, 1);
+      const e = k === 1 ? 1 : 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2);
+      return [-(1 - e) * (150 + b.r * 12), Math.min(1, k * 2.5)];
+    }
+    function drawBricks(t) {
+      const r = run, intro = r.introT > 0;
       // shadows
       ctx.fillStyle = 'rgba(0,0,0,0.38)';
       ctx.beginPath();
-      for (const b of r.bricks) if (b.alive) { if (ctx.roundRect) ctx.roundRect(b.x + 3, b.y + 5, b.w, b.h, 5); else ctx.rect(b.x + 3, b.y + 5, b.w, b.h); }
+      for (const b of r.bricks) if (b.alive) { const oy = intro ? introDrop(b)[0] : 0; if (ctx.roundRect) ctx.roundRect(b.x + 3, b.y + 5 + oy * 0.6, b.w, b.h, 5); else ctx.rect(b.x + 3, b.y + 5 + oy * 0.6, b.w, b.h); }
       ctx.fill();
-      // glows
-      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.28;
+      // glows (they breathe softly)
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
       for (const b of r.bricks) if (b.alive && b.type !== 'metal' && !(b.type === 'lock' && b.locked)) {
+        const [oy, a] = intro ? introDrop(b) : [0, 1];
+        ctx.globalAlpha = (0.22 + 0.08 * Math.sin(t * 2.2 + b.c * 0.6 + b.r * 0.9)) * a;
         const g = glowSprite(brickColor(b));
-        ctx.drawImage(g, b.x - SP, b.y - SP, b.w + SP * 2, b.h + SP * 2);
+        ctx.drawImage(g, b.x - SP, b.y - SP + oy, b.w + SP * 2, b.h + SP * 2);
       }
       ctx.restore();
       for (const b of r.bricks) {
@@ -2345,6 +2438,14 @@
         const s = brickSprite(b);
         const sx = b.shakeT > 0 ? Math.sin(b.shakeT * 70) * 2 : 0;
         const pop = b.hitT > 0 ? 1 + b.hitT * 0.5 : 1;
+        if (intro) {
+          const [oy, a] = introDrop(b);
+          if (a <= 0) continue;
+          ctx.globalAlpha = a;
+          ctx.drawImage(s, b.x - SP, b.y - SP + oy, b.w + SP * 2, b.h + SP * 2);
+          ctx.globalAlpha = 1;
+          continue;
+        }
         if (pop !== 1) {
           ctx.save(); ctx.translate(b.x + b.w / 2, b.y + b.h / 2); ctx.scale(pop, pop);
           ctx.drawImage(s, -b.w / 2 - SP, -b.h / 2 - SP, b.w + SP * 2, b.h + SP * 2);
@@ -2548,7 +2649,7 @@
       hudLabel('BEST STARS', cx, 534);
       const st = starsIn(r.n);
       for (let i = 0; i < 3; i++) drawStar(cx - 26 + i * 26, 560, 10, i < st);
-      text('P = pause', cx, 600, 11, 'rgba(200,190,240,0.5)', 'center', 800, FONT_B);
+      text('P pause · M mute', cx, 600, 11, 'rgba(200,190,240,0.5)', 'center', 800, FONT_B);
 
       // ---------- right panel ----------
       panel(834, 16, 152, 608, W0.accent);
@@ -2625,6 +2726,13 @@
         ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 5);
         text(r.fx.sticky > 0 ? 'Click or Space to release' : 'Click or Space to launch', FX + FW / 2, 520, 15, '#ffffff', 'center', 800, FONT_B);
         ctx.globalAlpha = 1;
+      }
+      // last ball: the floor glows red so you know to be careful
+      if (r.danger > 0 && r.shield <= 0) {
+        const a = r.danger * (0.22 + 0.12 * Math.sin(t * 5));
+        ctx.fillStyle = lin(0, VH - 70, 0, VH, [[0, 'rgba(255,40,80,0)'], [1, `rgba(255,40,80,${a})`]]);
+        ctx.fillRect(FX, VH - 70, FW, 70);
+        if (r.balls.some((b) => b.stuck) && !r.done && r.introT <= 0) text('LAST BALL!', FX + FW / 2, VH - 18, 13, `rgba(255,170,190,${0.5 + 0.4 * Math.sin(t * 5)})`, 'center', 900, FONT_B);
       }
       if (r.flash > 0) { ctx.globalAlpha = Math.min(0.45, r.flash); ctx.fillStyle = r.flashColor; ctx.fillRect(0, 0, VW, VH); ctx.globalAlpha = 1; }
     }
@@ -2717,6 +2825,11 @@
       if (run) {
         ctx.save();
         if (run.shake > 0) ctx.translate((Math.random() - 0.5) * run.shake, (Math.random() - 0.5) * run.shake);
+        if (run.zoom > 0) {
+          // a quick zoom punch when the last brick breaks
+          const z = 1 + 0.045 * Math.sin(Math.min(1, run.zoom) * Math.PI * 0.5);
+          ctx.translate(FX + FW / 2, 300); ctx.scale(z, z); ctx.translate(-(FX + FW / 2), -300);
+        }
         drawWorld(t);
         ctx.restore();
         drawHud(t);
@@ -2749,6 +2862,21 @@
       showMap, showShop, finishLevel,
       get autopilot() { return autopilot; },
       set autopilot(v) { autopilot = !!v; },
+      get autoSkill() { return autoSkill; },
+      set autoSkill(v) { autoSkill = clamp(Number(v) || 0, 0, 1); },
+      // play a level to the end without drawing; returns what happened (handy for tuning)
+      simLevel(n, skill = 0.5, maxT = 400) {
+        const prevA = autopilot, prevS = autoSkill, prevD = this.noDraw, snap = JSON.stringify(save);
+        autopilot = true; autoSkill = clamp(skill, 0, 1); this.noDraw = true; simulating = true;
+        startLevel(clamp(n | 0, 1, NUM_LEVELS));
+        const r = run;
+        let t = 0;
+        while (mode === 'play' && run === r && t < maxT) { update(1 / 60); t += 1 / 60; }
+        const out = { n, cleared: !r.failed && r.done, lost: r.lost, score: r.score, time: r.time, target: r.L.target, par: r.L.par, left: r.remaining, stars: mode === 'results' ? goalsFor(r) : null, timeout: t >= maxT };
+        autopilot = prevA; autoSkill = prevS; this.noDraw = prevD; simulating = false;
+        save = JSON.parse(snap); persist();
+        return out;
+      },
       give(type) { if (run && POWERS[type]) applyPower(type); },
       clearBricks(leave = 0) {
         if (!run) return;

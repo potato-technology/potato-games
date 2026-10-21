@@ -53,11 +53,15 @@ const CONFIG = {
     boostAccelMul: 1.9,  // nitro acceleration
   },
 
-  // Steering sensitivity you can pick on the title screen or pause menu. 'normal' matches the truck settings above.
+  // Steering sensitivity you can pick on the title screen or pause menu.
+  //   yawCap     = the fastest the truck can turn (radians per second) at any speed, so turns feel the same slow or fast
+  //   stability  = how firmly the truck follows the wheels in normal driving (the back end won't step out by itself)
+  //   gripAssist = how quickly sideways sliding settles down when you aren't drifting
+  // (Holding Space turns the assists off, so you can still kick the truck into a drift.)
   steering: {
-    low: { steerLow: 0.44, steerHigh: 0.11, steerIn: 2.8 },
-    normal: { steerLow: 0.5, steerHigh: 0.14, steerIn: 3.5 },
-    high: { steerLow: 0.6, steerHigh: 0.19, steerIn: 5.5 },
+    low: { steerLow: 0.44, steerHigh: 0.11, steerIn: 2.6, steerOut: 8, yawCap: 1.25, stability: 6, gripAssist: 3 },
+    normal: { steerLow: 0.5, steerHigh: 0.14, steerIn: 3.2, steerOut: 9, yawCap: 1.5, stability: 6, gripAssist: 3 },
+    high: { steerLow: 0.6, steerHigh: 0.19, steerIn: 4.5, steerOut: 10, yawCap: 1.8, stability: 6, gripAssist: 3 },
   },
 
   // ---------- drifting and nitro ----------
@@ -142,6 +146,7 @@ const CONFIG = {
 
   // ---------- jobs and money ----------
   shiftSeconds: 240,
+  shiftStars: [500, 1200, 2000], // shift money for 1, 2 and 3 stars
   rewardBase: 260,          // starting value of a call
   rewardPerDistance: 0.06,  // farther calls are worth more
   rewardDecayPerSec: 7,     // the value drops every second you take

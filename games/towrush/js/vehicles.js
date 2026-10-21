@@ -90,10 +90,14 @@ const Vehicles = (() => {
       const vy = -t.vx * sin + t.vy * cos;   // sideways speed (+ = to the right)
       const sp = Math.abs(vx);
       const beta = Math.atan2(vy, Math.max(sp, 1));
-      const sliding = Math.abs(beta) > 0.2 && sp > 80;
+      // (With the stability assist on, the extra countersteer lock is only for handbrake slides.)
+      const sliding = Math.abs(beta) > 0.2 && sp > 80 && (!T.stability || input.handbrake);
 
       // Less steering at high speed so the truck isn't twitchy, more while sliding so you can countersteer.
-      const steerMax = T.steerLow + (T.steerHigh - T.steerLow) * clamp(sp / T.maxSpeed, 0, 1);
+      let steerMax = T.steerLow + (T.steerHigh - T.steerLow) * clamp(sp / T.maxSpeed, 0, 1);
+      // Never let the wheel turn the truck faster than yawCap (radians per second), at any speed,
+      // so a turn feels the same whether you're crawling or flying.
+      if (T.yawCap) steerMax = Math.min(steerMax, Math.atan((L * T.yawCap) / Math.max(sp, 30)));
       const delta = t.steer * (sliding ? Math.max(steerMax, T.steerDrift) : steerMax);
 
       // engine and brakes
@@ -136,6 +140,8 @@ const Vehicles = (() => {
         fy = -vy * 10; // reversing: just keep it from sliding
         torque = 0;
       }
+      // At low speed (and in reverse) the truck simply goes where the wheels point.
+      const kin = vx < 0 ? 1 : clamp(1 - (sp - 60) / 80, 0, 1);
       t.vx += (fx * cos - fy * sin) * h;
       t.vy += (fx * sin + fy * cos) * h;
       t.yaw += (torque / T.inertia) * h;
@@ -144,8 +150,18 @@ const Vehicles = (() => {
       const excess = Math.max(0, Math.abs(beta) - 0.6);
       if (excess > 0 && Math.sign(t.yaw) === Math.sign(beta)) t.yaw *= Math.exp(-T.driftAssist * excess * h * 10);
 
-      // At low speed (and in reverse) the truck simply goes where the wheels point.
-      const kin = vx < 0 ? 1 : clamp(1 - (sp - 60) / 80, 0, 1);
+      // Stability assist: in normal driving the truck turns the way the wheels point and the back end
+      // doesn't step out by itself, so steering is smooth and predictable. Holding the handbrake turns
+      // it off, so Space still kicks the truck into a drift.
+      if (T.stability && !input.handbrake && vx > 0) {
+        const yawK = (vx * Math.tan(delta)) / L;
+        t.yaw += (yawK - t.yaw) * (1 - Math.exp(-T.stability * h));
+        const lat = -t.vx * sin + t.vy * cos;
+        const d = lat * (1 - Math.exp(-T.gripAssist * h));
+        t.vx += sin * d;
+        t.vy -= cos * d;
+      }
+
       if (kin > 0) {
         const yawK = (vx * Math.tan(delta)) / L;
         t.yaw += (yawK - t.yaw) * Math.min(1, kin * 20 * h);

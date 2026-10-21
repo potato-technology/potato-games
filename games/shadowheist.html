@@ -218,6 +218,27 @@
     const FAR = 8.5 * T, FAR_HALF = 0.85;       // how far guards can see you in lamp light
     const CAM_RANGE = 5.4 * T, CAM_HALF = 0.36;
     const NOISE = { step: 2.4 * T, coin: 6 * T, plate: 9 * T };
+    // Difficulty curve. Each heist has a "heat" from 0 (gentle) to 1 (the toughest).
+    // Every building starts a little easier than the end of the one before it,
+    // so new tricks (keycards, lasers, vaults) get introduced at a calm pace.
+    const HEAT = [0, 0.08, 0.16, 0.24, 0.32, 0.26, 0.34, 0.42, 0.5, 0.58, 0.44, 0.52, 0.6, 0.64, 0.72];
+    function tuneFor(n) {
+      const h = HEAT[n - 1] ?? 0.5;
+      return {
+        h,
+        sight: 0.5 + 0.5 * h,           // how fast a flashlight beam fills the "?" meter
+        far: 0.35 + 0.65 * h,           // how fast guards notice you standing in lamp light
+        farR: FAR * (0.6 + 0.4 * h),    // how far that lamp-light spotting reaches
+        beam: 0.82 + 0.18 * h,          // flashlight length
+        cool: 0.2 * (1.8 - 0.8 * h),    // how fast guards forget a glimpse
+        alert: 0.55 + 0.6 * (1 - h),    // "Hey!" pause before the chase starts
+        chase: SPEED.chase * (0.82 + 0.18 * h),
+        lose: 2.2 * (0.6 + 0.4 * h),    // how quickly a chasing guard loses you
+        cam: 0.55 + 0.45 * h,
+        step: 0.6 + 0.4 * h,            // running footstep noise
+        laserOn: 0.75 + 0.25 * h, laserOff: 1.45 - 0.45 * h,
+      };
+    }
 
     const BUILDINGS = [
       { name: 'Grand Museum', color: '#ffd27a', icon: '🏛️', tip: 'Stay out of the flashlight beams. Shadows are your friends!', dark: [10, 12, 32], floor: 'marble' },
@@ -407,7 +428,7 @@
         '#......b.................c.........#',
         '#..^^.......P.....*.....P.....^^...#',
         '#......................d...........#',
-        '####.###########8######.############',
+        '####.###########8######+############',
         '#.K.....#.....:.........#..........#',
         '#.......#..L......f.....|....L..E..#',
         '#..:....#...............#..........#',
@@ -437,10 +458,10 @@
         '#...#..F..#..F..#..F..#.$F..#..K...#',
         '#...#.:...#..$..#.....#.....#....F.#',
         '#...###.#####.#####|#####.#####.####',
-        '#......a.....~.........~.....b.....#',
+        '#......a.....~....b....~...........#',
         '#............~.........~...........#',
         '#......c.....~...*.....~.....d.....#',
-        '#####.####.####8###########.########',
+        '#####+####.####8###########+########',
         '#....:#...........#.......#....$...#',
         '#.K...#....e......#...T...|...f....#',
         '#.....#.....L.....#.......#.....E..#',
@@ -473,22 +494,22 @@
         '#...........c..........^^........d...#',
         '#..:...........*.....^^.......*....K.#',
         '#.......e.......................f...E#',
-        '####|#####.##8########################',
+        '####|#####+##8########################',
         '#......#....K.....#........#.........#',
         '#..$...#...L...g..~..Q.....V....T....4',
         '#.....$#..........#........#......:..#',
         '######################################'] },
-      { name: 'The Grand Vault', treasure: ["The Great Cat's Eye", 'orb', '#ffe14a'], guards: ['a:SE', 'bh', 'c:WS', 'de', 'f:EN', 'g:WN'], laser: [1.8, 1.6],
+      { name: 'The Grand Vault', treasure: ["The Great Cat's Eye", 'orb', '#ffe14a'], guards: ['a:NS', 'bh', 'c:WS', 'de', 'f:ES', 'g:WS'], laser: [1.8, 1.6],
         tip: 'Two consoles must be hacked to open the Grand Vault. You can do it, master thief!', map: [
         '#####################2##################',
         '#@..#.........#..............#.........#',
         '#...#..Q......#..*.......*.h.|.....K...#',
         '#...#.........#..............#.........#',
-        '#.,.#..a......#.....b........#..c......#',
+        '#.,.#.......a.#.....b........#..c......#',
         '#.,.#...$.....#..............#.......$.#',
         '#...####.######~~~~~~#.##############.##',
-        '#......................................#',
-        '#..^^.........d.......*.......e.....^^.#',
+        '#.....+..............................+.#',
+        '#..^^.........d...............e.....^^.#',
         '#.......*.....................*........#',
         '#...###.##8##########V###8#####|########',
         '#...#......#..................#........#',
@@ -663,7 +684,7 @@
     function parseLevel(n) {
       const def = LEVELS[n - 1], rows = def.map;
       const h = rows.length, w = Math.max(...rows.map((r) => r.length));
-      const L = { n, def, w, h, bld: bldOf(n), t: new Uint8Array(w * h), open: new Uint8Array(w * h), lamps: [], loot: [], keys: [], cams: [], laserTiles: [], lasers: [], plates: new Map(), checkpoints: [], consoles: [], doors: [], vaults: [], wps: {}, start: null, exit: null, treasure: null };
+      const L = { n, def, w, h, bld: bldOf(n), tune: tuneFor(n), t: new Uint8Array(w * h), open: new Uint8Array(w * h), lamps: [], loot: [], keys: [], cams: [], laserTiles: [], lasers: [], plates: new Map(), checkpoints: [], consoles: [], doors: [], vaults: [], wps: {}, start: null, exit: null, treasure: null };
       const ctr = (tx, ty) => ({ tx, ty, x: tx * T + T / 2, y: ty * T + T / 2 });
       for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
         const ch = rows[y][x] || '#', i = y * w + x;
@@ -982,7 +1003,7 @@
         x: r0.x, y: r0.y, ang, want: ang, baseAng: ang,
         wp: post ? 0 : 1 % route.length, path: [], state: post ? 'post' : 'patrol',
         timer: 0, lookI: 0, susp: 0, lastSeen: null, seeing: false, lostT: 0, repath: 0, fast: false,
-        step: Math.random() * 6, moving: false, beam: BEAM * [0.92, 1, 1.07][L.bld], pop: 0, cone: null, coneVis: 1,
+        step: Math.random() * 6, moving: false, beam: BEAM * [0.92, 1, 1.07][L.bld] * L.tune.beam, pop: 0, cone: null, coneVis: 1,
       };
     }
 
@@ -1139,11 +1160,14 @@
         p.stepT += dt;
         if (p.stepT > 0.3) {
           p.stepT = 0;
-          const rad = NOISE.step * (has('shoes') ? 0.5 : 1) * (tile === TL.RUG ? 0.6 : 1);
+          const rad = NOISE.step * L.tune.step * (has('shoes') ? 0.5 : 1) * (tile === TL.RUG ? 0.6 : 1);
           makeNoise(p.x, p.y, rad, 'step');
           ring(p.x, p.y + 8, rad, 'rgba(200,210,255,0.22)', 0.5);
           sfx.step();
           addPart({ type: 'dust', x: p.x + rand(-5, 5), y: p.y + 10, vx: rand(-15, 15), vy: rand(-12, 2), life: 0.4, max: 0.4, size: rand(3, 5) });
+          p.foot = -(p.foot || 1);
+          const px = -Math.sin(p.ang) * 5 * p.foot, py = Math.cos(p.ang) * 5 * p.foot;
+          addPart({ type: 'paw', x: p.x + px, y: p.y + 8 + py, vx: 0, vy: 0, life: 1.8, max: 1.8, size: 1, ang: p.ang });
         }
       } else p.stepT = 0.2;
     }
@@ -1241,7 +1265,7 @@
     function spotted(g) {
       const r = run;
       g.state = 'alert';
-      g.timer = 0.55;
+      g.timer = r.L.tune.alert;
       g.susp = 1;
       g.pop = 1;
       g.lostT = 0;
@@ -1253,16 +1277,16 @@
     }
     function guardSight(g) {
       const r = run, L = r.L, p = r.p;
-      if (debugInvisible || p.inSmoke || r.caughtT > 0) return 0;
+      if (debugInvisible || p.inSmoke || r.caughtT > 0 || r.grace > 0) return 0;
       const dx = p.x - g.x, dy = p.y - g.y, d = Math.hypot(dx, dy);
       if (d < 0.85 * T) return 3.5;
       const off = Math.abs(angDiff(g.ang, Math.atan2(dy, dx))), pad = Math.atan2(PR, Math.max(d, 1));
       let rate = 0;
       if (d <= g.beam && off <= BEAM_HALF + pad && losClear(L, g.x, g.y, p.x, p.y, r.clouds)) {
-        rate = 1.3 * (d < 1.7 * T ? 1.8 : 1 - 0.35 * (d / g.beam)) * (p.sneak ? 0.65 : 1);
+        rate = 1.3 * L.tune.sight * (d < 1.7 * T ? 1.8 : 1 - 0.35 * (d / g.beam)) * (p.sneak ? 0.65 : 1);
         if (p.nook) rate = p.sneak || p.still ? 0 : rate * 0.5;
       }
-      if (!rate && p.lit && d <= FAR && off <= FAR_HALF && losClear(L, g.x, g.y, p.x, p.y, r.clouds)) rate = 0.8 * (p.sneak ? 0.7 : 1) * (p.still ? 0.75 : 1);
+      if (!rate && p.lit && d <= L.tune.farR && off <= FAR_HALF && losClear(L, g.x, g.y, p.x, p.y, r.clouds)) rate = 0.8 * L.tune.far * (p.sneak ? 0.7 : 1) * (p.still ? 0.75 : 1);
       return rate;
     }
     function updateGuard(g, dt) {
@@ -1272,7 +1296,7 @@
       const rate = r.demo || g.state === 'blind' ? 0 : guardSight(g);
       g.seeing = rate > 0;
       if (g.seeing) { g.susp = Math.min(1, g.susp + rate * dt); g.lastSeen = { x: p.x, y: p.y }; }
-      else if (g.state !== 'chase' && g.state !== 'alert') g.susp = Math.max(0, g.susp - dt * (g.state === 'investigate' || g.state === 'search' ? 0.07 : 0.2));
+      else if (g.state !== 'chase' && g.state !== 'alert') g.susp = Math.max(0, g.susp - dt * (g.state === 'investigate' || g.state === 'search' ? 0.07 : r.L.tune.cool));
       if (g.susp >= 1 && g.state !== 'chase' && g.state !== 'alert') spotted(g);
       else if (g.seeing && g.susp > 0.2 && ['patrol', 'post', 'wait', 'return', 'search'].includes(g.state)) { g.state = 'suspicious'; g.timer = 0; g.pop = 1; sfx.huh(); }
       // walk into smoke = coughing fit
@@ -1323,10 +1347,10 @@
           g.repath -= dt;
           if (g.seeing) g.lostT = 0; else g.lostT += dt;
           if (g.repath <= 0) { g.repath = 0.3; g.path = pathTo(g, g.seeing ? p : g.lastSeen || p); }
-          follow(g, SPEED.chase * (has('turbo') ? 1.05 : 1), dt);
+          follow(g, r.L.tune.chase * (has('turbo') ? 1.05 : 1), dt);
           if (g.seeing && Math.hypot(p.x - g.x, p.y - g.y) < 1.6 * T) g.want = Math.atan2(p.y - g.y, p.x - g.x);
           if (Math.hypot(p.x - g.x, p.y - g.y) < PR + 14 && !p.inSmoke && !debugInvisible) caught(g);
-          else if (g.lostT > 2.2) { g.susp = 0.6; investigate(g, g.lastSeen || p, false); float(g.x, g.y - 50, 'Where did it go?', '#ffe08a', 16); }
+          else if (g.lostT > r.L.tune.lose) { g.susp = 0.6; investigate(g, g.lastSeen || p, false); float(g.x, g.y - 50, 'Where did it go?', '#ffe08a', 16); }
           break;
         }
         case 'blind':
@@ -1356,7 +1380,10 @@
       r.clouds.length = 0;
       r.thrown.length = 0;
       r.alarmT = 0;
-      prompt('Back at your checkpoint. Try another way!');
+      r.grace = 2;
+      const tips = ['Tip: throw a coin (E or right-click) to lure a guard away!', 'Tip: hold Shift to sneak. Guards hear running feet!', 'Tip: stand still in a purple nook and guards walk right past.', 'Tip: watch the beams and go when a guard turns away.'];
+      if (r.caught >= 2) { r.prompt = tips[(r.caught - 2) % tips.length]; r.promptT = 4.5; }
+      else prompt('Back at your checkpoint. Try another way!');
     }
 
     // =====================================================================
@@ -1369,14 +1396,14 @@
         c.cool = Math.max(0, (c.cool || 0) - dt);
         c.susp = c.susp || 0;
         let sees = false;
-        if (!r.demo && !debugInvisible && !p.hidden && c.cool <= 0 && r.caughtT <= 0) {
+        if (!r.demo && !debugInvisible && !p.hidden && c.cool <= 0 && r.caughtT <= 0 && !(r.grace > 0)) {
           const dx = p.x - c.x, dy = p.y - c.y, d = Math.hypot(dx, dy);
           const off = Math.abs(angDiff(c.ang ?? c.base, Math.atan2(dy, dx)));
           sees = d <= CAM_RANGE && off <= CAM_HALF + Math.atan2(PR, Math.max(1, d)) && losClear(L, c.x, c.y, p.x, p.y, r.clouds);
         }
         c.seeing = sees;
         if (sees) {
-          c.susp += dt * 1.3 * (p.lit ? 1.25 : 0.8) * (p.sneak ? 0.7 : 1);
+          c.susp += dt * 1.3 * L.tune.cam * (p.lit ? 1.25 : 0.8) * (p.sneak ? 0.7 : 1);
           const want = Math.atan2(p.y - c.y, p.x - c.x);
           c.ang = (c.ang ?? c.base) + clamp(angDiff(c.ang ?? c.base, want), -2 * dt, 2 * dt);
           if (ok('cambeep' + c.tx, 250)) tone(1800, 0.04, 'square', 0.02);
@@ -1389,16 +1416,17 @@
       }
     }
     function updateLasers(dt) {
-      const r = run, L = r.L, p = r.p, [on, off] = L.def.laser || [2.2, 1.7];
+      const r = run, L = r.L, p = r.p, [on0, off0] = L.def.laser || [2.2, 1.7], on = on0 * L.tune.laserOn, off = off0 * L.tune.laserOff;
       const ti = Math.floor(p.y / T) * L.w + Math.floor(p.x / T);
       for (const g of L.lasers) {
         const ph = (r.clock + g.phase) % (on + off);
         const was = g.on;
+        g.onT = on; g.offT = off;
         g.on = ph < on;
         g.warn = !g.on && ph > on + off - 0.55;
         g.cool = Math.max(0, g.cool - dt);
         if (!r.demo && g.on && !was && g.tiles.has(ti)) g.cool = Math.max(g.cool, 0.35); // grace when it switches on under you
-        if (!r.demo && !debugInvisible && g.on && g.cool <= 0 && g.tiles.has(ti) && r.caughtT <= 0) {
+        if (!r.demo && !debugInvisible && g.on && g.cool <= 0 && g.tiles.has(ti) && r.caughtT <= 0 && !(r.grace > 0)) {
           g.cool = 3;
           sfx.zap();
           r.flash = 0.3;
@@ -1450,6 +1478,7 @@
         return;
       }
       r.time += dt;
+      r.grace = Math.max(0, (r.grace || 0) - dt);
       r.clock += dt;
       const L = r.L, p = r.p;
       updatePlayer(dt);
@@ -2538,7 +2567,8 @@
         if (a.g) { if (vis(a.g.x, a.g.y)) drawGuard(a.g, time); }
         else {
           const fadeIn = r.caughtT > 0 ? clamp(Math.abs(r.caughtT - 0.95) * 2, 0, 1) : 1;
-          drawCat(p.x, p.y, p.face, p.walk, p.moving, p.sneak, outfit(), mask(), (p.hidden ? 0.55 : 1) * fadeIn);
+          const blink = r.grace > 0 ? 0.45 + 0.4 * Math.abs(Math.sin(time * 10)) : 1;
+          drawCat(p.x, p.y, p.face, p.walk, p.moving, p.sneak, outfit(), mask(), (p.hidden ? 0.55 : 1) * fadeIn * blink);
         }
       }
       // coins in flight
@@ -2584,6 +2614,13 @@
         const a = clamp(q.life / q.max, 0, 1);
         if (q.type === 'smoke') { if (top) continue; ctx.fillStyle = `rgba(190,195,215,${a * 0.55})`; ctx.beginPath(); ctx.arc(q.x, q.y, q.size, 0, TAU); ctx.fill(); }
         else if (q.type === 'dust') { if (top) continue; ctx.fillStyle = `rgba(220,210,200,${a * 0.4})`; ctx.beginPath(); ctx.arc(q.x, q.y, q.size, 0, TAU); ctx.fill(); }
+        else if (q.type === 'paw') {
+          if (top) continue;
+          ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.ang + Math.PI / 2); ctx.globalAlpha = Math.min(1, a * 1.6) * 0.5;
+          ellipse(0, 1.5, 3.4, 2.8, '#4a3c78');
+          for (const tx of [-3, 0, 3]) circle(tx, -2.8 - (tx ? 0 : 0.8), 1.3, '#4a3c78');
+          ctx.restore();
+        }
         else if (q.type === 'spark') { if (!top) continue; ctx.globalAlpha = a; sparkle4(q.x, q.y, q.size * 1.5, q.color); ctx.globalAlpha = 1; }
         else if (q.type === 'twinkle') { if (!top) continue; ctx.globalAlpha = Math.sin(a * Math.PI); sparkle4(q.x, q.y, q.size, q.color); ctx.globalAlpha = 1; }
         else if (q.type === 'confetti') { if (!top) continue; ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.rot); ctx.fillStyle = q.color; ctx.globalAlpha = a; ctx.fillRect(-4, -2.5, 8, 5); ctx.restore(); }
@@ -2726,6 +2763,27 @@
       }
       if (r.flash > 0) { ctx.fillStyle = `rgba(255,70,80,${r.flash * 0.5})`; ctx.fillRect(0, 0, viewW, viewH); }
       if (r.demo) return;
+
+      // a little arrow at the screen edge pointing to the goal (treasure, then the exit)
+      if (!r.done && r.caughtT <= 0) {
+        const goal = r.hasT ? L.exit : L.treasure, [gox, goy] = camXY(r);
+        const sx = goal.x + gox, sy = goal.y + goy, m0 = 34, top = 108, bot = viewH - (r.tut >= 0 && r.tut < TUT.length ? 100 : 40);
+        if (sx < m0 || sx > viewW - m0 || sy < top || sy > bot) {
+          const cx0 = viewW / 2, cy0 = (top + bot) / 2, dx = sx - cx0, dy = sy - cy0;
+          const k = Math.min((viewW / 2 - m0) / Math.max(1e-3, Math.abs(dx)), ((bot - top) / 2) / Math.max(1e-3, Math.abs(dy)));
+          const ax = cx0 + dx * k, ay = cy0 + dy * k, ang = Math.atan2(dy, dx), col = r.hasT ? '#6dffb0' : L.def.treasure[2];
+          const bob = Math.sin(time * 6) * 3;
+          ctx.save();
+          ctx.translate(ax - Math.cos(ang) * bob, ay - Math.sin(ang) * bob);
+          ctx.globalAlpha = 0.92;
+          circle(0, 0, 17, 'rgba(14,11,32,0.82)');
+          ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 17, 0, TAU); ctx.stroke();
+          ctx.save(); ctx.rotate(ang); ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(26, 0); ctx.lineTo(17, -7); ctx.lineTo(17, 7); ctx.closePath(); ctx.fill(); ctx.restore();
+          if (r.hasT) label('EXIT', 0, 1, 9.5, col, 'center', 900);
+          else drawTreasure(L.def.treasure[1], col, 0, 3, 0.42, time);
+          ctx.restore();
+        }
+      }
 
       // level panel
       panel(12, 12, 318, 70);
@@ -3139,12 +3197,12 @@
       ctx.setTransform(dpr * view.s, 0, 0, dpr * view.s, 0, 0);
       if (run) { drawWorld(time); ctx.setTransform(dpr * view.s, 0, 0, dpr * view.s, 0, 0); drawHud(time); }
     }
-    let last = performance.now(), skipDraw = false;
+    let last = performance.now(), skipDraw = false, manualStep = false;
     function loop(now) {
       requestAnimationFrame(loop);
       const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
       last = now;
-      if (run && (mode === 'play' || run.demo)) update(dt);
+      if (run && !manualStep && (mode === 'play' || run.demo)) update(dt);
       if (!skipDraw) frame(now / 1000);
     }
 
@@ -3155,6 +3213,10 @@
       verifyLevels: () => LEVELS.map((_, i) => verifyLevel(i + 1)),
       setInvisible(b) { debugInvisible = !!b; },
       skipDrawing(b) { skipDraw = !!b; },
+      manual(b) { manualStep = !!b; },
+      render(t) { frame(t ?? performance.now() / 1000); },
+      step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) update(dt); },
+      sight: (g) => guardSight(g),
       teleport(tx, ty) { if (run) { run.p.x = tx * T + T / 2; run.p.y = ty * T + T / 2; run.p.path = null; } },
       walkTo(tx, ty) { if (run && !run.demo) walkTo(tx * T + T / 2, ty * T + T / 2); },
       throwCoin(tx, ty) { if (run && !run.demo) throwCoin(tx * T + T / 2, ty * T + T / 2); },

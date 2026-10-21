@@ -103,6 +103,7 @@
         <li><b>Watch the grill!</b> A green check means it's cooked. Leave it too long and it <b>burns</b>.</li>
         <li><b>Serve it:</b> grab the finished plate (or fries, or soda) and click the customer.</li>
         <li><b>Combos:</b> serve people back-to-back while they're happy to multiply your tips.</li>
+        <li><b>Keys:</b> <b>P</b> pauses, <b>M</b> mutes, <b>Esc</b> drops what you're holding.</li>
         <li><b>Earn 3 stars</b> each day, then spend your cash and stars on a better kitchen and a fancier diner.</li>
       </ul>
       <div class="row">
@@ -162,6 +163,19 @@
     </div>
   </div>
 
+  <div class="overlay" id="pause" hidden>
+    <div class="card">
+      <h2>Paused</h2>
+      <p>The customers are frozen in time. Take a breather!</p>
+      <div class="row">
+        <button class="btn" id="p-resume-btn">Resume</button>
+        <button class="btn ghost" id="p-restart-btn">Restart day</button>
+        <button class="btn ghost" id="p-quit-btn">Quit to days</button>
+      </div>
+      <p style="margin:14px 0 0;font-size:13px">Keys: <b>P</b> pause · <b>M</b> mute · <b>Esc</b> drop what you're holding</p>
+    </div>
+  </div>
+
   <div class="overlay" id="shop" hidden>
     <div class="card wide">
       <h2>Upgrades</h2>
@@ -192,9 +206,11 @@
       fries: [6, 13],
       soda: [3, Infinity],
     };
-    const TOPPINGS = ['cheese', 'tomato', 'lettuce'];
-    const UNLOCK = { fries: 2, kids: 2, lettuce: 3, tomato: 3, critic: 3, rush: 3, hotdog: 4 };
-    const goalFor = (d) => 30 + (d - 1) * 15;
+    const TOPPINGS = ['cheese', 'tomato', 'lettuce', 'pickle'];
+    const TOP_NAME = { cheese: 'cheese', tomato: 'tomato', lettuce: 'lettuce', pickle: 'pickles' };
+    const UNLOCK = { fries: 2, kids: 2, lettuce: 3, tomato: 3, critic: 3, rush: 3, hotdog: 4, hurry: 5, pickle: 6 };
+    // The goal climbs fast for the first 10 days, then gently, so later days stay possible.
+    const goalFor = (d) => (d <= 10 ? 30 + (d - 1) * 15 : 165 + (d - 10) * 8);
     const bigGoalFor = (d) => Math.round((goalFor(d) * 1.6) / 5) * 5;
     const MAX_COMBO_MULT = 3;
 
@@ -316,12 +332,14 @@
     const SLOT_X = [155, 385, 615, 845];
     const PLATES = [{ x: 330, y: 372 }, { x: 470, y: 372 }, { x: 610, y: 372 }];
     const TRASH = { x: 860, y: 330, w: 84, h: 88 };
-    const BIN_KINDS = ['bun', 'patty', 'cheese', 'lettuce', 'tomato', 'longbun', 'sausage'];
+    const BIN_KINDS = ['bun', 'patty', 'cheese', 'lettuce', 'tomato', 'longbun', 'sausage', 'pickle'];
     const BINS = BIN_KINDS.map((kind, i) => ({ kind, x: 22 + (i % 4) * 80, y: 446 + Math.floor(i / 4) * 92, w: 72, h: 84 }));
     const GRILL = [0, 1, 2, 3].map((i) => ({ x: 362 + (i % 2) * 124, y: 452 + Math.floor(i / 2) * 88, w: 116, h: 78 }));
     const FRYER = [0, 1].map((i) => ({ x: 628, y: 452 + i * 88, w: 158, h: 78 }));
     const SODA = [0, 1].map((i) => ({ x: 806, y: 452 + i * 88, w: 172, h: 78 }));
     const MUTE = { x: 214, y: 6, w: 30, h: 28 };
+    const PAUSE = { x: 250, y: 6, w: 30, h: 28 };
+    const MONEY_AT = { x: VW - 230, y: 21 };   // where the coins fly to
     const inRect = (p, r) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
 
     // =====================================================================
@@ -334,7 +352,7 @@
     const unlocked = (thing, day) => day >= (UNLOCK[thing] || 1);
     function binUnlocked(kind, day) {
       if (kind === 'longbun' || kind === 'sausage') return unlocked('hotdog', day);
-      if (kind === 'lettuce' || kind === 'tomato') return unlocked(kind, day);
+      if (kind === 'lettuce' || kind === 'tomato' || kind === 'pickle') return unlocked(kind, day);
       return true;
     }
     const grillSlots = () => 2 + (owns('grill3') ? 1 : 0) + (owns('grill4') ? 1 : 0);
@@ -358,6 +376,10 @@
         pool.push({ key: 'angry', zero: true, text: () => 'Nobody leaves angry' });
       }
       if (day >= 4) pool.push({ key: 'hotdogs', target: 2 + Math.floor(day / 3), text: (t) => `Serve ${t} hot dogs` });
+      if (day >= 6) {
+        pool.push({ key: 'perfect', target: Math.min(8, 2 + Math.floor(day / 3)), text: (t) => `Get ${t} PERFECT serves` });
+        pool.push({ key: 'pickles', target: Math.min(6, 1 + Math.floor(day / 4)), text: (t) => `Serve ${t} burgers with pickles` });
+      }
       const c = day === 1 ? { ...pool[0], target: 2 } : pool[(day * 5 + 1) % pool.length];
       return { ...c, label: c.text(c.target) };
     }
@@ -369,8 +391,9 @@
         day,
         time: DAY_SECONDS,
         earned: 0, tips: 0, served: 0, angry: 0, burnt: 0,
-        cheese: 0, fries: 0, hotdogs: 0, quick: 0, critic: 0,
+        cheese: 0, fries: 0, hotdogs: 0, quick: 0, critic: 0, perfect: 0, pickles: 0,
         combo: 0, bestCombo: 0,
+        shownEarned: 0, coins: [], moneyBump: 0, platePop: [0, 0, 0], shake: 0, flash: 0, lastTick: -1,
         challenge: challengeFor(day),
         customers: [null, null, null, null],
         spawnT: 1.5,
@@ -390,6 +413,7 @@
       hideOverlays();
       sfx.bell();
       showBanner(`Day ${day}`, run.challenge.label, '#ff7a59');
+      last = performance.now();
     }
 
     // =====================================================================
@@ -406,7 +430,7 @@
       const burger = (maxTops) => {
         const tops = [];
         if (day < 3) { if (Math.random() < 0.5) tops.push('cheese'); }
-        else for (const t of TOPPINGS) if (tops.length < maxTops && Math.random() < 0.45) tops.push(t);
+        else for (const t of TOPPINGS) if (unlocked(t, day) && tops.length < maxTops && Math.random() < 0.45) tops.push(t);
         return { kind: 'burger', tops };
       };
       if (kind === 'critic') {
@@ -425,6 +449,12 @@
         if (Math.random() < 0.5) items.push({ kind: 'soda' });
         return items;
       }
+      if (kind === 'hurry') {
+        // In a rush: a quick, small order (but they tip like a boss).
+        items.push(unlocked('hotdog', day) && Math.random() < 0.4 ? { kind: 'hotdog' } : burger(2));
+        if (Math.random() < 0.5) items.push({ kind: 'soda' });
+        return items;
+      }
       if (unlocked('hotdog', day) && Math.random() < 0.35) items.push({ kind: 'hotdog' });
       else items.push(burger(3));
       if (unlocked('fries', day) && Math.random() < 0.55) items.push({ kind: 'fries' });
@@ -437,20 +467,27 @@
 
     function spawnCustomer(slot, kind) {
       const base = Math.max(30, 55 - (run.day - 1) * 3) * patienceMul();
-      const patience = base * (kind === 'kid' ? 1.3 : kind === 'critic' ? 0.8 : 1);
+      const patience = base * (kind === 'kid' ? 1.3 : kind === 'critic' ? 0.8 : kind === 'hurry' ? 0.7 : 1);
+      const formal = kind === 'critic' || kind === 'hurry';
       run.customers[slot] = {
         kind,
         order: makeOrder(run.day, kind).map((it) => ({ ...it, done: false })),
         patience, max: patience,
         look: {
-          skin: pick(SKIN), hair: pick(HAIR), shirt: kind === 'critic' ? '#2b2f3a' : pick(SHIRT), eye: pick(EYES),
+          skin: pick(SKIN), hair: pick(HAIR), shirt: kind === 'critic' ? '#2b2f3a' : kind === 'hurry' ? '#3d5a80' : pick(SHIRT), eye: pick(EYES),
           style: Math.floor(Math.random() * 6), glasses: kind === 'critic' || Math.random() < 0.15, blink: Math.random() * 5,
+          // a little extra so customers don't all look alike: 0-1 nothing, 2 cap, 3 bow, 4 freckles, 5 mustache, 6 headphones
+          acc: formal ? 0 : Math.floor(Math.random() * 7), stripes: !formal && Math.random() < 0.3, stripe: pick(['#ffffff', '#ffd43b', '#1d1a22']),
+          hat: pick(['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6']),
         },
-        x: -140, state: 'arrive', happy: true, bump: 0, speech: '', speechT: 0,
+        x: -140, state: 'arrive', happy: true, bump: 0, speech: '', speechT: 0, warned: false,
       };
       if (kind === 'critic') {
         showBanner('FOOD CRITIC!', 'They pay triple, but they hate waiting', '#ffd43b');
         sfx.bell();
+      } else if (kind === 'hurry') {
+        const c = run.customers[slot];
+        c.speech = 'Quick, please!'; c.speechT = 1.6;
       }
     }
 
@@ -465,7 +502,7 @@
       return {
         bun: 'a bun', longbun: 'a hot dog bun', 'patty-raw': 'a raw patty', patty: 'a cooked patty', 'patty-burnt': 'a burnt patty',
         'sausage-raw': 'a raw sausage', sausage: 'a cooked sausage', 'sausage-burnt': 'a burnt sausage',
-        cheese: 'cheese', lettuce: 'lettuce', tomato: 'tomato', fries: 'fries', 'fries-burnt': 'burnt fries', soda: 'a soda',
+        cheese: 'cheese', lettuce: 'lettuce', tomato: 'tomato', pickle: 'pickles', fries: 'fries', 'fries-burnt': 'burnt fries', soda: 'a soda',
       }[it.kind] || it.kind;
     }
     function say(text) { run.msg = text; run.msgT = 2.2; }
@@ -499,15 +536,19 @@
       item.done = true;
       run.hand = null;
       sfx.ding();
+      c.bounce = 0.35;
       if (item.kind === 'fries') run.fries++;
       if (item.kind === 'hotdog') run.hotdogs++;
       if (item.kind === 'burger' && item.tops.includes('cheese')) run.cheese++;
+      if (item.kind === 'burger' && item.tops.includes('pickle')) run.pickles++;
+      for (let k = 0; k < 5; k++) sparkle(SLOT_X[slot], 100);
       if (!c.order.every((it) => it.done)) return;
 
       // Order complete: pay up, with a tip that grows with your combo.
       const frac = c.patience / c.max;
       let total = c.order.reduce((s, it) => s + priceOf(it), 0);
       if (c.kind === 'critic') total *= 3;
+      if (c.kind === 'hurry') total = Math.round(total * 1.6);
       run.combo = frac >= 0.35 ? run.combo + 1 : 1;
       run.bestCombo = Math.max(run.bestCombo, run.combo);
       const mult = Math.min(MAX_COMBO_MULT, 1 + 0.25 * (run.combo - 1));
@@ -516,12 +557,17 @@
       run.tips += tip;
       run.served++;
       if (frac >= 0.5) run.quick++;
+      if (frac > 0.75) run.perfect++;
       if (c.kind === 'critic') {
         run.critic++;
         showBanner('★★★★★ REVIEW!', 'The critic loved it!', '#ffd43b');
       }
       const x = SLOT_X[slot];
       float(x, 150, `+$${total + tip}`, '#3ecf8e', 26);
+      // coins fly up to your money counter
+      const n = Math.min(10, 2 + Math.round((total + tip) / 4));
+      for (let k = 0; k < n; k++) run.coins.push({ x: x + (Math.random() - 0.5) * 40, y: 170 + (Math.random() - 0.5) * 30, vx: (Math.random() - 0.5) * 260, vy: -160 - Math.random() * 160, t: -k * 0.05 });
+      if (run.combo >= 2) { float(VW / 2, 240, `COMBO x${run.combo}!`, run.combo >= 5 ? '#ff5e8a' : run.combo >= 3 ? '#ffb547' : '#ffd43b', 24 + Math.min(14, run.combo * 2)); }
       if (frac > 0.75) { float(x, 120, 'PERFECT!', '#ffd43b', 20); for (let k = 0; k < 14; k++) sparkle(x, 170); }
       c.speech = c.kind === 'critic' ? 'Magnificent!' : pick(HAPPY);
       c.speechT = 1.4;
@@ -545,6 +591,7 @@
     function hitTest(p) {
       if (!run) return null;
       if (inRect(p, MUTE)) return { type: 'mute', rect: MUTE };
+      if (inRect(p, PAUSE)) return { type: 'pause', rect: PAUSE };
       for (let i = 0; i < 4; i++) {
         const c = run.customers[i];
         if (c && c.state === 'wait' && Math.abs(p.x - SLOT_X[i]) < 100 && p.y > 50 && p.y < COUNTER_Y + 10) return { type: 'customer', i };
@@ -565,12 +612,23 @@
       const h = run.hand;
       const T = target.type;
 
-      if (T === 'mute') { save.muted = !save.muted; persist(); return; }
+      if (T === 'mute') { toggleMute(); return; }
+      if (T === 'pause') { pause(true); return; }
       if (T === 'customer') { if (h) serve(target.i); return; }
       if (T === 'trash') { if (h) { run.hand = null; sfx.trash(); } return; }
 
       if (T === 'plate') {
-        const i = target.i, dish = run.plates[i];
+        const i = target.i, handBefore = run.hand, dishBefore = JSON.stringify(run.plates[i]);
+        plateClick(i, h);
+        if (run.hand !== handBefore || JSON.stringify(run.plates[i]) !== dishBefore) run.platePop[i] = 0.3;
+        return;
+      }
+      tableClick(T, target, h);
+    }
+
+    function plateClick(i, h) {
+      {
+        const dish = run.plates[i];
         if (!dish) {
           if (h && (h.kind === 'bun' || h.kind === 'longbun')) {
             run.plates[i] = { kind: 'dish', type: h.kind === 'bun' ? 'burger' : 'hotdog', meat: false, tops: [] };
@@ -590,7 +648,7 @@
         }
         if (TOPPINGS.includes(h.kind)) {
           if (dish.type !== 'burger') return say('Toppings go on burgers.');
-          if (dish.tops.includes(h.kind)) return say(`It already has ${h.kind}.`);
+          if (dish.tops.includes(h.kind)) return say(`It already has ${TOP_NAME[h.kind]}.`);
           dish.tops.push(h.kind); run.hand = null; sfx.place(); return;
         }
         if (h.kind === 'patty-raw' || h.kind === 'sausage-raw') return say("It's raw! Cook it on the grill first.");
@@ -599,7 +657,9 @@
         if (h.kind === 'sausage') return say('Sausages go in hot dog buns.');
         return say("That doesn't go on there.");
       }
+    }
 
+    function tableClick(T, target, h) {
       if (T === 'bin') {
         const b = target.b;
         if (!binUnlocked(b.kind, run.day)) return say('That unlocks on a later day.');
@@ -682,8 +742,29 @@
         o.t += dt;
         const st = stationState(kind, o.t);
         if (st.stage !== 'raw' && !o.dinged) { o.dinged = true; sfx.ding(); }
-        if (st.stage === 'burnt' && !o.burntCounted) { o.burntCounted = true; r.burnt++; sfx.burn(); say('Something burned! Trash it.'); }
+        if (st.stage === 'burnt' && !o.burntCounted) { o.burntCounted = true; r.burnt++; sfx.burn(); say('Something burned! Trash it.'); r.shake = Math.max(r.shake, 4); }
       }
+
+      // juice: coins flying to the money counter, plates popping, the money counting up
+      for (const c of r.coins) {
+        c.t += dt;
+        if (c.t < 0) continue;
+        if (c.t < 0.35) { c.x += c.vx * dt; c.y += c.vy * dt; c.vy += 500 * dt; }
+        else {
+          const k = Math.min(1, dt * 9);
+          c.x += (MONEY_AT.x - c.x) * k; c.y += (MONEY_AT.y - c.y) * k;
+          if (Math.hypot(MONEY_AT.x - c.x, MONEY_AT.y - c.y) < 14) { c.done = true; r.moneyBump = 0.25; if (Math.random() < 0.5) tone(1800 + Math.random() * 400, 0.04, 'square', 0.015); }
+        }
+      }
+      r.coins = r.coins.filter((c) => !c.done);
+      if (r.moneyBump > 0) r.moneyBump -= dt;
+      r.shownEarned += (r.earned - r.shownEarned) * Math.min(1, dt * 6);
+      if (Math.abs(r.earned - r.shownEarned) < 0.5) r.shownEarned = r.earned;
+      for (let i = 0; i < 3; i++) if (r.platePop[i] > 0) r.platePop[i] -= dt;
+      if (r.shake > 0) r.shake = Math.max(0, r.shake - dt * 18);
+      if (r.flash > 0) r.flash -= dt;
+      const sec = Math.ceil(r.time);
+      if (r.time > 0 && sec <= 10 && sec !== r.lastTick) { r.lastTick = sec; tone(sec <= 3 ? 1200 : 900, 0.05, 'square', 0.03); }
 
       // rush hour
       if (!r.rushDone && r.time < 70) { r.rushDone = true; r.rush = 20; showBanner('RUSH HOUR!', 'Here comes the lunch crowd', '#ff6b6b'); sfx.bell(); }
@@ -698,7 +779,8 @@
         spawnCustomer(pick(free), 'critic');
       } else if (!closing && r.spawnT <= 0) {
         if (free.length) {
-          const kind = unlocked('kids', r.day) && Math.random() < 0.22 ? 'kid' : 'adult';
+          const roll = Math.random();
+          const kind = unlocked('kids', r.day) && roll < 0.22 ? 'kid' : unlocked('hurry', r.day) && roll < 0.36 ? 'hurry' : 'adult';
           spawnCustomer(pick(free), kind);
           const every = Math.max(5.5, 13 - (r.day - 1) * 1.4) * (r.rush > 0 ? 0.5 : 1);
           r.spawnT = every * (0.75 + Math.random() * 0.5);
@@ -715,9 +797,17 @@
           if (Math.abs(c.x) < 2) { c.x = 0; c.state = 'wait'; }
         } else if (c.state === 'wait') {
           c.patience -= dt * (closing ? 2 : 1);
+          if (c.bounce > 0) c.bounce -= dt;
+          if (!c.warned && c.patience / c.max < 0.25 && c.patience > 0) {
+            c.warned = true;
+            tone(520, 0.1, 'triangle', 0.04); tone(440, 0.12, 'triangle', 0.04, 0.1);
+            if (!c.speechT || c.speechT <= 0) { c.speech = pick(['Hurry up!', 'Hello?', 'Still waiting...', 'Is it ready?']); c.speechT = 1.3; }
+          }
           if (c.patience <= 0) {
             r.angry++;
             r.combo = 0;
+            r.shake = Math.max(r.shake, 7);
+            r.flash = 0.3;
             sfx.angry();
             c.speech = 'Ugh, too slow!'; c.speechT = 1.4;
             float(SLOT_X[i], 150, 'Combo lost', '#ff6b6b', 18);
@@ -772,7 +862,7 @@
 
       $('r-title').textContent = passed ? `Day ${r.day} done!` : `Day ${r.day} is over`;
       [...$('r-stars').children].forEach((s, i) => { s.className = got[i] ? 'on' : ''; });
-      $('r-earned').textContent = `$${r.earned}`;
+      countUp($('r-earned'), r.earned);
       $('r-tips').textContent = `$${r.tips}`;
       $('r-combo').textContent = `x${Math.max(1, r.bestCombo)}`;
       $('r-served').textContent = r.served;
@@ -796,6 +886,19 @@
       if (stars === 3) { sfx.fanfare(); confetti(); } else sfx.bell();
     }
 
+    // The results screen counts the money up, cha-ching style.
+    let countTimer = null;
+    function countUp(el, value) {
+      clearInterval(countTimer);
+      const t0 = performance.now();
+      el.textContent = '$0';
+      countTimer = setInterval(() => {
+        const k = Math.min(1, (performance.now() - t0) / 900);
+        el.textContent = `$${Math.round(value * (1 - (1 - k) ** 3))}`;
+        if (k >= 1) clearInterval(countTimer);
+      }, 30);
+    }
+
     function newFoodText(day) {
       const news = [];
       if (day === UNLOCK.fries) news.push('fries');
@@ -803,6 +906,8 @@
       if (day === UNLOCK.lettuce) news.push('lettuce and tomato');
       if (day === UNLOCK.critic) news.push('food critics and rush hour');
       if (day === UNLOCK.hotdog) news.push('hot dogs');
+      if (day === UNLOCK.hurry) news.push('customers in a hurry');
+      if (day === UNLOCK.pickle) news.push('pickles');
       return news.length ? `Coming up next: ${news.join(', ')}!` : '';
     }
 
@@ -819,7 +924,15 @@
       }
     }
 
-    const OVERLAYS = ['title', 'map', 'intro', 'results', 'shop'];
+    const OVERLAYS = ['title', 'map', 'intro', 'results', 'shop', 'pause'];
+
+    function pause(on) {
+      if (on && mode === 'play') { mode = 'paused'; showOverlay('pause'); }
+      else if (!on && mode === 'paused') { mode = 'play'; hideOverlays(); last = performance.now(); }
+    }
+    function toggleMute() { save.muted = !save.muted; persist(); }
+    document.addEventListener('visibilitychange', () => { if (document.hidden) pause(true); });
+    window.addEventListener('blur', () => pause(true));
     function hideOverlays() { OVERLAYS.forEach((id) => { $(id).hidden = true; }); }
     function showOverlay(id) { hideOverlays(); $(id).hidden = false; }
     function setPills(prefix) {
@@ -860,6 +973,8 @@
       if (day === UNLOCK.lettuce) news.push('Lettuce and tomato are on the menu!');
       if (day === UNLOCK.critic) news.push('Watch out for the food critic and rush hour!');
       if (day === UNLOCK.hotdog) news.push('Hot dogs are on the menu!');
+      if (day === UNLOCK.hurry) news.push('Busy customers in suits show up now: they want it fast, but they pay a lot more!');
+      if (day === UNLOCK.pickle) news.push('Pickles are on the menu!');
       $('i-new').textContent = news.join(' ');
       const goals = [`Earn $${goalFor(day)} (you need this one to pass)`, `Earn $${bigGoalFor(day)}`, `Challenge: ${ch.label}`];
       $('i-goals').innerHTML = '';
@@ -949,10 +1064,16 @@
       canvas.style.cursor = hover ? 'pointer' : 'default';
     });
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && mode === 'play' && run.hand) { run.hand = null; sfx.trash(); }
+      const k = e.key.toLowerCase();
+      if (k === 'escape' && mode === 'play') { if (run.hand) { run.hand = null; sfx.trash(); } else pause(true); return; }
+      if ((k === 'p' || k === 'escape') && mode === 'paused') { pause(false); return; }
+      if (k === 'p' && mode === 'play') { pause(true); return; }
       if (e.key === 'Enter' && mode === 'intro') startDay(introDay);
-      if ((e.key === 'm' || e.key === 'M') && mode === 'play') { save.muted = !save.muted; persist(); }
+      if (k === 'm') toggleMute();
     });
+    $('p-resume-btn').addEventListener('click', () => pause(false));
+    $('p-restart-btn').addEventListener('click', () => startDay(run.day));
+    $('p-quit-btn').addEventListener('click', showMap);
 
     // =====================================================================
     // Drawing helpers
@@ -1069,6 +1190,14 @@
           ctx.fillStyle = '#ffe1a8';
           for (const [sx, sy] of [[-5, 0], [0, -1], [5, 0], [-2, 1.5], [3, 1.5]]) { ctx.beginPath(); ctx.ellipse(x + (dx + sx) * s, y + sy * s, 1.2 * s, 0.8 * s, 0, 0, Math.PI * 2); ctx.fill(); }
         }
+      } else if (kind === 'pickle') {
+        for (const dx of [-20, 0, 20]) {
+          ellipse(x + dx * s, y + 0.6 * s, 10.5 * s, 4.2 * s, '#3f7d2a');
+          ellipse(x + dx * s, y, 9 * s, 3.4 * s, '#8cc152');
+          ellipse(x + dx * s, y, 6 * s, 2.1 * s, '#b7dd7a');
+          ctx.fillStyle = 'rgba(60,110,30,0.7)';
+          for (const [sx, sy] of [[-3, 0], [0, -0.8], [3, 0], [0, 0.9]]) { ctx.beginPath(); ctx.arc(x + (dx + sx) * s, y + sy * s, 0.8 * s, 0, Math.PI * 2); ctx.fill(); }
+        }
       } else if (kind === 'lettuce') {
         ctx.fillStyle = lin(0, y - 6 * s, 0, y + 7 * s, [[0, '#9be35f'], [1, '#3f9a2a']]);
         ctx.beginPath();
@@ -1088,7 +1217,7 @@
       bunBottom(x, yy, s);
       yy -= 10 * s;
       if (dish.meat) { patty(x, yy, s, 'done'); yy -= 9 * s; }
-      for (const t of ['cheese', 'tomato', 'lettuce']) if (dish.tops.includes(t)) { topping(t, x, yy, s); yy -= 7 * s; }
+      for (const t of ['cheese', 'pickle', 'tomato', 'lettuce']) if (dish.tops.includes(t)) { topping(t, x, yy, s); yy -= 7 * s; }
       bunTop(x, yy - 2 * s, s);
     }
     function hotdog(x, y, s, dish) {
@@ -1156,7 +1285,7 @@
         case 'sausage-raw': return sausage(x, y, s, 'raw');
         case 'sausage': return sausage(x, y, s, 'done');
         case 'sausage-burnt': return sausage(x, y, s, 'burnt');
-        case 'cheese': case 'tomato': case 'lettuce': return topping(it.kind, x, y, s);
+        case 'cheese': case 'tomato': case 'lettuce': case 'pickle': return topping(it.kind, x, y, s);
         case 'fries': return fries(x, y, s, false);
         case 'fries-burnt': return fries(x, y, s, true);
         case 'soda': return sodaCup(x, y, s);
@@ -1164,7 +1293,19 @@
     }
 
     // ---------------- people ----------------
+    // Customers breathe while they wait, bounce when you hand them food, and bob along when they walk.
+    function bobFor(c, time) {
+      const L = c.look;
+      if (c.state === 'wait') return Math.sin(time * 2.2 + L.blink) * 1.6 - (c.bounce > 0 ? Math.sin((c.bounce / 0.35) * Math.PI) * 10 : 0);
+      return -Math.abs(Math.sin(time * 11 + L.blink)) * 7;
+    }
     function person(c, x, time) {
+      ctx.save();
+      ctx.translate(0, bobFor(c, time));
+      personBody(c, x, time);
+      ctx.restore();
+    }
+    function personBody(c, x, time) {
       const L = c.look, k = c.kind === 'kid' ? 0.8 : 1;
       const shake = c.bump > 0 ? Math.sin(c.bump * 60) * 4 : 0;
       x += shake;
@@ -1188,11 +1329,30 @@
       ctx.quadraticCurveTo(x + tw / 2, top, x + tw / 2, top + 26 * k);
       ctx.lineTo(x + tw / 2, COUNTER_Y + 4);
       ctx.fill();
+      if (L.stripes) {
+        ctx.save();
+        ctx.clip();
+        ctx.fillStyle = L.stripe;
+        ctx.globalAlpha = 0.35;
+        for (let yy = top + 14 * k; yy < COUNTER_Y; yy += 16 * k) ctx.fillRect(x - tw / 2, yy, tw, 6 * k);
+        ctx.restore();
+      }
+      // soft shading down one side of the body
+      ctx.fillStyle = 'rgba(0,0,0,0.08)';
+      ctx.fillRect(x + tw / 2 - 18 * k, top + 20 * k, 18 * k, COUNTER_Y - top - 16 * k);
       // neck and collar
       ctx.fillStyle = shade(L.skin, -25);
       rr(x - 10 * k, headY + hr - 8 * k, 20 * k, 20 * k, 6 * k);
       ctx.fill();
-      if (c.kind === 'critic') {
+      if (c.kind === 'hurry') {
+        // crisp shirt collar and a bright tie
+        ctx.fillStyle = '#f5f5f5';
+        ctx.beginPath(); ctx.moveTo(x - 14, top); ctx.lineTo(x, top + 22); ctx.lineTo(x + 14, top); ctx.fill();
+        ctx.fillStyle = '#ffb547';
+        ctx.beginPath(); ctx.moveTo(x - 4, top + 3); ctx.lineTo(x + 4, top + 3); ctx.lineTo(x + 3, top + 36); ctx.lineTo(x, top + 42); ctx.lineTo(x - 3, top + 36); ctx.fill();
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        for (let yy = top + 10; yy < top + 36; yy += 8) ctx.fillRect(x - 3, yy, 6, 2);
+      } else if (c.kind === 'critic') {
         ctx.fillStyle = '#f5f5f5';
         ctx.beginPath(); ctx.moveTo(x - 16, top); ctx.lineTo(x, top + 30); ctx.lineTo(x + 16, top); ctx.fill();
         ctx.fillStyle = '#b3202a';
@@ -1209,6 +1369,7 @@
       ctx.beginPath(); ctx.ellipse(x, headY, hr, hr * 1.08, 0, 0, Math.PI * 2); ctx.fill();
       // hair on top
       hair(L, x, headY, hr, k);
+      accessory(c, x, headY, hr, k, time);
       if (c.kind === 'critic') {
         ctx.fillStyle = lin(0, headY - hr - 14, 0, headY - hr + 6, [[0, '#8b1e2b'], [1, '#5d1019']]);
         ctx.beginPath(); ctx.ellipse(x + 4, headY - hr + 2, hr * 1.05, 12, -0.12, Math.PI, 0); ctx.fill();
@@ -1265,7 +1426,61 @@
         else ctx.arc(x, my + 8 * k, 8 * k, 1.2 * Math.PI, 1.8 * Math.PI);
         ctx.stroke();
       }
+      if (L.acc === 4) {
+        ctx.fillStyle = 'rgba(150,80,40,0.45)';
+        for (const side of [-1, 1]) for (const [fx, fy] of [[14, 8], [19, 11], [16, 13], [21, 7]]) { ctx.beginPath(); ctx.arc(x + side * fx * k, ey + fy * k, 1.1 * k, 0, Math.PI * 2); ctx.fill(); }
+      }
+      if (L.acc === 5 && c.kind !== 'kid') {
+        ctx.fillStyle = shade(L.hair, -5);
+        ctx.beginPath();
+        ctx.moveTo(x, my - 7);
+        ctx.quadraticCurveTo(x - 9, my - 11, x - 15, my - 4);
+        ctx.quadraticCurveTo(x - 7, my - 6, x, my - 3);
+        ctx.quadraticCurveTo(x + 7, my - 6, x + 15, my - 4);
+        ctx.quadraticCurveTo(x + 9, my - 11, x, my - 7);
+        ctx.fill();
+      }
       if (angry) { ctx.fillStyle = 'rgba(255,60,40,0.12)'; ctx.beginPath(); ctx.ellipse(x, headY, hr, hr * 1.08, 0, 0, Math.PI * 2); ctx.fill(); }
+      // a worried sweat drop when they're running out of patience
+      if (c.state === 'wait' && mood < 0.3) {
+        const dy = ((time * 1.4 + L.blink) % 1) * 10;
+        ctx.globalAlpha = 1 - dy / 12;
+        ctx.fillStyle = '#7fd0ff';
+        ctx.beginPath();
+        ctx.moveTo(x + hr * 0.85, headY - hr * 0.55 + dy);
+        ctx.quadraticCurveTo(x + hr * 0.85 + 6 * k, headY - hr * 0.2 + dy, x + hr * 0.85, headY - hr * 0.1 + dy);
+        ctx.quadraticCurveTo(x + hr * 0.85 - 6 * k, headY - hr * 0.2 + dy, x + hr * 0.85, headY - hr * 0.55 + dy);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // Hats, bows and headphones.
+    function accessory(c, x, headY, hr, k) {
+      const L = c.look;
+      if (L.acc === 2) {
+        // baseball cap
+        ctx.fillStyle = lin(0, headY - hr, 0, headY - hr * 0.3, [[0, shade(L.hat, 30)], [1, shade(L.hat, -30)]]);
+        ctx.beginPath(); ctx.ellipse(x, headY - hr * 0.45, hr * 1.02, hr * 0.62, 0, Math.PI, 0); ctx.fill();
+        ctx.fillStyle = shade(L.hat, -40);
+        ctx.beginPath(); ctx.ellipse(x + hr * 0.55, headY - hr * 0.45, hr * 0.7, hr * 0.16, 0, 0, Math.PI * 2); ctx.fill();
+        circle(x, headY - hr * 1.05, 3.5 * k, shade(L.hat, 20));
+      } else if (L.acc === 3) {
+        // bow
+        const bx = x - hr * 0.55, by = headY - hr * 0.8;
+        ctx.fillStyle = L.hat;
+        ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx - 13 * k, by - 8 * k); ctx.lineTo(bx - 13 * k, by + 8 * k); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + 13 * k, by - 8 * k); ctx.lineTo(bx + 13 * k, by + 8 * k); ctx.closePath(); ctx.fill();
+        circle(bx, by, 4.5 * k, shade(L.hat, -30));
+      } else if (L.acc === 6) {
+        // headphones
+        ctx.strokeStyle = '#2a2a33'; ctx.lineWidth = 5 * k;
+        ctx.beginPath(); ctx.arc(x, headY - 2 * k, hr + 3 * k, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
+        for (const side of [-1, 1]) {
+          ctx.fillStyle = L.hat;
+          rr(x + side * (hr + 1 * k) - 6 * k, headY - 8 * k, 12 * k, 20 * k, 5 * k); ctx.fill();
+        }
+      }
     }
 
     function hair(L, x, y, r, k) {
@@ -1304,7 +1519,13 @@
       ctx.beginPath(); ctx.ellipse(x - r * 0.35, y - r * 0.82, r * 0.35, r * 0.1, -0.3, 0, Math.PI * 2); ctx.fill();
     }
 
-    function hands(c, x) {
+    function hands(c, x, time) {
+      ctx.save();
+      if (c.state !== 'wait') ctx.translate(0, bobFor(c, time));
+      handsBody(c, x);
+      ctx.restore();
+    }
+    function handsBody(c, x) {
       const L = c.look, k = c.kind === 'kid' ? 0.8 : 1;
       x += c.bump > 0 ? Math.sin(c.bump * 60) * 4 : 0;
       for (const side of [-1, 1]) {
@@ -1338,9 +1559,11 @@
       label(text, x, y - 2, 15, '#2a2530');
     }
 
-    function orderBubble(c, x) {
+    function orderBubble(c, x, time) {
       const items = c.order;
-      const critic = c.kind === 'critic';
+      const critic = c.kind === 'critic', hurry = c.kind === 'hurry';
+      const pLeft = c.patience / c.max;
+      if (pLeft < 0.25) x += Math.sin(time * 40) * 1.6; // the bubble shakes when they're about to leave
       const w = Math.max(104, items.length * 56 + 16), h = 70, bx = x - w / 2, by = 44;
       ctx.fillStyle = 'rgba(0,0,0,0.18)';
       rr(bx + 3, by + 4, w, h, 16);
@@ -1353,6 +1576,7 @@
       ctx.moveTo(x - 10, by + h - 1); ctx.lineTo(x + 10, by + h - 1); ctx.lineTo(x, by + h + 12);
       ctx.fill();
       if (critic) label('CRITIC', x, by + 9, 11, '#a07c00', 'center', 900);
+      if (hurry) { ctx.strokeStyle = '#4a90d9'; ctx.lineWidth = 3; rr(bx, by, w, h, 16); ctx.stroke(); label('IN A HURRY', x, by + 9, 10, '#2e6bb0', 'center', 900); }
       items.forEach((it, i) => {
         const ix = bx + 36 + i * 56, iy = by + 36;
         ctx.globalAlpha = it.done ? 0.25 : 1;
@@ -1425,6 +1649,14 @@
       for (let i = 0; i < 3; i++) {
         const cx = wx + ((time * (8 + i * 4) + i * 230) % (ww + 160)) - 80, cy = wy + 30 + i * 22;
         ctx.beginPath(); ctx.ellipse(cx, cy, 34, 11, 0, 0, Math.PI * 2); ctx.ellipse(cx + 22, cy - 6, 22, 11, 0, 0, Math.PI * 2); ctx.ellipse(cx - 20, cy - 3, 18, 9, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      // a few birds flapping past
+      ctx.strokeStyle = 'rgba(40,50,70,0.55)';
+      ctx.lineWidth = 1.6;
+      ctx.lineCap = 'round';
+      for (let i = 0; i < 3; i++) {
+        const bx = wx + ((time * (22 + i * 6) + i * 190) % (ww + 100)) - 50, by = wy + 40 + i * 14 + Math.sin(time * 1.3 + i) * 6, f = Math.sin(time * 9 + i * 2) * 3;
+        ctx.beginPath(); ctx.moveTo(bx - 6, by - f); ctx.lineTo(bx, by); ctx.lineTo(bx + 6, by - f); ctx.stroke();
       }
       // city
       const dusk = clamp((p - 0.6) / 0.4, 0, 1);
@@ -1619,7 +1851,15 @@
         ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(pl.x, pl.y, 46, 0, Math.PI * 2); ctx.stroke();
         const dish = run && run.plates[i];
-        if (dish) drawItem(dish, pl.x, pl.y, 1.08);
+        const pop = run && run.platePop[i] > 0 ? Math.sin((run.platePop[i] / 0.3) * Math.PI) * 0.14 : 0;
+        if (dish) {
+          ctx.save();
+          ctx.translate(pl.x, pl.y + 10); ctx.scale(1 + pop, 1 - pop * 0.6); ctx.translate(-pl.x, -pl.y - 10);
+          drawItem(dish, pl.x, pl.y, 1.08);
+          ctx.restore();
+          // a glowing ring once it has its meat, so you know it can be served
+          if (dish.meat) { ctx.strokeStyle = `rgba(62,207,142,${0.45 + 0.25 * Math.sin(performance.now() / 200)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(pl.x, pl.y, 48, 0, Math.PI * 2); ctx.stroke(); }
+        }
       });
       // trash can
       const t = TRASH;
@@ -1700,10 +1940,10 @@
       for (let x = 0; x < VW; x += 50) ctx.fillRect(x, 430, 1, VH - 430);
 
       // ingredient pans
-      const names = { bun: 'Buns', patty: 'Patties', cheese: 'Cheese', lettuce: 'Lettuce', tomato: 'Tomato', longbun: 'HD buns', sausage: 'Sausages' };
+      const names = { bun: 'Buns', patty: 'Patties', cheese: 'Cheese', lettuce: 'Lettuce', tomato: 'Tomato', longbun: 'HD buns', sausage: 'Sausages', pickle: 'Pickles' };
       for (const b of BINS) {
         const ok = binUnlocked(b.kind, day);
-        stationBox(b, !ok, 'later');
+        stationBox(b, !ok, `day ${UNLOCK[{ longbun: 'hotdog', sausage: 'hotdog' }[b.kind] || b.kind] || 1}`);
         if (!ok) continue;
         ctx.fillStyle = lin(0, b.y + 6, 0, b.y + 58, [[0, '#2c3036'], [1, '#41464f']]);
         rr(b.x + 6, b.y + 6, b.w - 12, 54, 6);
@@ -1833,6 +2073,10 @@
       const t = Math.max(0, Math.ceil(r.time));
       label(r.time > 0 ? `⏱ ${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}` : 'Closing...', 92, 21, 17, r.time < 15 && r.time > 0 ? '#ff6b6b' : '#fff', 'left', 700, 'Fredoka');
       label(save.muted ? '🔇' : '🔊', MUTE.x + MUTE.w / 2, 21, 17, '#fff');
+      // pause button
+      ctx.fillStyle = hover && hover.type === 'pause' ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.1)';
+      rr(PAUSE.x, PAUSE.y + 2, PAUSE.w, PAUSE.h - 4, 8); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.fillRect(PAUSE.x + 10, PAUSE.y + 8, 4, 12); ctx.fillRect(PAUSE.x + 17, PAUSE.y + 8, 4, 12);
       // sign
       ctx.fillStyle = lin(0, 4, 0, 36, [[0, '#ff8f6b'], [1, '#e8603c']]);
       rr(VW / 2 - 92, 4, 184, 32, 10);
@@ -1852,13 +2096,16 @@
       }
       // money and goal
       const goal = goalFor(r.day), big = bigGoalFor(r.day);
-      label(`$${r.earned}`, VW - 252, 21, 20, r.earned >= goal ? '#3ecf8e' : '#fff', 'left', 700, 'Fredoka');
+      const shown = Math.round(r.shownEarned), bump = r.moneyBump > 0 ? 1 + Math.sin((r.moneyBump / 0.25) * Math.PI) * 0.18 : 1;
+      ctx.save(); ctx.translate(VW - 252, 21); ctx.scale(bump, bump);
+      label(`$${shown}`, 0, 0, 20, shown >= goal ? '#3ecf8e' : '#fff', 'left', 700, 'Fredoka');
+      ctx.restore();
       const bx = VW - 180, bw = 164;
       ctx.fillStyle = 'rgba(255,255,255,0.12)';
       rr(bx, 15, bw, 12, 6);
       ctx.fill();
       ctx.fillStyle = lin(bx, 0, bx + bw, 0, [[0, '#3ecf8e'], [1, '#7ee8b5']]);
-      rr(bx, 15, bw * Math.min(1, r.earned / big), 12, 6);
+      rr(bx, 15, bw * Math.min(1, r.shownEarned / big), 12, 6);
       ctx.fill();
       for (const [v, lab] of [[goal, '★'], [big, '★★']]) {
         const mx = bx + bw * (v / big);
@@ -1886,7 +2133,7 @@
         const sc = 0.8 + 0.2 * Math.min(1, b.t * 5);
         ctx.save();
         ctx.globalAlpha = Math.max(0, a);
-        ctx.translate(VW / 2, 300);
+        ctx.translate(VW / 2, 196);
         ctx.scale(sc, sc);
         ctx.fillStyle = 'rgba(20,18,26,0.82)';
         rr(-230, -50, 460, 92, 20);
@@ -1921,6 +2168,51 @@
       return '';
     }
 
+    // On day 1 a bouncing arrow points at the next thing to click.
+    function tutorialTarget() {
+      const r = run;
+      const ci = r.customers.findIndex((c) => c && c.state === 'wait');
+      if (ci < 0) return null;
+      const c = r.customers[ci];
+      const h = r.hand;
+      const bin = (kind) => { const b = BINS.find((q) => q.kind === kind); return { x: b.x + b.w / 2, y: b.y }; };
+      const pi = r.plates.findIndex((d) => d && d.type === 'burger');
+      const plate = (i) => ({ x: PLATES[i].x, y: PLATES[i].y - 50 });
+      const freePlate = r.plates.findIndex((d) => !d);
+      const gi = r.grill.findIndex((g) => g && g.kind === 'patty');
+      const wantsCheese = c.order.some((it) => it.kind === 'burger' && !it.done && it.tops.includes('cheese'));
+      if (h && ((h.kind === 'dish' && h.meat) || h.kind === 'soda')) return { x: SLOT_X[ci], y: COUNTER_Y - 30 };
+      if (h && h.kind === 'bun') return freePlate >= 0 ? plate(freePlate) : null;
+      if (h && h.kind === 'patty-raw') { const free = r.grill.findIndex((g, i) => !g && i < grillSlots()); return free >= 0 ? { x: GRILL[free].x + GRILL[free].w / 2, y: GRILL[free].y } : null; }
+      if (h && (h.kind === 'patty' || h.kind === 'cheese')) return pi >= 0 ? plate(pi) : null;
+      if (h) return null;
+      if (pi < 0) return bin('bun');
+      const dish = r.plates[pi];
+      if (!dish.meat && gi < 0) return bin('patty');
+      if (!dish.meat && gi >= 0) return stationState('patty', r.grill[gi].t).stage === 'done' ? { x: GRILL[gi].x + GRILL[gi].w / 2, y: GRILL[gi].y } : null;
+      if (dish.meat && wantsCheese && !dish.tops.includes('cheese')) return bin('cheese');
+      if (dish.meat) return plate(pi);
+      return null;
+    }
+    function drawTutorialArrow(time) {
+      if (!run || run.day !== 1 || run.firstServe || run.msgT > 0) return;
+      const t = tutorialTarget();
+      if (!t) return;
+      const bob = Math.abs(Math.sin(time * 5)) * 10;
+      ctx.save();
+      ctx.translate(t.x, t.y - 6 - bob);
+      ctx.fillStyle = '#ffd43b';
+      ctx.strokeStyle = '#7a4a00';
+      ctx.lineWidth = 3;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(0, 0); ctx.lineTo(-16, -20); ctx.lineTo(-6, -20); ctx.lineTo(-6, -40); ctx.lineTo(6, -40); ctx.lineTo(6, -20); ctx.lineTo(16, -20);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.fill();
+      ctx.restore();
+    }
+
     // =====================================================================
     // Frame
     // =====================================================================
@@ -1945,6 +2237,7 @@
       ctx.beginPath();
       ctx.rect(0, 0, VW, VH);
       ctx.clip();
+      if (run && run.shake > 0 && mode === 'play') ctx.translate((Math.random() - 0.5) * run.shake, (Math.random() - 0.5) * run.shake);
 
       const p = run ? clamp(1 - run.time / DAY_SECONDS, 0, 1) : 0.15;
       ctx.fillStyle = '#1d1a22';
@@ -1952,7 +2245,7 @@
       drawWall(time, p);
       if (run) for (let i = 0; i < 4; i++) { const c = run.customers[i]; if (c) person(c, SLOT_X[i] + c.x, time); }
       drawCounter();
-      if (run) for (let i = 0; i < 4; i++) { const c = run.customers[i]; if (c) hands(c, SLOT_X[i] + c.x); }
+      if (run) for (let i = 0; i < 4; i++) { const c = run.customers[i]; if (c) hands(c, SLOT_X[i] + c.x, time); }
       drawLamps(time);
       drawPrep();
       drawStations(time);
@@ -1965,7 +2258,7 @@
           const c = run.customers[i];
           if (!c) continue;
           const x = SLOT_X[i] + c.x;
-          if (c.state === 'wait' && mode === 'play') orderBubble(c, x);
+          if (c.state === 'wait' && (mode === 'play' || mode === 'paused')) orderBubble(c, x, time);
           if (c.speechT > 0) speech(c.speech, x + 40, COUNTER_Y - 150);
         }
       }
@@ -1973,10 +2266,14 @@
       ctx.fillStyle = rad(VW / 2, VH / 2, 300, 720, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.28)']]);
       ctx.fillRect(0, 0, VW, VH);
 
-      if (run && mode === 'play') {
+      if (run && run.flash > 0) { ctx.fillStyle = 'rgba(255,60,60,' + (run.flash * 0.5) + ')'; ctx.fillRect(0, 0, VW, VH); }
+
+      if (run && (mode === 'play' || mode === 'paused')) {
         drawTicket();
         drawHover();
+        drawTutorialArrow(time);
         drawHud(time);
+        for (const c of run.coins) { if (c.t >= 0) drawCoin(c.x, c.y, 7); }
         for (const s of run.sparkles) {
           ctx.globalAlpha = Math.max(0, Math.min(1, s.life));
           ctx.fillStyle = s.color;
@@ -2012,8 +2309,22 @@
       frame(now / 1000);
     }
 
-    // Handy for poking at the game from the browser console: OrderUp.state
-    window.OrderUp = { get state() { return { mode, run, save }; } };
+    function drawCoin(x, y, r) {
+      circle(x, y + 1.5, r, '#9a6a0a');
+      ctx.fillStyle = rad(x - r * 0.4, y - r * 0.4, 1, r * 1.3, [[0, '#fff3b0'], [0.5, '#ffd43b'], [1, '#d99a0e']]);
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(150,95,0,0.6)'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(x, y, r * 0.62, 0, Math.PI * 2); ctx.stroke();
+    }
+
+    // Handy for poking at the game from the browser console: OrderUp.state, OrderUp.step(5), OrderUp.startDay(3)
+    window.OrderUp = {
+      get state() { return { mode, run, save }; },
+      startDay,
+      step(seconds) { for (let k = 0; k < Math.round(seconds * 60); k++) update(1 / 60); },
+      click(x, y) { pointer = { x, y }; onClick(pointer); },
+      endDay() { if (run) { run.time = 0; run.customers = [null, null, null, null]; update(1 / 60); } },
+    };
 
     showTitle();
     requestAnimationFrame(loop);

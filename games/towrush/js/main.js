@@ -43,6 +43,26 @@
     if (mode === 'playing') togglePause();
   });
 
+  // ---------- on-screen buttons for touch screens ----------
+  const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  document.querySelectorAll('#touch button').forEach((b) => {
+    const k = b.dataset.k;
+    const down = (e) => {
+      e.preventDefault();
+      Sound.init();
+      b.classList.add('on');
+      if (k === 'pause') { togglePause(); return; }
+      if (k === 'hook') { if (mode === 'playing') { Jobs.tryHook(game); payBail(); } return; }
+      keys[k] = true;
+    };
+    const up = (e) => { e.preventDefault(); b.classList.remove('on'); if (k !== 'pause' && k !== 'hook') keys[k] = false; };
+    b.addEventListener('pointerdown', down);
+    b.addEventListener('pointerup', up);
+    b.addEventListener('pointercancel', up);
+    b.addEventListener('pointerleave', up);
+  });
+  function syncTouch() { $('touch').classList.toggle('hidden', !(isTouch && mode === 'playing')); }
+
   // ---------- steering sensitivity (saved in this browser) ----------
   let steering = 'normal';
   try { steering = localStorage.getItem('towrush.steering') || 'normal'; } catch (e) { /* storage blocked */ }
@@ -153,14 +173,20 @@
     const isBest = !best || g.money > best.money;
     if (isBest) saveBest({ money: g.money, jobs: g.jobsDone });
     $('ov-money').textContent = Render.money(g.money);
+    // 1 to 3 stars for a good shift, and a fun rank to go with them
+    const stars = C.shiftStars.filter((s) => g.money >= s).length;
+    [...$('ov-stars').children].forEach((s, i) => { s.className = i < stars ? 'on' : ''; });
+    $('ov-rank').textContent = ['Tow Rookie', 'Road Runner', 'Tow Pro', 'Tow Legend'][stars] + (stars < 3 ? ` · next star at ${Render.money(C.shiftStars[stars])}` : '');
+    $('ov-title').textContent = stars === 3 ? 'Legendary shift!' : stars ? 'Shift over' : 'Shift over... keep at it!';
+    if (stars > 0) Sound.cash();
     $('ov-earned').textContent = Render.money(g.earned);
-    $('ov-repairs').textContent = '-' + Render.money(g.repairs);
+    $('ov-repairs').textContent = g.repairs ? '-' + Render.money(g.repairs) : '$0';
     $('ov-jobs').textContent = g.jobsDone;
     $('ov-lost').textContent = g.jobsLost;
     $('ov-arrests').textContent = g.arrests;
     $('ov-drift').textContent = Render.money(g.drift.cash);
     $('ov-best-drift').textContent = g.drift.best.toLocaleString();
-    $('ov-bail').textContent = '-' + Render.money(g.bailPaid);
+    $('ov-bail').textContent = g.bailPaid ? '-' + Render.money(g.bailPaid) : '$0';
     $('ov-best').textContent = isBest ? 'New personal best!' : `Best shift: ${Render.money(best.money)}`;
     $('ov-best').classList.toggle('new-best', isBest);
     Garage.deposit(g.money);
@@ -262,6 +288,7 @@
         Sound.crash(impact);
         t.crashCd = 0.5;
         g.shake = Math.min(14, impact / 28);
+        if (impact > 160) g.flash = Math.min(0.5, impact / 600);
         Drift.crash(g);
         Jobs.towCrash(g);
         for (let k = 0; k < 12; k++) {
@@ -334,7 +361,19 @@
         addParticle(g, { type: 'smoke', shade: 90, x: c.x + Math.cos(c.angle) * 16, y: c.y + Math.sin(c.angle) * 16, vx: (Math.random() - 0.5) * 20, vy: -25 - Math.random() * 20, size: 7, life: 1.4, max: 1.4 });
       }
     }
-    for (const p of g.parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
+    for (const p of g.parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; if (p.drag) { const k = Math.exp(-p.drag * dt); p.vx *= k; p.vy *= k; } if (p.spin) p.rot = (p.rot || 0) + p.spin * dt; }
+    if (g.flash > 0) g.flash -= dt;
+    // little celebrations: a ring when you hook a car, confetti and coins when you deliver one
+    if (g.lastJobState === 'call' && g.job.state === 'towing') addParticle(g, { type: 'ring', x: t.x, y: t.y, vx: 0, vy: 0, life: 0.6, max: 0.6 });
+    if (g.jobsDone > (g.lastJobsDone || 0)) {
+      for (let k = 0; k < 40; k++) {
+        const a = Math.random() * Math.PI * 2, s = 120 + Math.random() * 320;
+        addParticle(g, { type: k % 3 ? 'confetti' : 'coin', x: t.x, y: t.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, drag: 2.5, spin: (Math.random() - 0.5) * 14, color: ['#ffd23f', '#5ee07a', '#ff6b3d', '#7af0ff', '#ff6fa8'][k % 5], size: 5 + Math.random() * 3, life: 1.4, max: 1.4 });
+      }
+      g.shake = Math.max(g.shake, 5);
+    }
+    g.lastJobsDone = g.jobsDone;
+    g.lastJobState = g.job.state;
     g.parts = g.parts.filter((p) => p.life > 0);
     for (const f of g.floaters) { f.y -= 40 * dt; f.life -= dt; }
     g.floaters = g.floaters.filter((f) => f.life > 0);
@@ -397,6 +436,7 @@
       const steps = Math.ceil(dt / (1 / 60));
       for (let k = 0; k < steps && mode !== 'paused'; k++) update(dt / steps);
     }
+    syncTouch();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     Render.frame(ctx, game, sw, sh, mode !== 'title');
     requestAnimationFrame(loop);

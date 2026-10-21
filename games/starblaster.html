@@ -200,6 +200,7 @@
       <div class="spuds" id="r-spuds"></div>
       <div class="row">
         <button class="btn" id="r-next-btn">Next sector</button>
+        <button class="btn" id="r-boss-btn" hidden>Retry the boss</button>
         <button class="btn ghost" id="r-replay-btn">Replay</button>
         <button class="btn ghost" id="r-map-btn">Map</button>
         <button class="btn ghost" id="r-shop-btn">Hangar</button>
@@ -445,7 +446,8 @@
 
     function newRun(kind, n) {
       const g = kind === 'sector' ? galaxyOf(n) : 0;
-      const d = kind === 'sector' ? (n - 1) / 11 : 0.08;
+      // difficulty 0..~0.9, eased so the early sectors stay friendly for new pilots
+      const d = kind === 'sector' ? Math.pow((n - 1) / 11, 1.15) * 0.9 : 0.08;
       parts = []; rings = []; floaters = [];
       run = {
         kind, n, g, d, time: 0, st: 0, script: kind === 'sector' ? sectorScript(n) : [], si: 0,
@@ -669,6 +671,7 @@
     function startBossWarn(kind) {
       run.bossWarn = 3.2;
       run.bossKind = kind;
+      run.reachedBoss = true;
       sfx.warn();
     }
 
@@ -832,8 +835,8 @@
       const P = (id, ox, oy, rad, hp) => ({ id, ox, oy, r: rad, hp: hp * k, max: hp * k, dead: false, flash: 0, x: 0, y: 0, fire: 0 });
       if (kind === 'warden') { b.coreR = 42; b.hp = 150 * k; b.parts = [P('podL', -78, 8, 22, 40), P('podR', 78, 8, 22, 40)]; b.armor = 0.6; b.ty = 150; }
       else if (kind === 'crab') { b.coreR = 56; b.hp = 480 * k; b.parts = [P('clawL', -128, 50, 30, 140), P('clawR', 128, 50, 30, 140)]; b.ty = 165; }
-      else if (kind === 'hydra') { b.coreR = 58; b.hp = 700 * k; b.parts = [P('headL', -120, 70, 26, 150), P('headM', 0, 112, 26, 150), P('headR', 120, 70, 26, 150)]; b.ty = 140; }
-      else { b.coreR = 60; b.hp = 1000 * k; b.parts = [0, 1, 2, 3].map((i) => P('orb' + i, 0, 0, 24, 150)); b.ty = 190; b.armor = 0.3; }
+      else if (kind === 'hydra') { b.coreR = 58; b.hp = 620 * k; b.parts = [P('headL', -120, 70, 26, 150), P('headM', 0, 112, 26, 150), P('headR', 120, 70, 26, 150)]; b.ty = 140; }
+      else { b.coreR = 60; b.hp = 880 * k; b.parts = [0, 1, 2, 3].map((i) => P('orb' + i, 0, 0, 24, 150)); b.ty = 190; b.armor = 0.3; }
       b.maxHp = b.hp;
       b.total = b.hp + b.parts.reduce((s, p) => s + p.max, 0);
       return b;
@@ -2568,7 +2571,11 @@
         const pulse = 1 + Math.sin(t * 14 + b.x * 0.05) * 0.06;
         ctx.drawImage(s, b.x - (s.w / 2) * pulse, b.y - (s.h / 2) * pulse, s.w * pulse, s.h * pulse);
       }
-      for (const f of floaters) { ctx.globalAlpha = Math.min(1, f.life * 2.5); outlined(f.text, f.x, f.y, f.size, f.color, 'rgba(10,8,30,0.75)', 4); ctx.globalAlpha = 1; }
+      for (const f of floaters) {
+        ctx.font = `800 ${f.size}px Fredoka, sans-serif`;
+        const hw = ctx.measureText(f.text).width / 2 + 6, fx = clamp(f.x, hw, VW - hw), fy = Math.max(f.y, 86);
+        ctx.globalAlpha = Math.min(1, f.life * 2.5); outlined(f.text, fx, fy, f.size, f.color, 'rgba(10,8,30,0.75)', 4); ctx.globalAlpha = 1;
+      }
     }
 
     const PAUSE_BTN = { x: VW - 46, y: 10, w: 36, h: 32 };
@@ -2775,6 +2782,7 @@
         unlock.textContent = `+${r.crystals} crystals collected` + (r.bossesBeaten ? ` · ${r.bossesBeaten} boss${r.bossesBeaten > 1 ? 'es' : ''} beaten!` : '');
         $('r-next-btn').hidden = true;
         $('r-replay-btn').textContent = 'Fly again';
+        $('r-boss-btn').hidden = true;
         sfx.fail();
       } else {
         const n = r.n, G = GOAL3[n];
@@ -2805,6 +2813,8 @@
         $('r-next-btn').hidden = !(won && n < NUM_SECTORS);
         $('r-next-btn').textContent = 'Next sector';
         $('r-replay-btn').textContent = won ? 'Replay' : 'Try again';
+        $('r-boss-btn').hidden = won || !r.reachedBoss;
+        if (!won && r.reachedBoss) note.textContent = 'So close! Retry the boss right away, or power up in the Hangar.';
         if (!won) sfx.fail();
         if (won && n3 === 3) confetti();
       }
@@ -2906,6 +2916,16 @@
       beginRun();
       showBanner(`Sector ${n}`, SECTOR_NAMES[n - 1], GALAXIES[galaxyOf(n)].color);
     }
+    // Jump straight to a sector's boss after losing to it, with a little firepower to make up for the skipped waves.
+    function startBossRetry(n) {
+      startSector(n);
+      const r = run;
+      r.si = r.script.length - 1; r.st = r.script[r.si].t;
+      r.p.wLvl = Math.max(r.p.wLvl, 3);
+      r.p.shield = Math.max(r.p.shield, 1);
+      r.bossRetry = true;
+      showBanner('Boss rematch!', SECTOR_NAMES[n - 1], GALAXIES[galaxyOf(n)].color);
+    }
     function startSurvival() {
       newRun('survival', 0);
       beginRun();
@@ -2995,6 +3015,7 @@
     $('p-quit-btn').addEventListener('click', showMap);
     $('r-next-btn').addEventListener('click', () => showIntro(run.n + 1));
     $('r-replay-btn').addEventListener('click', () => { if (run.kind === 'survival') startSurvival(); else startSector(run.n); });
+    $('r-boss-btn').addEventListener('click', () => startBossRetry(run.n));
     $('r-map-btn').addEventListener('click', showMap);
     $('r-shop-btn').addEventListener('click', () => showShop('results'));
     $('s-back-btn').addEventListener('click', () => {
@@ -3094,12 +3115,12 @@
       }
     }
 
-    let last = performance.now();
+    let last = performance.now(), manualStep = false;
     function loop(now) {
       requestAnimationFrame(loop);
       const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
       last = now;
-      if (dt > 0.025) { update(dt / 2); update(dt / 2); } else update(dt);
+      if (manualStep) { /* stepped by the test hooks */ } else if (dt > 0.025) { update(dt / 2); update(dt / 2); } else update(dt);
       frame(now / 1000);
     }
 
@@ -3120,6 +3141,9 @@
       power(k) { if (run) collectPower(k); },
       moveTo(x, y) { if (run) { ctrl = "pointer"; run.p.tx = x; run.p.ty = y; } },
       sprites: () => cache,
+      manual(b) { manualStep = !!b; },
+      step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) update(dt); },
+      render(t) { frame(t ?? performance.now() / 1000); },
     };
 
     syncToggles();

@@ -124,7 +124,7 @@
         <li><b>Boost</b> by holding the mouse button, <kbd>Space</kbd>, <kbd>W</kbd> or <kbd>↑</kbd>. Boosting burns a little length!</li>
         <li><b>Eat glowing orbs</b> to grow. If your head bumps another snake's body, you pop!</li>
         <li><b>Trick rivals</b> into bumping into YOUR body. They pop into big juicy orbs.</li>
-        <li>Grab <b>power-ups</b>: magnet, speed, ghost, shield and x2 points. Pause with <kbd>P</kbd> or <kbd>Esc</kbd>.</li>
+        <li>Grab <b>power-ups</b>: magnet, speed, ghost, shield and x2 points. <kbd>P</kbd> pauses, <kbd>M</kbd> mutes.</li>
       </ul>
       <div class="row">
         <button class="btn" id="play-btn">Arena Levels</button>
@@ -659,6 +659,9 @@
         W.lasers.push({ cx: p.x, cy: p.y, len: spin ? 300 : rand(300, 380), ang: rand(0, TAU), kind: spin ? 'spin' : 'slide', speed: spin ? rand(0.35, 0.55) * (Math.random() < 0.5 ? -1 : 1) : rand(0.5, 0.8), range: spin ? 0 : 130, ph: rand(0, 6), x1: 0, y1: 0, x2: 0, y2: 0, on: false, warn: false, was: false });
       }
       // decorations
+      // big soft patches that break up the floor: shady grass, wind-blown dunes, glowing city blocks
+      W.patches = [];
+      for (let i = 0; i < Math.round((Math.PI * R * R) / 180000); i++) { const a = rand(0, TAU), d = Math.sqrt(Math.random()) * (R - 120); W.patches.push({ x: Math.cos(a) * d, y: Math.sin(a) * d, rx: rand(110, 260), ry: rand(60, 150), rot: rand(0, Math.PI), k: Math.random() < 0.5 ? 0 : 1 }); }
       const nd = Math.round((Math.PI * R * R) / 26000);
       for (let i = 0; i < nd; i++) { const a = rand(0, TAU), d = Math.sqrt(Math.random()) * (R - 40); W.decor.push({ x: Math.cos(a) * d, y: Math.sin(a) * d, v: Math.floor(Math.random() * 4), rot: rand(-0.5, 0.5), s: rand(0.8, 1.3), ph: rand(0, TAU) }); }
       for (let i = 0; i < W.orbTarget; i++) spawnFieldOrb(W, true);
@@ -749,7 +752,8 @@
       const s = makeSnake({
         name: o.name || (pool.length ? pick(pool) : 'Snakey'), skin: o.skin || botSkin(), hat: o.hat || (Math.random() < 0.25 ? pick(['party', 'bow', 'cowboy', 'propeller', 'tophat']) : 'none'),
         x: p.x, y: p.y, a: Math.atan2(-p.y, -p.x) + rand(-1, 1), mass, skill: o.skill || clamp(wd.skill + rand(-0.12, 0.12) - (W.cfg.goal === 'pops' ? 0.15 : 0), 0.3, 0.95),
-        agg: o.agg != null ? o.agg : rand(0, 0.35) + (W.cfg.goal === 'pops' ? 0.25 : 0), king: o.king,
+        // rivals in the first arenas are calmer, so they chase you less (endless keeps the full challenge)
+        agg: o.agg != null ? o.agg : (rand(0, 0.35) + (W.cfg.goal === 'pops' ? 0.25 : 0)) * (W.cfg.endless ? 1 : W.cfg.goal === 'pops' ? [0.7, 0.85, 1][wi] : [0, 0.5, 0.85][wi]), king: o.king,
       });
       W.snakes.push(s);
       return s;
@@ -923,7 +927,7 @@
       }
       if (b.avoidT > 0) return;
       // 2. chase / cut off the player
-      if (pl && !(run && run.pw.ghost > 0) && !W.demo) {
+      if (pl && pl !== b && !(run && run.pw.ghost > 0) && !W.demo) {
         const d = Math.hypot(pl.x - b.x, pl.y - b.y);
         if (d < 560 && Math.random() < b.agg && b.mass > pl.mass * 0.5) {
           const lead = 110 + pl.r * 3;
@@ -979,6 +983,7 @@
             gain *= comboMult() * (run.pw.double > 0 ? 2 : 1);
             run.orbs++;
             if (o.v >= 3) sfx.big(); else sfx.eat(run.chain % 40);
+            if (o.v >= 2 || Math.random() < 0.35) addPart(W, { type: 'spark', x: o.x, y: o.y, vx: rand(-70, 70), vy: rand(-70, 70), life: 0.3, max: 0.3, size: 2.5 + Math.min(4, o.v), color: o.hue === 'gold' ? '#ffe066' : hsl(o.hue, 100, 72) });
             if (o.v >= 3 && Math.random() < 0.5) floater(W, o.x, o.y, '+' + Math.round(gain), '#ffffff', 16);
           }
           s.mass += gain;
@@ -1071,7 +1076,7 @@
         kind: o.kind, n: o.n || 0, st: o.st || null, arena: o.arena || 0,
         lives: o.lives, maxLives: o.lives, livesLost: 0, startMass,
         player: null, time: 0, pops: 0, apples: 0, orbs: 0, chain: 0, combo: 0, comboT: 0, bestCombo: 0,
-        pw: { magnet: 0, speed: 0, ghost: 0, shield: 0, double: 0 }, inv: 2, respawnT: 0,
+        pw: { magnet: 0, speed: 0, ghost: 0, shield: 0, double: 0 }, inv: 3, respawnT: 0,
         done: false, doneT: 0, success: false, failed: false, kingPopped: false, king: null, maxMass: startMass, bestRank: 99, rank: 1,
         banner: null, shake: 0, flash: 0, wallT: 0, tut: null, len2Met: false,
       };
@@ -1096,6 +1101,7 @@
       burst(world, s.x, s.y, skinHue(s.skin, 0), 30, 200, 6);
     }
     function playerPopped(W, s, cause) {
+      run.causes = run.causes || {}; run.causes[cause] = (run.causes[cause] || 0) + 1;
       sfx.die();
       run.shake = 18; run.flash = 0.45;
       run.combo = 0; run.chain = 0; run.comboT = 0;
@@ -1174,7 +1180,18 @@
       if (p.alive) {
         const left = keys.ArrowLeft || keys.KeyA, right = keys.ArrowRight || keys.KeyD;
         if (left || right) steer.mode = 'keys';
-        if (steer.mode === 'keys') {
+        if (autoplay) {
+          // test helper: the player's snake thinks like a rival snake of the given skill
+          p.skill = autoplay; p.agg = 0;
+          p.thinkT -= dt;
+          if (p.thinkT <= 0) {
+            p.thinkT = 0.12 + Math.random() * 0.06; think(W, p);
+            const ap = W.apples[0];
+            if (ap && !p.avoidT && Math.hypot(ap.x - p.x, ap.y - p.y) < 900) { p.tx = ap.x; p.ty = ap.y; }
+            if (run.king && run.king.alive && !p.avoidT && p.mass > 90) { const k = run.king; p.tx = k.x + Math.cos(k.a) * (140 + k.r * 3); p.ty = k.y + Math.sin(k.a) * (140 + k.r * 3); }
+          }
+          if (p.avoidT > 0) { p.avoidT -= dt; p.ta = p.avoidA; } else p.ta = Math.atan2(p.ty - p.y, p.tx - p.x);
+        } else if (steer.mode === 'keys') {
           const dir = (right ? 1 : 0) - (left ? 1 : 0);
           p.ta = p.a + dir * 1.2;
           p.lookX = p.x + Math.cos(p.a + dir * 0.6) * 200; p.lookY = p.y + Math.sin(p.a + dir * 0.6) * 200;
@@ -1185,7 +1202,7 @@
         }
         const speedy = r.pw.speed > 0;
         p.speedMul = speedy ? 1.3 : 1;
-        const wants = (keys.Space || keys.KeyW || keys.ArrowUp || steer.boost || steer.touchBoost) && !r.done;
+        const wants = (keys.Space || keys.KeyW || keys.ArrowUp || steer.boost || steer.touchBoost || (autoplay && p.wantBoost)) && !r.done;
         p.boosting = wants && (p.mass > 22 || speedy);
         if (p.boosting) { sfx.boost(); if (r.tut) r.tut.boosted = (r.tut.boosted || 0) + dt; }
         boostBurn(W, p, dt, speedy);
@@ -1283,7 +1300,8 @@
       for (const a of W.snakes) {
         if (!a.alive || a.spawnT > 0) continue;
         const protectedP = a.isPlayer && run && (run.pw.ghost > 0 || run.inv > 0 || run.done);
-        const hr = a.r * 0.78;
+        // the player's head is a little forgiving, so near misses feel great instead of unfair
+        const hr = a.r * (a.isPlayer ? 0.64 : 0.78);
         if (!protectedP) { const hz = hazardHit(W, a.x, a.y, hr); if (hz) { deaths.push([a, null, hz]); continue; } }
         if (protectedP) continue;
         for (const b of W.snakes) {
@@ -1397,8 +1415,7 @@
       }
       save.coins += coins;
       persist();
-      Potato.earn(spuds);
-      Potato.score(totalStars());
+      if (!simulating) { Potato.earn(spuds); Potato.score(totalStars()); }
       [...$('r-stars').children].forEach((s, i) => { s.className = starsGot[i] ? 'on' : ''; });
       $('r-len').textContent = Math.round(r.maxMass);
       $('r-pops').textContent = r.pops;
@@ -1613,6 +1630,7 @@
     // Input
     // =====================================================================
     const keys = {};
+    let autoplay = 0, simulating = false;
     const steer = { mode: 'mouse', mx: 0, my: 0, boost: false, touchBoost: false, touchShown: false, steerId: null, boostId: null };
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Enter' && mode === 'intro') { startStage(introStage); return; }
@@ -2091,6 +2109,15 @@
       ctx.beginPath(); ctx.arc(0, 0, W.R, 0, TAU); ctx.clip();
       ctx.fillStyle = floorPatterns[W.wi];
       ctx.fillRect(vx0, vy0, vx1 - vx0, vy1 - vy0);
+      for (const pt of W.patches || []) {
+        if (!vis(pt.x, pt.y, Math.max(pt.rx, pt.ry))) continue;
+        const col = W.wi === 0 ? (pt.k ? 'rgba(20,70,10,0.16)' : 'rgba(220,255,160,0.10)') : W.wi === 1 ? (pt.k ? 'rgba(150,100,40,0.14)' : 'rgba(255,250,225,0.16)') : (pt.k ? 'rgba(98,230,255,0.06)' : 'rgba(255,79,216,0.05)');
+        ctx.save(); ctx.translate(pt.x, pt.y); ctx.rotate(pt.rot); ctx.scale(1, pt.ry / pt.rx);
+        ctx.fillStyle = rad(0, 0, pt.rx * 0.2, pt.rx, [[0, col], [1, 'rgba(0,0,0,0)']]);
+        ctx.beginPath(); ctx.arc(0, 0, pt.rx, 0, TAU); ctx.fill();
+        if (W.wi === 1 && pt.k) { ctx.strokeStyle = 'rgba(140,95,40,0.16)'; ctx.lineWidth = 5; for (let j = -2; j <= 2; j++) { ctx.beginPath(); ctx.arc(0, j * 40 + 120, 150, Math.PI * 1.3, Math.PI * 1.7); ctx.stroke(); } }
+        ctx.restore();
+      }
       const dset = decoSprites[W.wi];
       for (const d of W.decor) {
         if (!vis(d.x, d.y, 30)) continue;
@@ -2110,6 +2137,7 @@
       ctx.lineWidth = 22; ctx.strokeStyle = th.wallA; ctx.beginPath(); ctx.arc(0, 0, W.R + 13, 0, TAU); ctx.stroke();
       if (W.wi === 2) { ctx.globalCompositeOperation = 'lighter'; ctx.lineWidth = 6; ctx.strokeStyle = `rgba(255,120,240,${0.6 + 0.3 * Math.sin(t * 3)})`; ctx.beginPath(); ctx.arc(0, 0, W.R + 2, 0, TAU); ctx.stroke(); ctx.globalCompositeOperation = 'source-over'; }
       else { ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.setLineDash([18, 14]); ctx.beginPath(); ctx.arc(0, 0, W.R + 10, 0, TAU); ctx.stroke(); ctx.setLineDash([]); }
+      drawWallPosts(W, t, vis);
       // orbs
       for (const o of W.orbs) {
         if (!vis(o.x, o.y, 30)) continue;
@@ -2136,6 +2164,14 @@
         const isP = s.isPlayer && run;
         const ghost = isP && (run.pw.ghost > 0 || (run.inv > 0 && Math.floor(time * 10) % 2 === 0));
         drawSnake(s, t, { ghost });
+        if (isP && run.inv > 0 && run.pw.shield <= 0 && !run.done) {
+          // spawn bubble: you can't pop for a moment after (re)spawning
+          setBase();
+          const R = s.r * 2.6 + Math.sin(t * 8) * 2, a = Math.min(1, run.inv * 1.5);
+          ctx.fillStyle = rad(s.x, s.y, R * 0.6, R, [[0, 'rgba(255,255,255,0)'], [1, `rgba(220,255,200,${0.35 * a})`]]);
+          ctx.beginPath(); ctx.arc(s.x, s.y, R, 0, TAU); ctx.fill();
+          ctx.strokeStyle = `rgba(255,255,255,${0.7 * a})`; ctx.lineWidth = 2; ctx.setLineDash([6, 6]); ctx.lineDashOffset = -t * 30; ctx.stroke(); ctx.setLineDash([]);
+        }
         if (isP && run.pw.shield > 0) {
           setBase();
           const R = s.r * 2.3;
@@ -2175,6 +2211,16 @@
         else outlined(s.name, sx, sy + s.r * z * 1.6 + 10, sz, 'rgba(255,255,255,0.92)', 'rgba(0,0,0,0.45)', 3.5, 'Nunito');
         ctx.globalAlpha = 1;
       }
+      // a "YOU" tag over your head for the first moments of each life
+      if (run && run.player && run.player.alive && (mode === 'play' || mode === 'paused') && (run.inv > 0 || run.time < 4)) {
+        const p = run.player, [sx, sy] = toS(p.x, p.y), a = clamp(Math.max(run.inv, 4 - run.time), 0, 1);
+        const by = sy - p.r * z * 2.2 - 26 * u + Math.sin(time * 5) * 3;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = '#ffffff'; rr(sx - 26 * u, by - 13 * u, 52 * u, 24 * u, 12 * u); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(sx - 7 * u, by + 10 * u); ctx.lineTo(sx + 7 * u, by + 10 * u); ctx.lineTo(sx, by + 18 * u); ctx.closePath(); ctx.fill();
+        label('YOU', sx, by, 14 * u, '#2f7a1f', 'center', 900, 'Fredoka');
+        ctx.globalAlpha = 1;
+      }
       for (const f of W.floaters) {
         const [sx, sy] = toS(f.x, f.y);
         ctx.globalAlpha = Math.min(1, f.life * 2);
@@ -2187,6 +2233,35 @@
       ctx.drawImage(vignette, -W_ * 0.1, -H_ * 0.1, W_ * 1.2, H_ * 1.2);
       ctx.globalAlpha = 1;
       if (run && (mode === 'play' || mode === 'paused')) drawHud(time);
+    }
+
+    // Posts around the arena wall: a wooden fence in the meadow, sandstone pillars in the desert
+    // and glowing pylons in Neon City. Only the posts on screen are drawn.
+    function drawWallPosts(W, t, vis) {
+      const R = W.R + 14, n = Math.round((TAU * R) / 110);
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * TAU, x = Math.cos(a) * R, y = Math.sin(a) * R;
+        if (!vis(x, y, 40)) continue;
+        if (W.wi === 0) {
+          circle(x + 3, y + 5, 11, 'rgba(0,0,0,0.25)');
+          ctx.fillStyle = rad(x - 3, y - 3, 1, 12, [[0, '#c8955a'], [1, '#6a4422']]); ctx.beginPath(); ctx.arc(x, y, 10, 0, TAU); ctx.fill();
+          ctx.strokeStyle = 'rgba(60,35,15,0.6)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x, y, 6, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(x, y, 2.5, 0, TAU); ctx.stroke();
+          if (i % 3 === 0) { circle(x - 9, y + 8, 3, '#ffffff'); circle(x - 9, y + 8, 1.2, '#ffd23f'); }
+        } else if (W.wi === 1) {
+          ctx.save(); ctx.translate(x, y); ctx.rotate(a + Math.PI / 4);
+          ctx.fillStyle = 'rgba(80,50,15,0.3)'; ctx.fillRect(-9, -7, 20, 20);
+          ctx.fillStyle = lin(-10, -10, 10, 10, [[0, '#f4d9a0'], [1, '#b0844a']]); ctx.fillRect(-11, -11, 22, 22);
+          ctx.strokeStyle = 'rgba(120,80,30,0.55)'; ctx.lineWidth = 1.5; ctx.strokeRect(-7, -7, 14, 14);
+          ctx.restore();
+        } else {
+          const p = 0.5 + 0.5 * Math.sin(t * 3 + i * 0.7);
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.drawImage(glowSprite(i % 2 ? 300 : 190, 62), x - 22, y - 22, 44, 44);
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.fillStyle = rad(x - 3, y - 3, 1, 10, [[0, '#e8eef8'], [1, '#3a4256']]); ctx.beginPath(); ctx.arc(x, y, 8, 0, TAU); ctx.fill();
+          circle(x, y, 3.5, i % 2 ? `rgba(255,90,230,${0.6 + p * 0.4})` : `rgba(90,230,255,${0.6 + p * 0.4})`);
+        }
+      }
     }
 
     function panel(x, y, w, h, r = 14) {
@@ -2244,6 +2319,14 @@
         label(`Orbs worth x${comboMult().toFixed(1)}`, 0, 36 * U, 11 * U, '#ffffff', 'center', 800);
         ctx.restore();
       }
+      // where the mouse is steering you
+      if (p.alive && steer.mode === 'mouse' && !steer.touchShown && !autoplay) {
+        const pul = 0.5 + 0.5 * Math.sin(time * 4);
+        ctx.strokeStyle = `rgba(255,255,255,${0.35 + pul * 0.2})`; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(steer.mx, steer.my, 11 + pul * 2, 0, TAU); ctx.stroke();
+        for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + time; ctx.beginPath(); ctx.moveTo(steer.mx + Math.cos(a) * 15, steer.my + Math.sin(a) * 15); ctx.lineTo(steer.mx + Math.cos(a) * 20, steer.my + Math.sin(a) * 20); ctx.stroke(); }
+        circle(steer.mx, steer.my, 2.5, 'rgba(255,255,255,0.8)');
+      }
       // buttons
       const b = hudButtons();
       for (const [btn, txt] of [[b.mute, save.muted ? '🔇' : '🔊'], [b.pause, 'II']]) {
@@ -2257,6 +2340,7 @@
         label(`${WORLDS[st.w].name} · Stage ${r.n}`, W_ - 108 * U, 30 * U, 13 * U, WORLDS[st.w].color, 'right', 900);
       }
       drawMinimap(time);
+      drawPointers(time);
       // touch boost button
       if (steer.touchShown) {
         const bb = boostBtn();
@@ -2342,6 +2426,45 @@
       }
       ctx.restore();
     }
+    // Arrows around the screen edge point at golden apples, power-ups and the giant King snake
+    // when they are off screen, so you always know where to go next.
+    function drawPointers(time) {
+      const W = world, r = run, p = r.player, U = u, z = cam.zoom;
+      if (!p.alive) return;
+      const list = [];
+      const goal = r.kind === 'stage' ? r.st.goal : '';
+      for (const a of W.apples) list.push({ x: a.x, y: a.y, kind: 'apple', pri: goal === 'apples' ? 2 : 1 });
+      for (const q of W.powers) if (Math.hypot(q.x - p.x, q.y - p.y) < 1400) list.push({ x: q.x, y: q.y, kind: 'power', type: q.type, pri: 0 });
+      if (r.king && r.king.alive) list.push({ x: r.king.x, y: r.king.y, kind: 'king', pri: 3 });
+      const m = 46 * U, top = 100 * U, bot = H_ - 70 * U;
+      list.sort((a, b) => b.pri - a.pri);
+      let shown = 0;
+      for (const it of list) {
+        const sx = (it.x - cam.x) * z + W_ / 2, sy = (it.y - cam.y) * z + H_ / 2;
+        if (sx > m && sx < W_ - m && sy > top && sy < bot) continue;
+        if (shown++ >= 4) break;
+        const ang = Math.atan2(sy - H_ / 2, sx - W_ / 2);
+        // push the arrow out from the centre until it reaches the edge box
+        const dx = Math.cos(ang), dy = Math.sin(ang);
+        const kx = dx > 0 ? (W_ - m - W_ / 2) / dx : dx < 0 ? (m - W_ / 2) / dx : Infinity;
+        const ky = dy > 0 ? (bot - H_ / 2) / dy : dy < 0 ? (top - H_ / 2) / dy : Infinity;
+        const k = Math.min(kx, ky), ax = W_ / 2 + dx * k, ay = H_ / 2 + dy * k;
+        const pulse = 1 + Math.sin(time * 6 + shown) * 0.08, R = 17 * U * pulse;
+        const col = it.kind === 'apple' ? '#ffd43b' : it.kind === 'king' ? '#ff7a5a' : POWERS[it.type].color;
+        ctx.save(); ctx.translate(ax, ay);
+        ctx.rotate(ang);
+        ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(R + 12 * U, 0); ctx.lineTo(R - 2 * U, -8 * U); ctx.lineTo(R - 2 * U, 8 * U); ctx.closePath(); ctx.fill();
+        ctx.rotate(-ang);
+        ctx.fillStyle = 'rgba(8,16,12,0.72)'; ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.fill();
+        ctx.strokeStyle = col; ctx.lineWidth = 2.5 * U; ctx.stroke();
+        if (it.kind === 'apple') drawApple(0, 1 * U, 7.5 * U, time);
+        else if (it.kind === 'king') label('👑', 0, 1, 15 * U, '#fff', 'center', 800);
+        else drawPowerIcon(it.type, 0, 0, 11 * U, time);
+        ctx.restore();
+        const dist = Math.round(Math.hypot(it.x - p.x, it.y - p.y) / 10);
+        label(`${dist}m`, ax, ay + R + 9 * U, 10 * U, 'rgba(255,255,255,0.85)', 'center', 900);
+      }
+    }
     function showBanner(title, sub, color) { if (run) run.banner = { title, sub, color, t: 0, dur: 2.6 }; }
 
     // =====================================================================
@@ -2370,6 +2493,22 @@
       grow(n = 50) { if (run && run.player) run.player.mass += n; },
       popRival() { if (!run) return; const b = world.snakes.find((s) => s.alive && !s.isPlayer); if (b) killSnake(world, b, run.player, 'body'); },
       givePower(type = 'shield') { if (run) run.pw[type] = powerDuration(); },
+      get autoplay() { return autoplay; },
+      set autoplay(v) { autoplay = clamp(Number(v) || 0, 0, 1); },
+      // play a stage to the end with the autoplay brain (no drawing); handy for tuning
+      simStage(n, skill = 0.5, maxT = 300) {
+        const snap = JSON.stringify(save), prev = autoplay;
+        autoplay = skill; simulating = true;
+        startStage(n);
+        const r = run;
+        let t = 0;
+        while (run === r && mode === 'play' && t < maxT) { updateWorld(1 / 30); updateRun(1 / 30); t += 1 / 30; }
+        const out = { n, causes: r.causes || {}, success: r.success, lost: r.livesLost, time: Math.round(r.time), par: r.st.par || 0, pops: r.pops, apples: r.apples, len: Math.round(r.maxMass), len2: r.len2Met, timeout: t >= maxT };
+        autoplay = prev; simulating = false;
+        save = JSON.parse(snap); persist();
+        showTitle();
+        return out;
+      },
     };
 
     menuWorld();

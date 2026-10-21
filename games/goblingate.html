@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Goblin Gate – Castle Tower Defense | Potato Games</title>
-  <meta name="description" content="Defend the castle! Build archer towers, cannons, frost towers and lightning towers to stop goblins, wolves, bats, orcs and the Troll King. Earn 3 stars on every level and unlock upgrades. A free tower defense game on Potato.">
+  <meta name="description" content="Defend the castle! Build archer towers, cannons, frost towers and lightning towers to stop goblins, wolves, bats, orcs, slimes and the Troll King across 12 battles. Earn 3 stars on every level and unlock upgrades. A free tower defense game on Potato.">
   <link rel="icon" href="goblingate-icon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
@@ -110,6 +110,7 @@
         <li><b>Every enemy you stop gives gold.</b> Spend it on more towers, or click a tower to <b>upgrade</b> it.</li>
         <li>Each goblin that gets through the gate costs a <b>life</b>. Keep 18+ lives for <b>3 stars</b>.</li>
         <li>Spend your stars on <b>Upgrades</b> to make every tower stronger.</li>
+        <li><b>Keys:</b> <b>F</b> changes the speed (1x, 2x, 3x), <b>P</b> pauses, <b>M</b> mutes. The little pictures by the Next button show who's coming next.</li>
       </ul>
       <div class="row">
         <button class="btn" id="play-btn">Play</button>
@@ -229,8 +230,10 @@
       shaman: { name: 'Shaman', hp: 75, speed: 40, gold: 12, armor: 0, lives: 1, threat: 2.6, hy: 26, bar: 28, heals: true },
       troll: { name: 'Troll', hp: 700, speed: 24, gold: 60, armor: 0.25, lives: 5, threat: 20, hy: 56, bar: 50 },
       boss: { name: 'Troll King', hp: 2600, speed: 19, gold: 200, armor: 0.3, lives: 20, threat: 60, hy: 74, bar: 70 },
+      slime: { name: 'Slime', hp: 95, speed: 38, gold: 7, armor: 0, lives: 1, threat: 2.4, hy: 16, bar: 28, splits: true },
+      slimelet: { name: 'Little Slime', hp: 34, speed: 58, gold: 3, armor: 0, lives: 1, threat: 0.8, hy: 10, bar: 20 },
     };
-    const ENEMY_INTRO = { goblin: 1, wolf: 2, bat: 3, orc: 4, shaman: 5, troll: 6, boss: 8 };
+    const ENEMY_INTRO = { goblin: 1, wolf: 2, bat: 3, orc: 4, shaman: 5, troll: 6, boss: 8, slime: 9 };
     const ENEMY_TIPS = {
       wolf: 'Wolves are fast! Frost towers slow them down.',
       bat: 'Bats fly over everything. Cannons can\'t hit them!',
@@ -238,6 +241,7 @@
       shaman: 'Shamans heal monsters near them. Stop them first!',
       troll: 'A troll is coming in the last wave. It\'s huge and super tough.',
       boss: 'The Troll King himself! If he reaches the gate, the castle falls.',
+      slime: 'Slimes are squishy! Pop one and it splits into two speedy little slimes.',
     };
 
     // Star upgrades (bought with the stars you earn on levels).
@@ -263,6 +267,7 @@
       snow: { g1: '#f4f8fc', g2: '#d6e3ef', tuft: '#b8c9da', path: '#b7a58c', edge: '#8a7a64', trees: 'snowpine', leaf: ['#2f6b4a', '#285e40'], deco: 'snow' },
       desert: { g1: '#ecd497', g2: '#d6b56e', tuft: '#b8954f', path: '#c59a5c', edge: '#8f6c3c', trees: 'cactus', leaf: ['#5f9c48', '#4c873a'], deco: 'stones' },
       mountain: { g1: '#8f877b', g2: '#6a6359', tuft: '#57514a', path: '#b39a74', edge: '#6f5d44', trees: 'dead', leaf: ['#5a4a3a'], deco: 'lava' },
+      crystal: { g1: '#6f7aa3', g2: '#4a5378', tuft: '#3c4566', path: '#b8ab98', edge: '#7a6c5a', trees: 'crystal', leaf: ['#b48cff', '#7fd6ff', '#ff8fd0'], deco: 'gems' },
     };
 
     // Paths run from the left edge to the castle gate on the right. Pads are where towers go.
@@ -298,6 +303,24 @@
       { name: 'Troll Mountain', theme: 'mountain', gold: 540, waves: 12,
         paths: [[[-40, 520], [200, 520], [200, 120], [440, 120], [440, 420], [680, 420], [680, 120], [880, 120], [880, 380], [1040, 380]]],
         pads: [[100, 220], [100, 420], [320, 250], [320, 450], [560, 280], [560, 540], [560, 135], [780, 250], [780, 460]] },
+      { name: 'Crystal Caves', theme: 'crystal', gold: 540, waves: 12,
+        paths: [[[-40, 110], [230, 110], [230, 520], [470, 520], [470, 130], [700, 130], [700, 470], [1040, 470]]],
+        pads: [[130, 210], [130, 400], [350, 300], [350, 420], [585, 230], [585, 380], [810, 360], [820, 230], [590, 590]] },
+      { name: 'Sandy Canyon', theme: 'desert', gold: 640, waves: 13,
+        paths: [
+          [[-40, 120], [340, 120], [340, 330], [620, 330], [620, 140], [850, 140], [850, 420], [1040, 420]],
+          [[-40, 540], [340, 540], [340, 330], [620, 330], [620, 140], [850, 140], [850, 420], [1040, 420]],
+        ],
+        pads: [[160, 225], [160, 435], [240, 330], [480, 230], [480, 440], [735, 240], [735, 420], [700, 540], [480, 120]] },
+      { name: 'Frozen Lake', theme: 'snow', gold: 620, waves: 13,
+        paths: [[[-40, 320], [160, 320], [160, 100], [420, 100], [420, 540], [640, 540], [640, 100], [860, 100], [860, 330], [1040, 330]]],
+        pads: [[70, 210], [70, 430], [290, 210], [290, 400], [530, 280], [530, 430], [750, 220], [750, 420], [860, 470]] },
+      { name: 'Troll Kingdom', theme: 'mountain', gold: 720, waves: 13,
+        paths: [
+          [[-40, 100], [520, 100], [520, 290], [300, 290], [300, 440], [760, 440], [760, 250], [1040, 250]],
+          [[-40, 540], [190, 540], [190, 440], [300, 440], [760, 440], [760, 250], [1040, 250]],
+        ],
+        pads: [[150, 200], [410, 195], [110, 330], [640, 190], [640, 340], [870, 150], [870, 340], [300, 540], [530, 540]] },
     ];
     const ENDLESS = { name: 'Endless Horde', theme: 'forest', gold: 420, waves: Infinity, endless: true,
       paths: [[[-40, 140], [860, 140], [860, 330], [140, 330], [140, 510], [1040, 510]]],
@@ -322,6 +345,9 @@
     save.ups = Array.isArray(save.ups) ? save.ups : [];
     save.endlessBest = Number(save.endlessBest) || 0;
     save.muted = !!save.muted;
+    // Older saves stopped unlocking at level 8. If you've won a level, the one after it is open.
+    const bestWon = Math.max(0, ...Object.keys(save.stars).filter((k) => Number(save.stars[k]) > 0).map(Number).filter(Number.isFinite));
+    save.unlocked = Math.min(LEVELS.length, Math.max(save.unlocked, bestWon + 1));
     const persist = () => Potato.save('save', save);
     const owns = (id) => save.ups.includes(id);
     const totalStars = () => Object.values(save.stars).reduce((s, n) => s + (Number(n) || 0), 0);
@@ -449,15 +475,15 @@
     // =====================================================================
     function makeWave(L, w, N, nPaths, endless) {
       const rnd = seeded(L * 1009 + w * 31 + (endless ? 50000 : 7));
-      const lvl = endless ? Math.min(8, 3 + Math.floor(w / 3)) : L;
-      const pool = ['goblin', 'wolf', 'bat', 'orc', 'shaman'].filter((t) => lvl >= ENEMY_INTRO[t]);
+      const lvl = endless ? Math.min(9, 3 + Math.floor(w / 3)) : L;
+      const pool = ['goblin', 'wolf', 'bat', 'orc', 'shaman', 'slime'].filter((t) => lvl >= ENEMY_INTRO[t]);
       const newest = !endless && L > 1 ? pool.find((t) => ENEMY_INTRO[t] === L) : null;
       let budget = endless ? 6 + w * 2.6 : 4 + w * 2.0 + (L - 1) * 1.8;
       if (w === N) budget *= 1.35;
       const groups = [];
       // You meet the newest enemy on its own in wave 2.
       if (newest && w === 2) {
-        const count = newest === 'orc' ? 2 : newest === 'shaman' ? 2 : 4;
+        const count = newest === 'orc' ? 2 : newest === 'shaman' ? 2 : newest === 'slime' ? 3 : 4;
         groups.push({ type: newest, count });
         budget -= count * ENEMIES[newest].threat;
       }
@@ -472,20 +498,23 @@
         budget -= (th > budget ? Math.floor(budget) : count) * ENEMIES[type].threat;
       }
       if (!endless) {
-        if (w === N && L >= 6) groups.push({ type: 'troll', count: L >= 7 ? 2 : 1 });
+        if (w === N && L >= 6) groups.push({ type: 'troll', count: L === 11 ? 3 : L >= 7 ? 2 : 1 });
         if (L === 8 && w >= 8 && w < N) groups.push({ type: 'troll', count: 1 });
-        if (L === 8 && w === N) groups.push({ type: 'boss', count: 1 });
+        if (L >= 9 && w >= N - 3 && w < N) groups.push({ type: 'troll', count: 1 });
+        if ((L === 8 || L === 12) && w === N) groups.push({ type: 'boss', count: 1 });
       } else {
         if (w % 5 === 0) groups.push({ type: 'troll', count: Math.ceil(w / 10) });
         if (w % 15 === 0) groups.push({ type: 'boss', count: 1 });
       }
-      const gaps = { goblin: 1.0, wolf: 0.7, bat: 0.8, orc: 1.6, shaman: 1.5, troll: 3, boss: 1 };
+      const gaps = { goblin: 1.0, wolf: 0.7, bat: 0.8, orc: 1.6, shaman: 1.5, troll: 3, boss: 1, slime: 1.3 };
       const hp = endless ? (1 + 0.11 * (lvl - 1)) * (1 + 0.065 * (w - 1)) : (1 + 0.09 * (L - 1)) * (1 + 0.045 * (w - 1));
       const spawns = [];
       let at = 0;
       groups.forEach((g, gi) => {
         const path = nPaths > 1 ? gi % nPaths : 0;
-        for (let i = 0; i < g.count; i++) { spawns.push({ at, type: g.type, path, hp }); at += gaps[g.type]; }
+        // The Troll King is tough enough already, so he doesn't keep getting tougher after level 8.
+        const ghp = g.type === 'boss' && !endless && L > 8 ? (1 + 0.09 * 7) * (1 + 0.045 * (w - 1)) : hp;
+        for (let i = 0; i < g.count; i++) { spawns.push({ at, type: g.type, path, hp: ghp }); at += gaps[g.type]; }
         at += 1.3;
       });
       return spawns;
@@ -541,12 +570,15 @@
         sel: -1, aiming: null,
         speed: 1, shake: 0, flash: 0,
         kills: 0, built: 0, ups: 0, spellsCast: 0,
+        pending: [], flyCoins: [], shownGold: 0, goldBump: 0, preview: null,
         msg: '', msgT: 0, banner: null,
         over: null, overT: 0,
         time: 0,
       };
+      run.shownGold = run.gold;
       mode = 'play';
       hideOverlays();
+      last = performance.now();
       showBanner(endless ? 'Endless Horde' : `Level ${n}`, endless ? 'Survive as many waves as you can!' : level.name, '#ffc145');
     }
 
@@ -590,7 +622,7 @@
       const cost = TOWERS[type].cost[0];
       if (run.gold < cost) { say(`You need ${cost - run.gold} more gold.`); sfx.nope(); return; }
       run.gold -= cost;
-      pad.tower = { type, lv: 1, x: pad.x, y: pad.y, cd: 0.2, aim: -Math.PI / 2, recoil: 0, kills: 0, spent: cost, born: 0 };
+      pad.tower = { type, lv: 1, x: pad.x, y: pad.y, cd: 0.2, aim: -Math.PI / 2, recoil: 0, kills: 0, spent: cost, born: 0, fresh: true };
       run.built++;
       run.sel = -1;
       sfx.build();
@@ -706,6 +738,20 @@
       const size = e.type === 'boss' ? 3 : e.type === 'troll' ? 2 : 1;
       for (let k = 0; k < 8 * size; k++) smoke(e.x, e.y - E.hy * 0.6, 0.8 * size);
       for (let k = 0; k < 3 + size * 2; k++) coinPart(e.x, e.y - E.hy);
+      if (run.flyCoins.length < 40) run.flyCoins.push({ x: e.x, y: e.y - E.hy, vx: (Math.random() - 0.5) * 120, vy: -140 - Math.random() * 60, t: 0 });
+      // Slimes pop into two little slimes.
+      if (E.splits) {
+        const k = e.max / E.hp;
+        for (const side of [-1, 1]) {
+          const hp = Math.round(ENEMIES.slimelet.hp * k);
+          run.pending.push({
+            type: 'slimelet', path: e.path, d: e.d + side * 9, x: e.x, y: e.y, f: e.f,
+            hp, max: hp, speed: ENEMIES.slimelet.speed * (0.94 + Math.random() * 0.12), ph: Math.random() * 6,
+            slowT: 0, slowMul: 1, freezeT: 0, healT: 1.5, healFx: 0, hitT: 0, off: e.off + side * 6,
+          });
+        }
+        for (let q = 0; q < 10; q++) sparkle(e.x, e.y - 10, ['#9dff7a', '#d8ffb0', '#5fd04a'], 0.8);
+      }
       if (e.type === 'boss') { run.shake = 12; sfx.bigboom(); showBanner('Troll King defeated!', 'The biggest troll of all is down!', '#ffd43b'); }
       else if (e.type === 'troll') { run.shake = 6; sfx.boom(); }
     }
@@ -772,7 +818,48 @@
     // Update
     // =====================================================================
     const attract = [];
+    // Little bits of weather for each place: fireflies, falling leaves, snow, sand, embers and sparkles.
+    const ambient = [];
+    function updateAmbient(dt) {
+      if (mode === 'paused') return;
+      const th = level.theme;
+      const want = { meadow: 14, forest: 22, autumn: 18, swamp: 22, snow: 45, desert: 14, mountain: 26, crystal: 26 }[th] || 12;
+      if (ambient.length < want && Math.random() < dt * want * 0.5) {
+        const p = { th, x: Math.random() * VW, y: HUD_H + Math.random() * (VH - HUD_H), life: 4 + Math.random() * 4, ph: Math.random() * 6, s: 0.6 + Math.random() * 0.8 };
+        if (th === 'snow') { p.y = HUD_H - 10; p.vx = -10 + Math.random() * 20; p.vy = 30 + Math.random() * 30; p.life = 14; }
+        else if (th === 'autumn') { p.y = HUD_H - 10; p.vx = 15 + Math.random() * 25; p.vy = 25 + Math.random() * 20; p.life = 16; p.c = pick(THEMES.autumn.leaf); }
+        else if (th === 'mountain') { p.y = VH + 5; p.vx = -6 + Math.random() * 12; p.vy = -30 - Math.random() * 30; p.life = 12; }
+        else if (th === 'desert') { p.x = -10; p.vx = 70 + Math.random() * 60; p.vy = -4 + Math.random() * 8; p.life = 16; }
+        else { p.vx = -8 + Math.random() * 16; p.vy = -8 + Math.random() * 16; }
+        p.max = p.life;
+        ambient.push(p);
+      }
+      for (const p of ambient) {
+        p.ph += dt;
+        p.x += (p.vx + (p.th === 'autumn' || p.th === 'snow' ? Math.sin(p.ph * 2) * 18 : 0)) * dt;
+        p.y += p.vy * dt;
+        if (p.th === 'forest' || p.th === 'swamp' || p.th === 'meadow' || p.th === 'crystal') { p.vx += (Math.random() - 0.5) * 30 * dt; p.vy += (Math.random() - 0.5) * 30 * dt; }
+        p.life -= dt;
+        if (p.th !== th || p.y > VH + 20 || p.y < HUD_H - 30 || p.x > VW + 20) p.life = 0;
+      }
+      for (let i = ambient.length - 1; i >= 0; i--) if (ambient[i].life <= 0) ambient.splice(i, 1);
+    }
+    function drawAmbient(time) {
+      for (const p of ambient) {
+        const fade = Math.min(1, p.life, (p.max - p.life) * 2);
+        ctx.globalAlpha = Math.max(0, fade);
+        if (p.th === 'snow') circle(p.x, p.y, 2 * p.s, 'rgba(255,255,255,0.9)');
+        else if (p.th === 'autumn') { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.ph * 2); ellipse(0, 0, 4.5 * p.s, 2.2 * p.s, p.c); ctx.restore(); }
+        else if (p.th === 'mountain') circle(p.x, p.y, 1.6 * p.s, `rgba(255,${140 + Math.floor(Math.sin(p.ph * 6) * 60)},40,0.9)`);
+        else if (p.th === 'desert') { ctx.fillStyle = 'rgba(255,240,200,0.35)'; ctx.fillRect(p.x, p.y, 10 * p.s, 1.4); }
+        else if (p.th === 'crystal') star(p.x, p.y, 3.2 * p.s * (0.6 + 0.4 * Math.sin(p.ph * 5)), ['#e7d6ff', '#bff0ff', '#ffd6f0'][Math.floor(p.ph) % 3]);
+        else if (p.th === 'meadow') { const f = Math.sin(p.ph * 14) * 3 * p.s; ctx.fillStyle = '#fff6a8'; ctx.beginPath(); ctx.ellipse(p.x - 2.5, p.y, 2.6 * p.s, Math.abs(f) + 0.5, 0, 0, Math.PI * 2); ctx.ellipse(p.x + 2.5, p.y, 2.6 * p.s, Math.abs(f) + 0.5, 0, 0, Math.PI * 2); ctx.fill(); }
+        else { const g = 0.5 + 0.5 * Math.sin(p.ph * 4 + p.x); ctx.fillStyle = rad(p.x, p.y, 0.5, 7 * p.s, [[0, `rgba(240,255,150,${0.9 * g})`], [1, 'rgba(200,255,100,0)']]); ctx.beginPath(); ctx.arc(p.x, p.y, 7 * p.s, 0, Math.PI * 2); ctx.fill(); }
+      }
+      ctx.globalAlpha = 1;
+    }
     function update(dt) {
+      updateAmbient(dt);
       if (mode !== 'play') {
         // goblins wander along the road behind the menus
         if (attract.length < 5 && Math.random() < dt * 0.6) attract.push({ type: pick(['goblin', 'goblin', 'wolf', 'orc', 'shaman']), d: -20, ph: 0, path: 0, f: 1 });
@@ -782,6 +869,17 @@
       }
       const r = run;
       r.time += dt;
+      if (r.pending.length) { r.enemies.push(...r.pending); r.pending = []; }
+      // gold counter counts up, and coins fly up to it
+      r.shownGold += (r.gold - r.shownGold) * Math.min(1, dt * 8);
+      if (Math.abs(r.gold - r.shownGold) < 0.5) r.shownGold = r.gold;
+      if (r.goldBump > 0) r.goldBump -= dt;
+      for (const c of r.flyCoins) {
+        c.t += dt;
+        if (c.t < 0.3) { c.x += c.vx * dt; c.y += c.vy * dt; c.vy += 600 * dt; }
+        else { const k = Math.min(1, dt * 7); c.x += (112 - c.x) * k; c.y += (22 - c.y) * k; if (Math.hypot(112 - c.x, 22 - c.y) < 12) { c.done = true; r.goldBump = 0.2; } }
+      }
+      r.flyCoins = r.flyCoins.filter((c) => !c.done);
       if (r.msgT > 0) r.msgT -= dt;
       if (r.banner) { r.banner.t += dt; if (r.banner.t > 2.6) r.banner = null; }
       if (r.shake > 0) r.shake = Math.max(0, r.shake - dt * 20);
@@ -925,7 +1023,7 @@
       r.floaters = r.floaters.filter((f) => f.life > 0);
 
       // victory
-      if (!r.over && r.wave >= r.waves && !r.queue.length && !r.enemies.length) {
+      if (!r.over && r.wave >= r.waves && !r.queue.length && !r.enemies.length && !r.pending.length) {
         r.over = 'win'; r.overT = 1.6;
         if (!r.endless) showBanner('Victory!', 'The castle is safe!', '#3ecf8e');
       }
@@ -1125,8 +1223,11 @@
     function pause(on) {
       if (!run || run.over) return;
       if (on && mode === 'play') { mode = 'paused'; showOverlay('pause'); }
-      else if (!on && mode === 'paused') { mode = 'play'; hideOverlays(); }
+      else if (!on && mode === 'paused') { mode = 'play'; hideOverlays(); last = performance.now(); }
     }
+    // Switching tabs or clicking away pauses the battle so nothing sneaks through.
+    document.addEventListener('visibilitychange', () => { if (document.hidden) pause(true); });
+    window.addEventListener('blur', () => pause(true));
 
     $('play-btn').addEventListener('click', () => { audio(); sfx.click(); showMap(); });
     $('t-shop-btn').addEventListener('click', () => showShop('title'));
@@ -1173,6 +1274,16 @@
       ];
     }
     function nextVisible() { return run && !run.over && run.wave < run.waves && !run.queue.length; }
+    // The enemy kinds in the next wave (waves are the same every time you play a level, so we can peek).
+    function previewTypes() {
+      const r = run;
+      if (!r.preview || r.preview.wave !== r.wave + 1) {
+        const q = makeWave(r.endless ? 1 : r.level, r.wave + 1, r.waves, paths.length, r.endless);
+        const order = ['boss', 'troll', 'slime', 'orc', 'shaman', 'bat', 'wolf', 'goblin'];
+        r.preview = { wave: r.wave + 1, types: [...new Set(q.map((s) => s.type))].sort((a, b) => order.indexOf(a) - order.indexOf(b)) };
+      }
+      return r.preview.types;
+    }
 
     function hitTest(p) {
       if (!run) return null;
@@ -1198,7 +1309,7 @@
       }
       if (!h) { run.sel = -1; return; }
       if (h.type === 'pause') return pause(true);
-      if (h.type === 'speed') { run.speed = run.speed === 1 ? 2 : 1; sfx.click(); return; }
+      if (h.type === 'speed') { run.speed = run.speed >= 3 ? 1 : run.speed + 1; sfx.click(); return; }
       if (h.type === 'mute') { save.muted = !save.muted; persist(); return; }
       if (h.type === 'next') { run.sel = -1; sendWave(); return; }
       if (h.type === 'spell') { castSpell(h.id); return; }
@@ -1227,6 +1338,7 @@
     });
     canvas.addEventListener('pointerleave', () => { pointer = { x: -999, y: -999 }; hover = null; });
     window.addEventListener('keydown', (e) => {
+      if ((e.key === 'm' || e.key === 'M') && !e.repeat) { save.muted = !save.muted; persist(); return; }
       if (e.key === 'Enter' && mode === 'intro') { startLevel(introLevel); return; }
       if (mode === 'paused' && (e.key === 'Escape' || e.key === 'p' || e.key === 'P')) { pause(false); return; }
       if (mode !== 'play' || run.over) return;
@@ -1234,8 +1346,8 @@
       if (k === ' ') { e.preventDefault(); if (nextVisible()) sendWave(); }
       else if (k === 'escape') { if (run.aiming) run.aiming = null; else if (run.sel >= 0) run.sel = -1; else pause(true); }
       else if (k === 'p') pause(true);
-      else if (k === 'f') run.speed = run.speed === 1 ? 2 : 1;
-      else if (k === 'm') { save.muted = !save.muted; persist(); }
+      else if (k === 'f') run.speed = run.speed >= 3 ? 1 : run.speed + 1;
+      else if (k === 'm') { /* handled above */ }
       else if (k === 'q') castSpell('meteor', run.aiming === 'meteor' && pointer.y > HUD_H ? pointer : null);
       else if (k === 'e') castSpell('ice');
       else if (k === 'tab') { e.preventDefault(); run.sel = (run.sel + 1) % run.pads.length; sfx.click(); }
@@ -1439,6 +1551,12 @@
         else if (d === 'reeds' && rnd() < 0.5) { ctx.strokeStyle = '#3e5a2a'; ctx.lineWidth = 1.5; for (let k = -1; k <= 1; k++) line(x + k * 2, y, x + k * 4, y - 10 - rnd() * 4); ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x + 3, y - 14, 2.5, 5); }
         else if (d === 'snow') { ellipse(x, y, 10 + rnd() * 12, 4 + rnd() * 3, 'rgba(255,255,255,0.7)'); }
         else if (d === 'stones' && rnd() < 0.6) { ellipse(x, y, 3 + rnd() * 3, 2 + rnd() * 2, '#b89a6a'); }
+        else if (d === 'gems' && rnd() < 0.35) {
+          const col = pick.call(null, T.leaf);
+          ctx.fillStyle = col + '40'; ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x, y - 4); ctx.lineTo(x + 3, y); ctx.lineTo(x, y + 3); ctx.lineTo(x - 3, y); ctx.closePath(); ctx.fill();
+          circle(x - 0.8, y - 1.4, 0.9, '#fff');
+        }
         else if (d === 'lava' && rnd() < 0.18) {
           ctx.strokeStyle = 'rgba(255,120,30,0.8)'; ctx.lineWidth = 2;
           ctx.beginPath(); ctx.moveTo(x, y); for (let k = 0; k < 4; k++) ctx.lineTo(x + (k + 1) * 7, y + (rnd() - 0.5) * 8); ctx.stroke();
@@ -1482,6 +1600,21 @@
         rr(x + 11 * s, y - 38 * s, 9 * s, 16 * s, 4.5 * s); ctx.fill(); ctx.fillRect(x + 4 * s, y - 26 * s, 12 * s, 6 * s);
         ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 1; line(x, y - 42 * s, x, y - 2);
         if (v < 0.4) circle(x, y - 46 * s, 3.5 * s, '#ff6fa8');
+        return;
+      }
+      if (kind === 'crystal') {
+        // a cluster of glowing crystals
+        const col = T.leaf[Math.floor(v * T.leaf.length)];
+        ctx.fillStyle = rad(x, y - 18 * s, 2, 36 * s, [[0, col + '55'], [1, col + '00']]);
+        ctx.beginPath(); ctx.arc(x, y - 18 * s, 36 * s, 0, Math.PI * 2); ctx.fill();
+        for (const [cx, h, w, a] of [[-11, 26, 7, -0.35], [11, 30, 7, 0.3], [0, 44, 9, 0], [-4, 18, 5, -0.7], [7, 16, 5, 0.75]]) {
+          ctx.save(); ctx.translate(x + cx * s, y); ctx.rotate(a);
+          ctx.fillStyle = lin(-w * s, 0, w * s, 0, [[0, shade(col, 60)], [0.5, col], [1, shade(col, -60)]]);
+          ctx.beginPath(); ctx.moveTo(-w * s, 0); ctx.lineTo(-w * 0.8 * s, -h * 0.75 * s); ctx.lineTo(0, -h * s); ctx.lineTo(w * 0.8 * s, -h * 0.75 * s); ctx.lineTo(w * s, 0); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,0.45)';
+          ctx.beginPath(); ctx.moveTo(-w * 0.45 * s, -2); ctx.lineTo(-w * 0.35 * s, -h * 0.7 * s); ctx.lineTo(0, -h * 0.92 * s); ctx.lineTo(-w * 0.05 * s, -2); ctx.closePath(); ctx.fill();
+          ctx.restore();
+        }
         return;
       }
       if (kind === 'dead') {
@@ -1579,6 +1712,25 @@
       ctx.fillStyle = '#c0392b';
       ctx.beginPath(); ctx.moveTo(x + 52, y - 48); ctx.lineTo(x + 72, y - 48); ctx.lineTo(x + 72, y - 8); ctx.lineTo(x + 62, y - 16); ctx.lineTo(x + 52, y - 8); ctx.closePath(); ctx.fill();
       star(x + 62, y - 34, 6, '#ffc145');
+      // The castle shows the damage when goblins get through.
+      const hp = run ? run.lives / run.maxLives : 1;
+      if (hp < 0.75) {
+        ctx.strokeStyle = 'rgba(40,34,28,0.75)'; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+        ctx.beginPath(); ctx.moveTo(x + 60, top + 44); ctx.lineTo(x + 54, top + 60); ctx.lineTo(x + 62, top + 70); ctx.lineTo(x + 56, top + 86); ctx.stroke();
+        if (hp < 0.5) { ctx.beginPath(); ctx.moveTo(x + 76, y + 20); ctx.lineTo(x + 70, y + 34); ctx.lineTo(x + 78, y + 46); ctx.lineTo(x + 72, y + 62); ctx.stroke(); }
+      }
+      if (hp < 0.5) {
+        // smoke curling up from the tower
+        for (let k = 0; k < 5; k++) {
+          const a = (time * 0.6 + k / 5) % 1;
+          circle(x + 46 + Math.sin(time * 2 + k) * 6 + a * 10, top - 40 - a * 60, 6 + a * 12, `rgba(70,66,62,${(1 - a) * 0.45})`);
+        }
+      }
+      if (hp < 0.3) {
+        const f = 0.6 + 0.4 * Math.sin(time * 18);
+        ctx.fillStyle = `rgba(255,140,40,${0.8 * f})`;
+        ctx.beginPath(); ctx.moveTo(x + 36, top - 36); ctx.quadraticCurveTo(x + 42, top - 56 - f * 8, x + 46, top - 40); ctx.quadraticCurveTo(x + 52, top - 60 - f * 6, x + 56, top - 36); ctx.closePath(); ctx.fill();
+      }
     }
 
     // =====================================================================
@@ -1790,8 +1942,33 @@
       }
     }
 
+    // A wobbly, jelly slime that bounces along.
+    function drawSlime(ph, small) {
+      const sq = Math.sin(ph * 1.3);
+      const hop = Math.max(0, Math.sin(ph * 1.3)) * 5;
+      const w = 16 + sq * 2.4, h = 18 - sq * 2.8;
+      ctx.translate(0, -hop);
+      const body = () => { ctx.beginPath(); ctx.moveTo(-w, 0); ctx.bezierCurveTo(-w - 2, -h * 1.15, w + 2, -h * 1.15, w, 0); ctx.quadraticCurveTo(0, 4, -w, 0); ctx.closePath(); };
+      ctx.globalAlpha *= 0.94;
+      ctx.fillStyle = rad(-4, -h * 0.75, 2, w * 1.5, small ? [[0, '#e6ffc8'], [0.5, '#9be86a'], [1, '#4fae38']] : [[0, '#d6ffb8'], [0.45, '#6fd650'], [1, '#2f8a2a']]);
+      body(); ctx.fill();
+      ctx.strokeStyle = 'rgba(30,90,20,0.55)'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.globalAlpha /= 0.94;
+      // shine and a little bubble inside
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.beginPath(); ctx.ellipse(-w * 0.45, -h * 0.62, w * 0.22, h * 0.13, -0.6, 0, Math.PI * 2); ctx.fill();
+      circle(w * 0.35, -h * 0.25, 2.2, 'rgba(255,255,255,0.35)');
+      // eyes
+      ellipse(w * 0.05, -h * 0.5, 3.6, 4.4, '#fff'); ellipse(w * 0.5, -h * 0.5, 3.3, 4.1, '#fff');
+      circle(w * 0.12 + 1, -h * 0.47, 1.9, '#143a10'); circle(w * 0.55 + 1, -h * 0.47, 1.8, '#143a10');
+      ctx.strokeStyle = '#1d4a14'; ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(w * 0.3, -h * 0.28, 3.4, 0.2, Math.PI - 0.2); ctx.stroke();
+    }
+
     function drawEnemyBody(type, ph, time) {
-      if (type === 'goblin') drawGoblin(ph, false);
+      if (type === 'slime') drawSlime(ph, false);
+      else if (type === 'slimelet') drawSlime(ph, true);
+      else if (type === 'goblin') drawGoblin(ph, false);
       else if (type === 'shaman') drawGoblin(ph, true);
       else if (type === 'orc') drawOrc(ph);
       else if (type === 'wolf') drawWolf(ph);
@@ -1799,7 +1976,7 @@
       else if (type === 'troll') drawTroll(ph, false);
       else if (type === 'boss') drawTroll(ph, true);
     }
-    const ENEMY_SCALE = { goblin: 1, shaman: 1, orc: 1, wolf: 1, bat: 1, troll: 1.25, boss: 1.6 };
+    const ENEMY_SCALE = { goblin: 1, shaman: 1, orc: 1, wolf: 1, bat: 1, troll: 1.25, boss: 1.6, slime: 1.2, slimelet: 0.72 };
 
     function drawEnemy(e, time) {
       const E = ENEMIES[e.type];
@@ -1991,9 +2168,13 @@
     }
 
     function drawTower(t, time) {
-      const pop = t.born < 0.25 ? 1 + Math.sin((t.born / 0.25) * Math.PI) * 0.12 : 1;
+      // New towers drop onto the pad with a thud; upgrades give a happy little pop.
+      const dropK = t.fresh ? Math.max(0, 1 - t.born / 0.2) : 0;
+      if (t.fresh && t.born >= 0.2) { t.fresh = false; if (run) { dust(t.x, t.y, 14); run.shake = Math.max(run.shake, 2); } }
+      const land = t.fresh ? 0 : Math.max(0, t.born - 0.2);
+      const pop = t.born < 0.25 && !t.fresh && land === 0 ? 1 + Math.sin((t.born / 0.25) * Math.PI) * 0.12 : land < 0.2 && land > 0 ? 1 + Math.sin((land / 0.2) * Math.PI) * 0.08 : 1;
       ctx.save();
-      ctx.translate(t.x, t.y); ctx.scale(pop, pop); ctx.translate(-t.x, -t.y);
+      ctx.translate(t.x, t.y - dropK * dropK * 70); ctx.scale(pop, 1 / pop); ctx.translate(-t.x, -t.y);
       if (t.type === 'archer') drawArcher(t, time);
       else if (t.type === 'cannon') drawCannon(t, time);
       else if (t.type === 'frost') drawFrost(t, time);
@@ -2024,7 +2205,7 @@
     function portraitEnemy(c, type) {
       portraitWith(c, () => {
         ctx.save(); ctx.scale(c.width / 64, c.height / 64);
-        const s = { troll: 0.62, boss: 0.5 }[type] || 1;
+        const s = { troll: 0.62, boss: 0.5, slime: 1.5, slimelet: 1.8 }[type] || 1;
         ctx.translate(30, type === 'bat' ? 34 : 56); ctx.scale(s, s);
         softShadow(0, 1, 14, 5, 0.3);
         drawEnemyBody(type, 0.8, 1);
@@ -2154,8 +2335,9 @@
       const hurt = r.flash > 0 ? 1 + r.flash * 0.6 : 1;
       ctx.save(); ctx.translate(26, 22); ctx.scale(hurt, hurt); heart(0, 0, 10, '#ff4d5e'); ctx.restore();
       label(String(r.lives), 44, 23, 21, r.lives <= 5 ? '#ff6b6b' : '#fff', 'left', 700, 'Fredoka');
-      coin(112, 22, 10);
-      label(String(r.gold), 128, 23, 21, '#ffe58a', 'left', 700, 'Fredoka');
+      const gb = r.goldBump > 0 ? 1 + Math.sin((r.goldBump / 0.2) * Math.PI) * 0.22 : 1;
+      ctx.save(); ctx.translate(112, 22); ctx.scale(gb, gb); coin(0, 0, 10); ctx.restore();
+      label(String(Math.round(r.shownGold)), 128, 23, 21, '#ffe58a', 'left', 700, 'Fredoka');
       label(r.endless ? 'Endless Horde' : `Lv ${r.level} · ${level.name}`, 218, 23, 14, '#a3a9b6', 'left', 800);
       // wave sign
       ctx.fillStyle = lin(0, 5, 0, 39, [[0, '#ffd166'], [1, '#e8a317']]);
@@ -2165,7 +2347,7 @@
       // buttons
       const hk = (t) => hover && hover.type === t;
       button(MUTE_BTN, hk('mute'), null, save.muted ? '🔇' : '🔊', 15);
-      button(SPEED_BTN, hk('speed'), r.speed > 1 ? '#c27a12' : null, r.speed > 1 ? '▶▶' : '▶', 13);
+      button(SPEED_BTN, hk('speed'), r.speed > 1 ? (r.speed > 2 ? '#d9480f' : '#c27a12') : null, r.speed > 2 ? '▶▶▶' : r.speed > 1 ? '▶▶' : '▶', r.speed > 2 ? 10 : 13);
       button(PAUSE_BTN, hk('pause'), null, 'II', 14);
 
       // spell buttons
@@ -2206,7 +2388,21 @@
           label(String(Math.ceil(r.nextT)), cx, cy + 1, 12, '#3a2400', 'center', 900);
         }
         ctx.restore();
-        label('Space', b.x + b.w / 2, b.y - 9, 10, 'rgba(255,255,255,0.6)', 'center', 800);
+        label('Space', b.x + b.w - 26, b.y - 9, 10, 'rgba(255,255,255,0.6)', 'center', 800);
+        // what's coming in the next wave
+        const types = previewTypes();
+        types.slice(0, 5).forEach((type, i) => {
+          const px = b.x + 18 + i * 28, py = b.y - 4;
+          circle(px, py + 2, 13, 'rgba(0,0,0,0.4)');
+          ctx.fillStyle = rad(px - 3, py - 4, 1, 13, [[0, '#4a5568'], [1, '#1a1e26']]);
+          ctx.beginPath(); ctx.arc(px, py, 13, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = type === 'boss' || type === 'troll' ? '#ff6b6b' : 'rgba(255,220,120,0.8)'; ctx.lineWidth = 2; ctx.stroke();
+          ctx.save(); ctx.beginPath(); ctx.arc(px, py, 12, 0, Math.PI * 2); ctx.clip();
+          const sc = { troll: 0.3, boss: 0.24, bat: 0.55, slimelet: 0.7 }[type] || 0.42;
+          ctx.translate(px, py + (type === 'bat' ? 2 : 9)); ctx.scale(sc, sc);
+          drawEnemyBody(type, 0.8, time);
+          ctx.restore();
+        });
       }
 
       // hints and messages
@@ -2382,6 +2578,7 @@
         for (const e of r.enemies) if (ENEMIES[e.type].fly && e.d > -30) drawEnemy(e, time);
         drawShots(time);
         drawParticles();
+        drawAmbient(time);
         if (r.flash > 0) { ctx.fillStyle = r.lives > 0 && r.flash > 0.35 ? `rgba(200,240,255,${r.flash * 0.4})` : `rgba(255,40,40,${r.flash * 0.25})`; ctx.fillRect(0, 0, VW, VH); }
         if (r.aiming === 'meteor' && pointer.y > HUD_H) {
           ctx.strokeStyle = 'rgba(255,140,60,0.9)'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]);
@@ -2395,11 +2592,12 @@
           ctx.beginPath(); ctx.moveTo(p.x, p.y - 22 + bob); ctx.lineTo(p.x - 13, p.y - 42 + bob); ctx.lineTo(p.x - 5, p.y - 42 + bob); ctx.lineTo(p.x - 5, p.y - 60 + bob); ctx.lineTo(p.x + 5, p.y - 60 + bob); ctx.lineTo(p.x + 5, p.y - 42 + bob); ctx.lineTo(p.x + 13, p.y - 42 + bob); ctx.closePath(); ctx.fill();
           ctx.strokeStyle = '#7a5200'; ctx.lineWidth = 2; ctx.stroke();
         }
-        if (mode === 'play' || mode === 'paused') { drawMenu(time); drawHud(time); }
+        if (mode === 'play' || mode === 'paused') { drawMenu(time); drawHud(time); for (const c of r.flyCoins) coin(c.x, c.y, 5); }
       } else {
         const things = attract.map((a) => ({ y: a.y, draw: () => { softShadow(a.x, a.y + 1, 14, 5, 0.28); ctx.save(); ctx.translate(a.x, a.y); ctx.scale(a.f, 1); drawEnemyBody(a.type, a.ph, time); ctx.restore(); } }));
         things.sort((a, b) => a.y - b.y).forEach((t) => t.draw());
         castle(endY, time);
+        drawAmbient(time);
       }
       // vignette
       ctx.fillStyle = rad(VW / 2, VH / 2, 320, 720, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.3)']]);
@@ -2418,7 +2616,11 @@
     }
 
     // Handy for poking at the game from the browser console: GoblinGate.state
-    window.GoblinGate = { get state() { return { mode, run, save, level, paths }; }, levels: [...LEVELS, ENDLESS], buildPath };
+    window.GoblinGate = {
+      get state() { return { mode, run, save, level, paths }; }, levels: [...LEVELS, ENDLESS], buildPath,
+      startLevel, sendWave, build, upgrade, castSpell, makeWave,
+      step(seconds) { for (let k = 0; k < Math.round(seconds * 60); k++) update(1 / 60); },
+    };
 
     showTitle();
     requestAnimationFrame(loop);
