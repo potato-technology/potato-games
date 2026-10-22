@@ -72,6 +72,12 @@
     .note.good { color: var(--good); }
     .note.gold { color: var(--gold); }
     .spuds { color: var(--gold); font: 700 18px var(--display); min-height: 22px; margin-bottom: 10px; }
+    #r-missions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; min-height: 0; }
+    .chip { padding: 4px 10px; border-radius: 999px; background: rgba(79,216,138,0.14); border: 1px solid rgba(79,216,138,0.5); color: var(--good); font: 800 13px var(--body); }
+    .powers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 0 12px; }
+    .powers div { padding: 8px 6px; border-radius: 12px; background: var(--panel-2); font-size: 12px; color: var(--muted); line-height: 1.3; }
+    .powers b { display: block; font: 700 15px var(--display); }
+    .powers i { display: block; width: 26px; height: 26px; border-radius: 50%; margin: 0 auto 4px; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.2), 0 0 0 3px rgba(255,255,255,0.15); }
     .missions { display: grid; gap: 8px; margin: 6px 0 8px; text-align: left; }
     .mis { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px; background: var(--panel-2); }
     .mis .s { font-size: 22px; color: #36506a; }
@@ -90,7 +96,10 @@
     .ch button { margin-top: 6px; padding: 7px 14px; font-size: 15px; box-shadow: 0 3px 0 var(--accent-dark); }
     .confetti { position: fixed; top: -12px; width: 10px; height: 14px; border-radius: 2px; pointer-events: none; animation: fall linear forwards; z-index: 50; }
     @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
-    @media (max-width: 520px) { .logo { font-size: 46px; } .stats { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 520px) { .logo { font-size: 46px; } .stats { grid-template-columns: repeat(3, 1fr); gap: 6px; } .stats div { padding: 6px 4px; } .stats b { font-size: 18px; } .stats span { font-size: 11px; } }
+    .short { display: none; margin: 0 0 12px; }
+    @media (max-width: 600px) { .overlay.clear .how { display: none; } .overlay.clear .short { display: block; } .overlay.clear .card { padding: 16px 16px 18px; } }
+    @media (max-height: 700px) { .bigstars { font-size: 42px; } h2 { font-size: 28px; } .stats { margin: 6px 0; gap: 6px; } .stats div { padding: 5px; } .stats b { font-size: 18px; } .card { padding: 16px 20px; } .note { margin: 3px 0; } }
     @media (min-width: 980px) { .overlay.clear { justify-content: flex-start; align-items: center; padding: 16px 0 16px 4vw; } }
     @media (max-width: 979px) and (max-height: 820px) { .overlay.clear .how { display: none; } .overlay.clear .logo { font-size: 44px; } }
   </style>
@@ -105,8 +114,10 @@
       <ul class="how">
         <li><b>Hop</b> with <kbd>↑</kbd> <kbd>←</kbd> <kbd>→</kbd> <kbd>↓</kbd> (or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>). On a phone: <b>tap</b> to hop forward, <b>swipe</b> to turn.</li>
         <li>Dodge cars, ride the <b>logs and lily pads</b> across rivers, and stop when the <b>train light flashes</b>!</li>
-        <li>Don't dawdle, or a big friendly bird will scoop you up.</li>
+        <li>Grab <b>power-ups</b>: a <b>Bubble Shield</b>, a <b>Coin Magnet</b> or a <b>Slow-Mo Clock</b>. Keep hopping fast for a <b>streak</b> and double coins!</li>
+        <li>Watch out for <b>diving turtles</b> and <b>slippery ice</b>. Don't dawdle, or a big friendly bird will scoop you up.</li>
       </ul>
+      <p class="short"><b>Tap</b> to hop, <b>swipe</b> to turn. Dodge cars, ride logs and turtles, and grab power-ups!</p>
       <div class="row">
         <button class="btn big" id="play-btn">Hop!</button>
       </div>
@@ -129,6 +140,9 @@
         <div><span>Roads crossed</span><b id="r-roads">0</b></div>
         <div><span>Logs ridden</span><b id="r-logs">0</b></div>
         <div><span>Tracks crossed</span><b id="r-rails">0</b></div>
+        <div><span>Top hop streak</span><b id="r-streak">0</b></div>
+        <div><span>Power-ups</span><b id="r-powers">0</b></div>
+        <div><span>Turtles ridden</span><b id="r-turtles">0</b></div>
       </div>
       <div class="note gold" id="r-new"></div>
       <div class="note good" id="r-missions"></div>
@@ -322,7 +336,20 @@
       { text: 'Reach Candy Land (200 hops)', key: 'rows', run: true, target: 200 },
       { text: 'Hop 250 rows in one run', key: 'rows', run: true, target: 250 },
       { text: 'Own every animal', key: 'owned', target: 13 },
+      // added later (kept at the end so old saves still line up)
+      { text: 'Grab 3 power-ups', key: 'powers', target: 3 },
+      { text: 'Reach a hop streak of 10', key: 'streak', run: true, target: 10 },
+      { text: 'Ride 5 turtles', key: 'turtles', target: 5 },
+      { text: 'Slide across 5 ice patches', key: 'ice', target: 5 },
+      { text: 'Reach a hop streak of 25', key: 'streak', run: true, target: 25 },
+      { text: 'Grab 20 power-ups', key: 'powers', target: 20 },
     ];
+    // power-ups that sit on the grass now and then
+    const POWERS = {
+      shield: { name: 'Bubble Shield', short: 'SHIELD', color: '#6be3ff', dur: 0, desc: 'Saves you from one bonk or splash!' },
+      magnet: { name: 'Coin Magnet', short: 'MAGNET', color: '#ff6b6b', dur: 10, desc: 'Pulls in coins near you.' },
+      slow: { name: 'Slow-Mo Clock', short: 'SLOW-MO', color: '#b28dff', dur: 7, desc: 'Cars, logs and trains slow down.' },
+    };
     const DAILY_POOL = [
       { key: 'rows', run: true, targets: [30, 45, 60, 80], text: (t) => `Hop ${t} rows in one run` },
       { key: 'coins', run: true, targets: [6, 10, 14], text: (t) => `Collect ${t} coins in one run` },
@@ -332,6 +359,8 @@
       { key: 'runs', targets: [3, 5], text: (t) => `Play ${t} runs today` },
       { key: 'rows', targets: [120, 200, 300], text: (t) => `Hop ${t} rows today` },
       { key: 'coins', targets: [20, 35], text: (t) => `Collect ${t} coins today` },
+      { key: 'powers', run: true, targets: [2, 3], text: (t) => `Grab ${t} power-ups in one run` },
+      { key: 'streak', run: true, targets: [8, 12, 16], text: (t) => `Reach a hop streak of ${t}` },
     ];
     const MISSION_COINS = 20, DAILY_COINS = 25, GIFT_COINS = 30;
 
@@ -445,6 +474,12 @@
       buy: () => [880, 1100, 1320, 1760].forEach((f, i) => tone(f, 0.12, 'triangle', 0.07, i * 0.06)),
       mission: () => [988, 1319, 1760].forEach((f, i) => tone(f, 0.16, 'sine', 0.07, i * 0.07)),
       fanfare: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.22, 'triangle', 0.08, i * 0.1)),
+      power: () => [660, 990, 1320, 1760].forEach((f, i) => tone(f, 0.1, 'square', 0.035, i * 0.05)),
+      pop: () => { tone(900, 0.18, 'sine', 0.08, 0, -600); noise(0.2, 0.1, 3000, 600, 'bandpass'); },
+      slide: () => noise(0.25, 0.05, 4000, 1500, 'highpass'),
+      streak: (n) => [784, 988, 1175].forEach((f, i) => tone(f * (1 + Math.min(n, 40) / 80), 0.09, 'triangle', 0.05, i * 0.05)),
+      dive: () => { tone(300, 0.3, 'sine', 0.04, 0, -180); noise(0.25, 0.05, 900, 300); },
+      magnet: () => tone(1500 + Math.random() * 300, 0.05, 'sine', 0.03),
     };
 
     // =====================================================================
@@ -542,6 +577,19 @@
         lane.deco = [];
         for (let x = -XR; x <= XR; x++) if (!lane.trees.has(x) && Math.random() < 0.18) lane.deco.push({ x: x + rand(-0.3, 0.3), y: rand(-0.3, 0.3), kind: Math.floor(Math.random() * 3) });
         if (y > 2 && Math.random() < 0.34) { const c = pick([...reach]); if (c != null) lane.coins.set(c, { big: Math.random() < 0.08 }); }
+        // slippery ice patches in the Snowy Hills: you slide one more tile
+        if (biome.id === 'snow' && y > 3) {
+          lane.ice = new Set();
+          for (let x = -HALF; x <= HALF; x++) if (!lane.trees.has(x) && Math.random() < 0.32) lane.ice.add(x);
+          if (!lane.ice.size) lane.ice = null;
+        }
+        // a power-up now and then
+        if (y > 8 && Math.random() < (d < 60 ? 0.075 : 0.06)) {
+          const opts = [...reach].filter((x) => !lane.coins.has(x));
+          if (opts.length) lane.power = { x: pick(opts), kind: pick(Object.keys(POWERS)) };
+        }
+        // a signpost on the first row of every new land
+        if (y > 0 && y % BIOME_ROWS === 0) lane.sign = biome.name;
       } else if (type === 'road') {
         const dir = Math.random() < 0.65 ? -g.lastRoadDir : g.lastRoadDir;
         g.lastRoadDir = dir;
@@ -582,18 +630,34 @@
           g.lastRiverDir = dir;
           lane.dir = dir;
           lane.speed = clamp(0.8 + d * 0.006 + Math.random() * 0.5, 0.8, 2.6);
-          const minLen = d < 40 ? 2.4 : d < 120 ? 1.8 : 1.5;
-          const maxLen = d < 40 ? 4.0 : 3.2;
-          const gapMin = d < 40 ? 1.1 : 1.4, gapMax = d < 40 ? 2.2 : d < 120 ? 2.8 : 3.2;
-          const x0 = -LOOP / 2;
-          let x = x0;
-          while (true) {
-            let len = Math.round(rand(minLen, maxLen) * 2) / 2;
-            const room = x0 + LOOP - gapMin - x;      // space left before the loop comes round
-            if (room < 1.5) break;
-            if (len > room) len = Math.floor(room * 2) / 2;
-            lane.objs.push({ kind: 'log', x: x + len / 2, len, bob: Math.random() * TAU });
-            x += len + rand(gapMin, gapMax);
+          // friendly turtles that take a dip now and then (never two turtle rivers in a row)
+          lane.turtles = d >= 22 && !g.lastTurtles && Math.random() < 0.34;
+          g.lastTurtles = lane.turtles;
+          if (lane.turtles) {
+            lane.speed = clamp(lane.speed * 0.8, 0.8, 2);
+            const x0 = -LOOP / 2;
+            let x = x0, i = 0;
+            while (true) {
+              const len = Math.random() < 0.6 ? 3 : 2;
+              if (x + len + 1.2 > x0 + LOOP) break;
+              lane.objs.push({ kind: 'turtle', x: x + len / 2, len, tt: i * 1.9 + rand(0, 0.6), bob: Math.random() * TAU });
+              x += len + rand(1.1, 1.8);
+              i++;
+            }
+          } else {
+            const minLen = d < 40 ? 2.4 : d < 120 ? 1.8 : 1.5;
+            const maxLen = d < 40 ? 4.0 : 3.2;
+            const gapMin = d < 40 ? 1.1 : 1.4, gapMax = d < 40 ? 2.2 : d < 120 ? 2.8 : 3.2;
+            const x0 = -LOOP / 2;
+            let x = x0;
+            while (true) {
+              let len = Math.round(rand(minLen, maxLen) * 2) / 2;
+              const room = x0 + LOOP - gapMin - x;      // space left before the loop comes round
+              if (room < 1.5) break;
+              if (len > room) len = Math.floor(room * 2) / 2;
+              lane.objs.push({ kind: 'log', x: x + len / 2, len, bob: Math.random() * TAU });
+              x += len + rand(gapMin, gapMax);
+            }
           }
           scatter(lane);
           g.reach = fullReach();
@@ -633,11 +697,13 @@
       newWorld();
       camY = -1.2;
       run = {
-        pl: { x: 0, y: 0, z: 0, facing: 0, hop: null, queue: [], onLog: null, squash: 0, maxY: 0, dead: null, deadT: 0, idle: 0, bump: 0 },
+        pl: { x: 0, y: 0, z: 0, facing: 0, hop: null, queue: [], onLog: null, squash: 0, maxY: 0, dead: null, deadT: 0, idle: 0, bump: 0, slide: null },
         score: 0, started: false, time: 0,
-        stats: { rows: 0, coins: 0, logs: 0, rails: 0, roads: 0 },
+        stats: { rows: 0, coins: 0, logs: 0, rails: 0, roads: 0, powers: 0, streak: 0, turtles: 0, ice: 0 },
         coinsGot: 0, fx: [], floaters: [], banner: null, toast: [], shake: 0,
         biomeSeen: 0, eagle: null, warn: 0, seenRows: new Set([0]),
+        pw: { shield: false, magnet: 0, slow: 0 }, inv: 0, safe: { x: 0, y: 0 },
+        streak: 0, streakT: 0, lastFwd: -9, magnetT: 0, saves: 0, flying: [],
       };
       missionsThisRun = [];
     }
@@ -658,9 +724,30 @@
       if (mode === 'title') { startPlay(); }
       if (mode !== 'play' || !run || run.pl.dead) return;
       const pl = run.pl;
-      if (pl.hop) { if (pl.queue.length < 1) pl.queue.push(dir); return; }
+      if (pl.hop || pl.slide) { if (pl.queue.length < 1) pl.queue.push(dir); return; }
       doHop(dir);
     }
+    // turtles: up for a while, then they wobble (a warning), dip under, and pop back up
+    const TURTLE_P = 6.2;
+    function turtlePhase(o, ahead = 0) {
+      const k = (((o.tt + ahead) % TURTLE_P) + TURTLE_P) % TURTLE_P;
+      if (k < 3.6) return { s: 'up', z: 0, k };
+      if (k < 4.5) return { s: 'warn', z: -0.05 * ((k - 3.6) / 0.9), k };
+      if (k < 5.8) return { s: 'under', z: -0.32, k };
+      return { s: 'rise', z: -0.32 + 0.32 * ((k - 5.8) / 0.4), k };
+    }
+    const turtleHolds = (o, ahead = 0) => { const p = turtlePhase(o, ahead); return p.s === 'up' || p.s === 'warn' || (p.s === 'rise' && p.z > -0.12); };
+    // how high is the thing you would stand on at this spot?
+    function standZ(lane, x) {
+      if (!lane) return 0;
+      if (lane.type !== 'river') return Math.max(0, laneH(lane));
+      if (lane.pads) return laneH(lane) + 0.02;
+      const o = lane.objs.find((q) => Math.abs(x - q.x) <= q.len / 2 + 0.08);
+      if (!o) return laneH(lane);
+      if (o.kind === 'turtle') return laneH(lane) + 0.17 + turtlePhase(o).z;
+      return laneH(lane) + 0.16 - logDip(o);
+    }
+    const logDip = (o) => (o.dip || 0) * 0.06 + Math.sin(gtime * 2 + (o.bob || 0)) * 0.015;
     function doHop(dir) {
       const r = run, pl = r.pl;
       const [dx, dy, face] = DIRS[dir];
@@ -681,12 +768,14 @@
       sfx.hop();
     }
 
-    function land() {
+    function land(fromSlide) {
       const r = run, pl = r.pl;
-      const h = pl.hop;
+      const h = fromSlide ? pl.slide : pl.hop;
+      const hopDX = Math.sign(Math.round(h.tx) - Math.round(h.fx)), hopDY = Math.sign(h.ty - h.fy);
       pl.x = h.tx; pl.y = h.ty; pl.z = 0;
       pl.hop = null;
-      pl.squash = 1;
+      pl.slide = null;
+      pl.squash = fromSlide ? 0.4 : 1;
       const lane = world.lanes.get(pl.y);
       if (!lane) return;
       if (lane.type === 'river') {
@@ -695,11 +784,15 @@
           if (lane.padSet.has(c) && Math.abs(pl.x - c) < 0.45) { pl.x = c; sfx.logLand(); ripple(pl.x, pl.y); }
           else return die('splash');
         } else {
-          const log = lane.objs.find((o) => Math.abs(pl.x - o.x) <= o.len / 2 + 0.08);
+          const log = lane.objs.find((o) => Math.abs(pl.x - o.x) <= o.len / 2 + 0.08 && (o.kind !== 'turtle' || turtleHolds(o)));
           if (!log) return die('splash');
           pl.onLog = log;
           pl.x = clamp(pl.x, log.x - log.len / 2 + 0.2, log.x + log.len / 2 - 0.2);
-          if (!log.ridden) { log.ridden = true; r.stats.logs++; bump('logs', 1); }
+          if (!log.ridden) {
+            log.ridden = true;
+            if (log.kind === 'turtle') { r.stats.turtles++; bump('turtles', 1); }
+            else { r.stats.logs++; bump('logs', 1); }
+          }
           log.dip = 1;
           sfx.logLand();
           ripple(pl.x, pl.y);
@@ -707,22 +800,27 @@
       } else {
         sfx.land();
         for (let i = 0; i < 4; i++) r.fx.push({ kind: 'dust', x: pl.x + rand(-0.2, 0.2), y: pl.y + rand(-0.2, 0.1), z: 0.1, vx: rand(-0.6, 0.6), vy: rand(-0.3, 0.3), vz: rand(0.2, 0.6), life: 0.4, max: 0.4, col: lane.type === 'grass' ? lane.biome.side : '#c8c8c8' });
+        if (lane.type === 'grass') r.safe = { x: Math.round(pl.x), y: pl.y };
       }
       // coins
-      const c = lane.coins.get(Math.round(pl.x));
-      if (c && Math.abs(pl.x - Math.round(pl.x)) < 0.45) {
-        lane.coins.delete(Math.round(pl.x));
-        const v = c.big ? 5 : 1;
-        r.coinsGot += v;
-        r.stats.coins += v;
-        bump('coins', v);
-        sfx.coin();
-        floater(pl.x, pl.y, 0.9, `+${v}`, '#ffd43b');
-        for (let i = 0; i < 8; i++) r.fx.push({ kind: 'spark', x: pl.x, y: pl.y, z: 0.5, vx: rand(-1.5, 1.5), vy: rand(-0.5, 0.5), vz: rand(1, 2.5), life: 0.5, max: 0.5, col: '#ffd43b' });
-      }
+      collectCoin(lane, Math.round(pl.x), Math.abs(pl.x - Math.round(pl.x)) < 0.45);
+      // power-ups
+      if (lane.power && lane.power.x === Math.round(pl.x)) { grabPower(lane.power.kind); lane.power = null; }
       // new row reached?
       if (pl.y > pl.maxY) {
         r.progT = r.time;
+        // hop streak: keep hopping forward quickly
+        if (r.time - r.lastFwd < 0.85 || r.streak === 0) r.streak++;
+        else r.streak = 1;
+        r.lastFwd = r.time;
+        r.stats.streak = Math.max(r.stats.streak, r.streak);
+        if (r.streak % 10 === 0) {
+          const bonus = Math.min(5, r.streak / 10 + 1);
+          addCoins(bonus);
+          sfx.streak(r.streak);
+          floater(pl.x, pl.y, 1.4, `STREAK x${r.streak}! +${bonus}`, '#ff922b');
+          for (let i = 0; i < 12; i++) r.fx.push({ kind: 'spark', x: pl.x, y: pl.y, z: 0.4, vx: rand(-2, 2), vy: rand(-0.6, 0.6), vz: rand(1.5, 3), life: 0.7, max: 0.7, col: pick(['#ff922b', '#ffd43b', '#ff6b6b']) });
+        }
         for (let yy = pl.maxY + 1; yy <= pl.y; yy++) {
           const L = world.lanes.get(yy);
           if (!L) continue;
@@ -741,12 +839,83 @@
           sfx.biome();
         }
       }
+      // slippery ice: slide one more tile the same way (only onto plain grass)
+      if (lane.type === 'grass' && lane.ice && lane.ice.has(Math.round(pl.x)) && (!fromSlide || (h.chain || 0) < 3)) {
+        const sx = Math.round(pl.x) + hopDX, sy = pl.y + hopDY;
+        const L2 = world.lanes.get(sy);
+        if ((hopDX || hopDY) && Math.abs(sx) <= HALF && L2 && L2.type === 'grass' && !L2.trees.has(sx) && sy >= camY - 2.4) {
+          pl.slide = { fx: pl.x, fy: pl.y, tx: sx, ty: sy, t: 0, chain: (fromSlide ? h.chain || 0 : 0) + 1 };
+          r.stats.ice++; bump('ice', 1);
+          sfx.slide();
+          for (let i = 0; i < 5; i++) r.fx.push({ kind: 'dust', x: pl.x + rand(-0.2, 0.2), y: pl.y + rand(-0.2, 0.2), z: 0.2, vx: -hopDX * rand(0.4, 1), vy: -hopDY * rand(0.4, 1), vz: rand(0.3, 0.8), life: 0.45, max: 0.45, col: '#e8f6ff' });
+        }
+      }
       checkMissions();
+    }
+
+    function addCoins(v) {
+      const r = run;
+      r.coinsGot += v;
+      r.stats.coins += v;
+      save.coins += v;
+      bump('coins', v);
+    }
+    function collectCoin(lane, x, ok = true) {
+      const c = lane.coins.get(x);
+      if (!c || !ok) return false;
+      const r = run;
+      lane.coins.delete(x);
+      const v = (c.big ? 5 : 1) * (r.streak >= 10 ? 2 : 1);
+      addCoins(v);
+      sfx.coin();
+      floater(x, lane.y, 0.9, `+${v}`, '#ffd43b');
+      for (let i = 0; i < 8; i++) r.fx.push({ kind: 'spark', x, y: lane.y, z: 0.5, vx: rand(-1.5, 1.5), vy: rand(-0.5, 0.5), vz: rand(1, 2.5), life: 0.5, max: 0.5, col: '#ffd43b' });
+      persist();
+      return true;
+    }
+    function grabPower(kind) {
+      const r = run, P = POWERS[kind];
+      if (kind === 'shield') r.pw.shield = true;
+      else r.pw[kind] = P.dur;
+      r.stats.powers++; bump('powers', 1);
+      sfx.power();
+      showBanner(P.name, P.desc, P.color);
+      for (let i = 0; i < 16; i++) r.fx.push({ kind: 'spark', x: r.pl.x, y: r.pl.y, z: 0.5, vx: rand(-2, 2), vy: rand(-0.8, 0.8), vz: rand(1, 3), life: 0.7, max: 0.7, col: P.color });
+    }
+    // the bubble shield pops and carries you back to the last safe patch of grass
+    function rescue(kind) {
+      const r = run, pl = r.pl;
+      r.pw.shield = false;
+      r.inv = 1.8;
+      r.saves++;
+      sfx.pop();
+      for (let i = 0; i < 18; i++) r.fx.push({ kind: 'bubble', x: pl.x, y: pl.y, z: 0.5, vx: rand(-1.6, 1.6), vy: rand(-0.6, 0.6), vz: rand(0.5, 2.5), life: 0.8, max: 0.8, col: '#bdf0ff' });
+      floater(pl.x, pl.y, 1.1, 'SAVED!', '#6be3ff');
+      pl.hop = null; pl.slide = null; pl.onLog = null; pl.queue.length = 0;
+      let sx = r.safe.x, sy = r.safe.y;
+      const L = world.lanes.get(sy);
+      if (!L || L.type !== 'grass' || L.trees.has(sx)) {
+        // find the nearest grass row behind you with a free spot
+        const x0 = clamp(Math.round(pl.x), -HALF, HALF);
+        outer: for (let yy = Math.round(pl.y); yy > Math.round(pl.y) - 12; yy--) {
+          const G = world.lanes.get(yy);
+          if (!G || G.type !== 'grass') continue;
+          for (let k = 0; k <= HALF * 2; k++) for (const s of [1, -1]) {
+            const xx = x0 + s * k;
+            if (Math.abs(xx) <= HALF && !G.trees.has(xx)) { sx = xx; sy = yy; break outer; }
+          }
+        }
+      }
+      pl.x = sx; pl.y = sy; pl.z = 0; pl.squash = 1;
+      if (camY > pl.y - 0.8) camY = pl.y - 0.8;
+      r.shake = Math.max(r.shake, 6);
+      void kind;
     }
 
     function die(kind, extra) {
       const r = run, pl = r.pl;
       if (pl.dead) return;
+      if (r.pw.shield && (kind === 'squish' || kind === 'splash' || kind === 'train')) { rescue(kind); return; }
       pl.dead = { kind, t: 0, ...extra };
       pl.hop = null;
       pl.onLog = null;
@@ -853,8 +1022,15 @@
       while (world.top < camY + 26) genRow(world);
       for (const y of world.lanes.keys()) if (y < camY - 8) world.lanes.delete(y);
 
-      // move cars, logs and trains
-      for (const lane of world.lanes.values()) stepLane(lane, dt);
+      // move cars, logs and trains (Slow-Mo slows the whole world, but not you)
+      const slow = mode === 'play' && r.pw.slow > 0;
+      const wdt = dt * (slow ? 0.42 : 1);
+      for (const lane of world.lanes.values()) stepLane(lane, wdt);
+      for (const c of clouds) {
+        c.x += c.vx * dt;
+        if (c.x > XR + 8) { c.x = -XR - 8; c.y = camY + rand(-2, 16); }
+        if (c.y < camY - 5) { c.y = camY + rand(12, 20); c.x = rand(-XR, XR); }
+      }
 
       if (mode === 'title') {
         pl.squash = Math.max(0, pl.squash - dt * 5);
@@ -876,39 +1052,66 @@
       }
       if (mode !== 'play') { stepFx(dt); return; }
 
+      // power-up timers and the hop streak
+      for (const k of ['magnet', 'slow']) if (r.pw[k] > 0) r.pw[k] = Math.max(0, r.pw[k] - dt);
+      if (r.inv > 0) r.inv = Math.max(0, r.inv - dt);
+      if (r.streak && r.time - r.lastFwd > 0.85) { if (r.streak >= 10) floater(pl.x, pl.y, 1.0, 'Streak over', '#ffe0b0'); r.streak = 0; }
+      if (r.pw.magnet > 0) {
+        r.magnetT -= dt;
+        if (r.magnetT <= 0) {
+          r.magnetT = 0.12;
+          for (let yy = Math.round(pl.y) - 1; yy <= Math.round(pl.y) + 2; yy++) {
+            const L = world.lanes.get(yy);
+            if (!L) continue;
+            for (const [cxk, c] of L.coins) if (Math.abs(cxk - pl.x) <= 2.2) { r.flying.push({ x: cxk, y: yy, z: laneH(L) + 0.42, t: 0, big: c.big }); collectCoin(L, cxk); sfx.magnet(); }
+          }
+        }
+      }
+      for (const f of r.flying) f.t += dt * 4;
+      r.flying = r.flying.filter((f) => f.t < 1);
+
       // hop in progress
       if (pl.hop) {
         const h = pl.hop;
         h.t += dt / HOP_TIME;
-        if (h.t >= 1) { h.t = 1; land(); if (pl.dead) return; if (pl.queue.length) doHop(pl.queue.shift()); }
+        if (h.t >= 1) { h.t = 1; land(); if (pl.dead) return; if (pl.queue.length && !pl.slide && !pl.hop) doHop(pl.queue.shift()); }
         else {
           const e = h.t;
           pl.x = lerp(h.fx, h.tx, e);
           pl.y = lerp(h.fy, h.ty, e);
           pl.z = Math.sin(e * Math.PI) * 0.45;
         }
+      } else if (pl.slide) {
+        const h = pl.slide;
+        h.t += dt / 0.15;
+        if (h.t >= 1) { h.t = 1; land(true); if (pl.dead) return; if (pl.queue.length && !pl.slide && !pl.hop) doHop(pl.queue.shift()); }
+        else { pl.x = lerp(h.fx, h.tx, h.t); pl.y = lerp(h.fy, h.ty, h.t); pl.z = 0; }
       } else {
         pl.idle += dt;
         if (pl.onLog) {
           const L = world.lanes.get(pl.y);
-          pl.x += L.dir * L.speed * dt;
+          pl.x += L.dir * L.speed * wdt;
           if (Math.abs(pl.x) > HALF + 0.75) return die('splash');
+          if (pl.onLog.kind === 'turtle' && !turtleHolds(pl.onLog)) { ripple(pl.x, pl.y); return die('splash'); }
         }
       }
       pl.squash = Math.max(0, pl.squash - dt * 6);
       pl.bump = Math.max(0, pl.bump - dt);
 
       // what is the chick standing in?
-      const ry = Math.round(pl.hop ? lerp(pl.hop.fy, pl.hop.ty, pl.hop.t) : pl.y);
+      const mv = pl.hop || pl.slide;
+      const ry = Math.round(mv ? lerp(mv.fy, mv.ty, mv.t) : pl.y);
       const lane = world.lanes.get(ry);
-      if (lane && lane.type === 'road') {
+      if (lane && lane.type === 'road' && r.inv <= 0) {
         for (const c of lane.objs) {
           if (Math.abs(pl.x - c.x) < c.len / 2 + 0.22) { pl.y = ry; pl.x = clamp(pl.x, c.x - c.len / 2 - 0.3, c.x + c.len / 2 + 0.3); return die('squish', { dir: lane.dir }); }
         }
-        // a friendly honk when a car is about to reach you
-        if (!lane.honked) for (const c of lane.objs) { const ahead = (pl.x - c.x) * lane.dir; if (ahead > 0 && ahead < 2.2 && lane.speed > 2.5) { lane.honked = 2; if (Math.random() < 0.3) sfx.honk(); break; } }
       }
-      if (lane && lane.type === 'rail' && lane.train) {
+      if (lane && lane.type === 'road' && !lane.honked) {
+        // a friendly honk when a car is about to reach you
+        for (const c of lane.objs) { const ahead = (pl.x - c.x) * lane.dir; if (ahead > 0 && ahead < 2.2 && lane.speed > 2.5) { lane.honked = 2; if (Math.random() < 0.3) sfx.honk(); break; } }
+      }
+      if (lane && lane.type === 'rail' && lane.train && r.inv <= 0) {
         const t = lane.train;
         if (pl.x > t.x - t.len / 2 - 0.2 && pl.x < t.x + t.len / 2 + 0.2) { pl.y = ry; return die('train', { dir: lane.dir }); }
       }
@@ -919,9 +1122,11 @@
       if (r.started) camY += creepSpeed() * dt;
       const behind = camY - pl.y;
       r.warn = clamp((behind - 0.9) / 1.6, 0, 1);
-      if (behind > 2.7 && !pl.hop) return die('eagle');
+      if (behind > 2.7 && !pl.hop && !pl.slide) return die('eagle');
       stepFx(dt);
     }
+    // soft cloud shadows drifting over the land
+    const clouds = Array.from({ length: 5 }, (_, i) => ({ x: -XR + i * 7 + rand(-2, 2), y: rand(-2, 18), vx: rand(0.3, 0.55), r: rand(1.8, 3.2) }));
     const creepSpeed = () => Math.min(0.7, 0.28 + run.score / 600);
 
     function stepLane(lane, dt) {
@@ -931,6 +1136,12 @@
         for (const o of lane.objs) {
           o.x = wrapX(o.x + lane.dir * lane.speed * dt);
           if (o.dip) o.dip = Math.max(0, o.dip - dt * 4);
+          if (o.kind === 'turtle') {
+            const was = turtlePhase(o).s;
+            o.tt += dt;
+            const now = turtlePhase(o).s;
+            if (was !== now && now === 'under' && run && mode === 'play' && Math.abs(lane.y - run.pl.y) < 4 && Math.abs(o.x - run.pl.x) < 6) sfx.dive();
+          }
         }
       }
       if (lane.type === 'rail') {
@@ -975,7 +1186,7 @@
       const newBest = r.score > prevBest;
       if (newBest) save.best = r.score;
       const bonus = Math.floor(r.score / 10);
-      save.coins += r.coinsGot + bonus;
+      save.coins += bonus; // coins you picked up were already banked as you grabbed them
       persist();
       const stars = [25, 75, 150].filter((t) => r.score >= t).length;
       const spuds = Math.min(40, clamp(Math.floor(r.score / 6), r.score > 0 ? 1 : 0, 30) + missionsThisRun.length * 2);
@@ -990,8 +1201,14 @@
       $('r-roads').textContent = r.stats.roads;
       $('r-logs').textContent = r.stats.logs;
       $('r-rails').textContent = r.stats.rails;
+      $('r-streak').textContent = r.stats.streak;
+      $('r-powers').textContent = r.stats.powers;
+      $('r-turtles').textContent = r.stats.turtles;
       $('r-new').textContent = newBest && r.score > 0 ? '★ New best! ★' : '';
-      $('r-missions').textContent = missionsThisRun.length ? `Done: ${missionsThisRun.join(' · ')}` : '';
+      const ml = $('r-missions');
+      ml.innerHTML = '';
+      for (const t of missionsThisRun.slice(0, 4)) { const s = document.createElement('span'); s.className = 'chip'; s.textContent = '★ ' + t; ml.appendChild(s); }
+      if (missionsThisRun.length > 4) { const s = document.createElement('span'); s.className = 'chip'; s.textContent = `+${missionsThisRun.length - 4} more ★`; ml.appendChild(s); }
       const next = [25, 75, 150].find((t) => r.score < t);
       const cheapest = ANIMALS.filter((a) => !save.owned.includes(a.id) && (!a.stars || totalStars() >= a.stars)).sort((a, b) => a.cost - b.cost)[0];
       $('r-next').textContent = next ? `Hop ${next} rows for the next ★` + (cheapest && save.coins >= cheapest.cost ? ` · You can unlock the ${cheapest.name}!` : '') : (cheapest && save.coins >= cheapest.cost ? `You can unlock the ${cheapest.name}!` : 'Amazing hopping!');
@@ -1060,7 +1277,7 @@
 
     // ---------------- the animals ----------------
     function rotXY(x, y, f) { return f === 0 ? [x, y] : f === 1 ? [y, -x] : f === 2 ? [-x, -y] : [-y, x]; }
-    function drawAnimal(id, wx, wy, wz, facing, squash = 0, scale = 1, flat = 0) {
+    function drawAnimal(id, wx, wy, wz, facing, squash = 0, scale = 1, flat = 0, groundZ = null) {
       const def = animalDef(id);
       const parts = def.parts();
       const sx = (1 + squash * 0.18) * scale * (1 + flat * 0.5), sz = (1 - squash * 0.28) * scale * (1 - flat * 0.82);
@@ -1070,8 +1287,11 @@
         return { x0: Math.min(ax, bx) * sx, x1: Math.max(ax, bx) * sx, y0: Math.min(ay, by) * sx, y1: Math.max(ay, by) * sx, z0: z0 * sz, z1: z1 * sz, c: p.c };
       });
       boxes.sort((a, b) => (b.y0 + b.y1) - (a.y0 + a.y1) || (a.x0 + a.x1) - (b.x0 + b.x1) || a.z0 - b.z0);
-      // drop shadow
-      if (wz > -0.05) shadow(wx - 0.26 * scale, wy - 0.24 * scale, wx + 0.26 * scale, wy + 0.24 * scale, Math.max(0, wz < 0 ? wz : 0) + 0.01, 0.25 * clamp(1 - wz * 0.8, 0.3, 1));
+      // drop shadow, drawn on whatever is under the animal (grass, road, log...)
+      const gz = groundZ == null ? wz : groundZ;
+      const above = Math.max(0, wz - gz);
+      const k = clamp(1 - above * 0.9, 0.45, 1);
+      if (wz > -0.05 || groundZ != null) shadow(wx - 0.26 * scale * k, wy - 0.24 * scale * k, wx + 0.26 * scale * k, wy + 0.24 * scale * k, gz + 0.006, 0.25 * k);
       for (const q of boxes) box(wx + q.x0, wy + q.y0, wz + q.z0, wx + q.x1, wy + q.y1, wz + q.z1, q.c, { flat: q.z1 - q.z0 < 0.05 || q.x1 - q.x0 < 0.03 });
     }
 
@@ -1186,11 +1406,14 @@
         box(c0 + 0.04, y - 0.261, low ? 0.33 : 0.4, c1 - 0.04, y - 0.26, low ? 0.45 : 0.56, '#9fe0ff', { flat: true });
         if (low) box(lane.dir > 0 ? x0 : x1 - 0.1, y - 0.28, 0.36, lane.dir > 0 ? x0 + 0.1 : x1, y + 0.28, 0.44, '#222', { flat: true });
       }
-      // headlights
+      // headlights in front, little red lights at the back
       const hx = lane.dir > 0 ? front - 0.06 : front;
       box(hx, y - 0.24, 0.16, hx + 0.06, y - 0.12, 0.26, '#fff6b0', { flat: true });
       box(hx, y + 0.12, 0.16, hx + 0.06, y + 0.24, 0.26, '#fff6b0', { flat: true });
-      void front;
+      const back = lane.dir > 0 ? x0 : x1 - 0.05;
+      box(back, y - 0.301, 0.18, back + 0.05, y - 0.3, 0.26, '#ff4d4d', { flat: true });
+      // wheel caps on the near side
+      for (const wx of [x0 + 0.22, x1 - 0.32]) box(wx + 0.03, y - 0.362, 0.05, wx + 0.09, y - 0.36, 0.11, '#c0c7d0', { flat: true });
     }
 
     function drawTrain(lane) {
@@ -1201,10 +1424,21 @@
       for (let cx0 = x0; cx0 < x1 - 0.01; cx0 += carLen) {
         const cx1 = Math.min(x1, cx0 + carLen - 0.12);
         const engine = lane.dir > 0 ? cx1 >= x1 - 0.01 : cx0 <= x0 + 0.01;
-        box(cx0, y - 0.38, 0.1, cx1, y + 0.38, 0.95, engine ? t.color : '#e9ecef');
-        box(cx0 + 0.1, y - 0.381, 0.45, cx1 - 0.1, y - 0.38, 0.72, engine ? '#9fe0ff' : '#9fe0ff', { flat: true });
-        box(cx0, y - 0.382, 0.2, cx1, y - 0.381, 0.32, engine ? '#ffffff' : t.color, { flat: true });
+        // wheels sit on the rails
+        for (const wx of [cx0 + 0.25, cx0 + 0.55, cx1 - 0.65, cx1 - 0.35]) box(wx, y - 0.4, 0.05, wx + 0.18, y - 0.36, 0.2, '#2b2f36', { flat: true });
+        box(cx0 + 0.1, y - 0.36, 0.1, cx1 - 0.1, y + 0.36, 0.16, '#3a3f48');
+        box(cx0, y - 0.38, 0.16, cx1, y + 0.38, 0.95, engine ? t.color : '#e9ecef');
+        // windows along the side
+        if (engine) box(cx0 + 0.15, y - 0.381, 0.5, cx1 - 0.15, y - 0.38, 0.75, '#9fe0ff', { flat: true });
+        else for (let wx = cx0 + 0.15; wx < cx1 - 0.3; wx += 0.42) box(wx, y - 0.381, 0.5, wx + 0.3, y - 0.38, 0.75, '#9fe0ff', { flat: true });
+        box(cx0, y - 0.382, 0.24, cx1, y - 0.381, 0.36, engine ? '#ffffff' : t.color, { flat: true });
         box(cx0 + 0.1, y - 0.3, 0.95, cx1 - 0.1, y + 0.3, 1.0, '#9aa3ad', { flat: true });
+        if (engine) {
+          // a big round headlight on the nose
+          const nx = lane.dir > 0 ? cx1 : cx0;
+          box(nx - 0.04, y - 0.12, 0.55, nx + 0.04, y + 0.12, 0.75, '#fff6b0', { flat: true });
+          box(cx0 + 0.6, y - 0.12, 1.0, cx0 + 0.8, y + 0.12, 1.16, '#5a5f6a');
+        }
       }
     }
 
@@ -1236,6 +1470,15 @@
           const sy = y - 0.4 + rnd() * 0.8, L = 0.4 + rnd() * 0.6;
           poly([P(sx, sy, h + 0.002), P(sx + L, sy, h + 0.002), P(sx + L, sy + 0.04, h + 0.002), P(sx, sy + 0.04, h + 0.002)], 'rgba(255,255,255,0.25)');
         }
+        // little sparkles on the water
+        for (let i = 0; i < 6; i++) {
+          const tw = Math.sin(gtime * 3 + i * 2.1 + y);
+          if (tw < 0.55) continue;
+          const sx = -HALF - 2 + ((i * 3.7 + y * 1.3) % (HALF * 2 + 4)), sy = y - 0.3 + ((i * 0.37 + y * 0.11) % 0.6);
+          const sp = P(sx, sy, h + 0.004), s = S * 0.06 * (tw - 0.5) * 2;
+          ctx.fillStyle = 'rgba(255,255,255,0.85)';
+          ctx.beginPath(); ctx.moveTo(sp[0], sp[1] - s); ctx.lineTo(sp[0] + s * 0.4, sp[1]); ctx.lineTo(sp[0], sp[1] + s); ctx.lineTo(sp[0] - s * 0.4, sp[1]); ctx.closePath(); ctx.fill();
+        }
         // foam along the bank in front
         if (prev && prev.type !== 'river') poly([P(x0, y - 0.5, h + 0.003), P(x1, y - 0.5, h + 0.003), P(x1, y - 0.42, h + 0.003), P(x0, y - 0.42, h + 0.003)], 'rgba(255,255,255,0.45)');
         return;
@@ -1244,17 +1487,23 @@
       if (lane.type === 'grass') {
         // checker tiles in the play area
         for (let x = -HALF; x <= HALF; x++) if ((x + y) % 2 === 0) poly([P(x - 0.5, y - 0.5, h + 0.001), P(x + 0.5, y - 0.5, h + 0.001), P(x + 0.5, y + 0.5, h + 0.001), P(x - 0.5, y + 0.5, h + 0.001)], 'rgba(255,255,255,0.06)');
+        // slippery ice patches
+        if (lane.ice) for (const x of lane.ice) {
+          poly([P(x - 0.47, y - 0.47, h + 0.002), P(x + 0.47, y - 0.47, h + 0.002), P(x + 0.47, y + 0.47, h + 0.002), P(x - 0.47, y + 0.47, h + 0.002)], 'rgba(150,215,255,0.75)');
+          poly([P(x - 0.3, y - 0.2, h + 0.003), P(x + 0.1, y + 0.3, h + 0.003), P(x + 0.18, y + 0.3, h + 0.003), P(x - 0.22, y - 0.2, h + 0.003)], 'rgba(255,255,255,0.8)');
+          poly([P(x + 0.05, y - 0.35, h + 0.003), P(x + 0.35, y + 0.0, h + 0.003), P(x + 0.4, y + 0.0, h + 0.003), P(x + 0.1, y - 0.35, h + 0.003)], 'rgba(255,255,255,0.6)');
+        }
         for (const d of lane.deco) {
           const p = P(d.x, y + d.y, h);
           if (p[0] < -20 || p[0] > W + 20) continue;
-          if (b.id === 'snow') { ctx.fillStyle = 'rgba(160,190,220,0.5)'; ctx.fillRect(p[0], p[1], S * 0.08, S * 0.04); }
-          else if (b.id === 'desert') { ctx.fillStyle = 'rgba(160,110,50,0.35)'; ctx.fillRect(p[0], p[1], S * 0.1, S * 0.05); }
+          const dx = d.x, dy = y + d.y;
+          if (b.id === 'snow') { box(dx - 0.07, dy - 0.05, h, dx + 0.07, dy + 0.05, h + 0.04, '#ffffff', { flat: true }); }
+          else if (b.id === 'desert') { box(dx - 0.06, dy - 0.05, h, dx + 0.06, dy + 0.05, h + 0.05, '#d8b070', { flat: true }); }
           else {
+            // a tiny flower or tuft made of blocks
             const col = b.id === 'candy' ? ['#ffffff', '#7fe3ff', '#ffd43b'][d.kind] : b.id === 'autumn' ? ['#e8602a', '#ffb03a', '#a0522d'][d.kind] : ['#ffffff', '#ffe066', '#ff9ec2'][d.kind];
-            ctx.fillStyle = col;
-            ctx.fillRect(p[0] - S * 0.04, p[1] - S * 0.04, S * 0.08, S * 0.08);
-            ctx.fillStyle = 'rgba(0,0,0,0.12)';
-            ctx.fillRect(p[0] - S * 0.04, p[1] + S * 0.04, S * 0.08, S * 0.02);
+            if (d.kind === 2 && b.id === 'meadow') { box(dx - 0.05, dy - 0.02, h, dx - 0.02, dy + 0.01, h + 0.1, '#5fc94a', { flat: true }); box(dx + 0.02, dy - 0.02, h, dx + 0.05, dy + 0.01, h + 0.08, '#5fc94a', { flat: true }); }
+            else { box(dx - 0.012, dy - 0.012, h, dx + 0.012, dy + 0.012, h + 0.08, tint(b.side, 1.1), { flat: true }); box(dx - 0.045, dy - 0.045, h + 0.08, dx + 0.045, dy + 0.045, h + 0.12, col, { flat: true }); }
           }
         }
       } else if (lane.type === 'road') {
@@ -1287,13 +1536,16 @@
     }
 
     function drawLog(o, lane) {
+      if (o.kind === 'turtle') return drawTurtles(o, lane);
       const y = lane.y, h = laneH(lane);
       const b = lane.biome;
-      const dip = (o.dip || 0) * 0.06 + Math.sin(gtime * 2 + o.bob) * 0.015;
+      const dip = logDip(o);
       const x0 = o.x - o.len / 2, x1 = o.x + o.len / 2;
+      // a soft dark patch in the water under the log
+      poly([P(x0 + 0.05, y - 0.4, h + 0.003), P(x1 + 0.15, y - 0.4, h + 0.003), P(x1 + 0.15, y + 0.36, h + 0.003), P(x0 + 0.05, y + 0.36, h + 0.003)], 'rgba(0,40,70,0.18)');
       if (b.id === 'snow') {
-        box(x0, y - 0.36, h - 0.05 - dip, x1, y + 0.36, h + 0.12 - dip, '#e8f6ff');
-        box(x0 + 0.1, y - 0.3, h + 0.12 - dip, x1 - 0.1, y + 0.3, h + 0.14 - dip, '#ffffff', { flat: true });
+        box(x0, y - 0.36, h - 0.05 - dip, x1, y + 0.36, h + 0.14 - dip, '#e8f6ff');
+        box(x0 + 0.1, y - 0.3, h + 0.14 - dip, x1 - 0.1, y + 0.3, h + 0.16 - dip, '#ffffff', { flat: true });
         return;
       }
       if (b.id === 'candy') {
@@ -1322,6 +1574,90 @@
       ctx.strokeStyle = 'rgba(30,100,40,0.5)'; ctx.lineWidth = 1.5;
       for (let k = 0; k < 5; k++) { const a = 0.6 + k * 1.1; ctx.beginPath(); ctx.moveTo(c[0], c[1]); ctx.lineTo(c[0] + Math.cos(a) * S * 0.34, c[1] + Math.sin(a) * S * 0.24); ctx.stroke(); }
       if ((x + lane.y) % 3 === 0) { ctx.fillStyle = '#ff9ec2'; ctx.beginPath(); ctx.arc(c[0] - S * 0.12, c[1] - S * 0.06, S * 0.07, 0, TAU); ctx.fill(); ctx.fillStyle = '#fff3b0'; ctx.beginPath(); ctx.arc(c[0] - S * 0.12, c[1] - S * 0.06, S * 0.03, 0, TAU); ctx.fill(); }
+    }
+
+    // a raft of friendly turtles; they wobble, then take a quick dip
+    function drawTurtles(o, lane) {
+      const y = lane.y, h = laneH(lane);
+      const ph = turtlePhase(o);
+      const x0 = o.x - o.len / 2;
+      const warnShake = ph.s === 'warn' ? Math.sin(gtime * 30) * 0.02 : 0;
+      for (let i = 0; i < o.len; i++) {
+        const cx = x0 + i + 0.5 + warnShake;
+        const bob = Math.sin(gtime * 2.4 + o.bob + i) * 0.012;
+        if (ph.s === 'under' || (ph.s === 'rise' && ph.z < -0.22)) {
+          // just a dark shape and a few bubbles under the water
+          const c = P(cx, y, h + 0.004);
+          ctx.fillStyle = 'rgba(20,70,50,0.28)';
+          ctx.beginPath(); ctx.ellipse(c[0] + S * 0.06, c[1], S * 0.36, S * 0.22, 0, 0, TAU); ctx.fill();
+          if (Math.sin(gtime * 7 + i * 2) > 0.6) { ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(c[0] + Math.sin(i * 3 + gtime) * S * 0.15, c[1] - S * 0.05, S * 0.05, 0, TAU); ctx.stroke(); }
+          continue;
+        }
+        const z0 = h + ph.z + bob;
+        const alpha = ph.s === 'rise' ? clamp(1 + ph.z / 0.3, 0.3, 1) : 1;
+        ctx.globalAlpha = alpha;
+        poly([P(cx - 0.42, y - 0.4, h + 0.003), P(cx + 0.5, y - 0.4, h + 0.003), P(cx + 0.5, y + 0.36, h + 0.003), P(cx - 0.42, y + 0.36, h + 0.003)], 'rgba(0,40,40,0.16)');
+        const dark = ph.s === 'warn' ? '#2a7a52' : '#2f8f4a', shell = ph.s === 'warn' ? '#3d9a5a' : '#4fbf6a', skin = '#9be07a';
+        // flippers and head
+        const hd = lane.dir > 0 ? 1 : -1;
+        box(cx + hd * 0.34 - 0.08, y - 0.08, z0 + 0.02, cx + hd * 0.34 + 0.08 + (hd > 0 ? 0.04 : -0.04), y + 0.08, z0 + 0.12, skin);
+        box(cx - 0.36, y - 0.36, z0 - 0.01, cx - 0.2, y - 0.26, z0 + 0.04, skin, { flat: true });
+        box(cx + 0.2, y - 0.36, z0 - 0.01, cx + 0.36, y - 0.26, z0 + 0.04, skin, { flat: true });
+        box(cx - 0.32, y - 0.3, z0, cx + 0.32, y + 0.3, z0 + 0.1, dark);
+        box(cx - 0.24, y - 0.22, z0 + 0.1, cx + 0.24, y + 0.22, z0 + 0.17, shell);
+        box(cx - 0.08, y - 0.08, z0 + 0.17, cx + 0.08, y + 0.08, z0 + 0.175, '#7ed98f', { flat: true });
+        // eye on the head
+        const ep = P(cx + hd * 0.4 + (hd > 0 ? 0.05 : -0.02), y - 0.081, z0 + 0.09);
+        ctx.fillStyle = '#1d1a17'; ctx.fillRect(ep[0] - S * 0.02, ep[1] - S * 0.02, S * 0.04, S * 0.04);
+        if (ph.s === 'warn') { const bp = P(cx, y - 0.3, h + 0.01); ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(bp[0] + Math.sin(gtime * 9 + i) * S * 0.2, bp[1], S * (0.04 + ((gtime * 3 + i) % 1) * 0.05), 0, TAU); ctx.stroke(); }
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // floating power-up bubbles
+    function drawPower(pw, lane) {
+      const P0 = POWERS[pw.kind];
+      const h = laneH(lane);
+      const c = P(pw.x, lane.y, h + 0.5 + Math.sin(gtime * 3 + pw.x) * 0.07);
+      const sh = P(pw.x, lane.y, h + 0.006);
+      ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.ellipse(sh[0] + S * 0.06, sh[1], S * 0.2, S * 0.09, 0, 0, TAU); ctx.fill();
+      const r = S * 0.27;
+      ctx.save(); ctx.translate(c[0], c[1]);
+      ctx.fillStyle = P0.color; ctx.globalAlpha = 0.25 + Math.sin(gtime * 6) * 0.1; ctx.beginPath(); ctx.arc(0, 0, r * 1.45, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+      const g = ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.1, 0, 0, r);
+      g.addColorStop(0, '#ffffff'); g.addColorStop(0.35, P0.color); g.addColorStop(1, tint(P0.color, 0.6));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+      ctx.lineWidth = Math.max(1.5, S * 0.03); ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.stroke();
+      powerIcon(pw.kind, 0, 0, r * 0.62);
+      ctx.restore();
+    }
+    function powerIcon(kind, x, y, s) {
+      ctx.save(); ctx.translate(x, y);
+      ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#ffffff'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      if (kind === 'shield') {
+        ctx.beginPath(); ctx.moveTo(0, -s); ctx.lineTo(s * 0.85, -s * 0.55); ctx.lineTo(s * 0.7, s * 0.4); ctx.lineTo(0, s); ctx.lineTo(-s * 0.7, s * 0.4); ctx.lineTo(-s * 0.85, -s * 0.55); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(40,140,180,0.6)'; ctx.fillRect(-s * 0.1, -s * 0.6, s * 0.2, s * 1.2); ctx.fillRect(-s * 0.5, -s * 0.15, s, s * 0.2);
+      } else if (kind === 'magnet') {
+        ctx.lineWidth = s * 0.5; ctx.lineCap = 'butt';
+        ctx.beginPath(); ctx.arc(0, -s * 0.05, s * 0.6, Math.PI, 0); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-s * 0.6, -s * 0.05); ctx.lineTo(-s * 0.6, s * 0.55); ctx.moveTo(s * 0.6, -s * 0.05); ctx.lineTo(s * 0.6, s * 0.55); ctx.stroke();
+        ctx.fillStyle = '#d8dee8'; ctx.fillRect(-s * 0.85, s * 0.45, s * 0.5, s * 0.35); ctx.fillRect(s * 0.35, s * 0.45, s * 0.5, s * 0.35);
+      } else {
+        ctx.lineWidth = s * 0.22;
+        ctx.beginPath(); ctx.arc(0, 0, s * 0.85, 0, TAU); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -s * 0.55); ctx.moveTo(0, 0); ctx.lineTo(s * 0.4, s * 0.2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // a little wooden sign at the start of each new land
+    function drawSign(lane) {
+      const x = -HALF - 1.5, y = lane.y + 0.2, h = laneH(lane);
+      shadow(x - 0.8, y - 0.08, x + 0.8, y + 0.08, h + 0.005, 0.2);
+      for (const px of [x - 0.55, x + 0.55]) box(px - 0.05, y - 0.05, h, px + 0.05, y + 0.05, h + 1.05, '#7a5232');
+      box(x - 0.78, y - 0.07, h + 0.62, x + 0.78, y + 0.03, h + 1.12, '#c98a52');
+      box(x - 0.7, y - 0.071, h + 0.68, x + 0.7, y - 0.07, h + 1.06, '#e8b878', { flat: true });
+      const p = P(x, y - 0.072, h + 0.87);
+      label(lane.sign, p[0] + S * 0.04, p[1], Math.max(10, S * 0.17), '#5a3418', 'center', 0, 'Fredoka', 700);
     }
 
     function drawCoin(x, lane, c) {
@@ -1384,17 +1720,22 @@
       // (on the title screen the view slides so the menu does not cover your animal)
       const wide = W >= 980;
       const wantX = mode === "title" && wide ? -(W * 0.2) / S : 0;
-      camX += (wantX - camX) * Math.min(1, 0.12);
+      const fdt = clamp(gtime - (frame.lastG == null ? gtime : frame.lastG), 0, 0.05);
+      frame.lastG = gtime;
+      camX += (wantX - camX) * Math.min(1, fdt * 7);
       cx = camX;
       const yMin = Math.floor(camY - (H - OY) / (S * DY)) - 2;
       const yMax = Math.ceil(camY + OY / (S * DY)) + 3;
-      const prow = Math.round(pl.hop ? lerp(pl.hop.fy, pl.hop.ty, Math.min(1, pl.hop.t)) : pl.y);
+      const mv = pl.hop || pl.slide;
+      const prow = Math.round(mv ? lerp(mv.fy, mv.ty, Math.min(1, mv.t)) : pl.y);
       for (let y = yMax; y >= yMin; y--) {
         const lane = world.lanes.get(y);
         if (!lane) continue;
         drawGround(lane, world.lanes.get(y - 1));
         const items = [];
         if (lane.type === 'grass') for (const [x, t] of lane.trees) items.push({ x, d: () => drawTree(t, x, y, laneH(lane), lane.biome) });
+        if (lane.power) items.push({ x: lane.power.x - 0.25, d: () => drawPower(lane.power, lane) });
+        if (lane.sign) items.push({ x: -HALF - 2.3, d: () => drawSign(lane) });
         if (lane.type === 'road') for (const o of lane.objs) items.push({ x: o.x - o.len / 2, d: () => drawCar(o, lane) });
         if (lane.type === 'river') {
           if (lane.pads) for (const x of lane.padSet) drawPad(x, lane);
@@ -1411,6 +1752,33 @@
       const B1 = P(HALF + 0.5, yMin - 2, 0), B2 = P(HALF + 0.5, yMax + 2, 0);
       poly([[-50, A1[1]], A1, A2, [-50, A2[1]]], 'rgba(20,40,70,0.22)');
       poly([[W + 50, B1[1]], B1, B2, [W + 50, B2[1]]], 'rgba(20,40,70,0.22)');
+      // cloud shadows drifting over everything
+      for (const c of clouds) {
+        const p = P(c.x, c.y, 0);
+        if (p[0] < -S * 5 || p[0] > W + S * 5 || p[1] < -S * 4 || p[1] > H + S * 4) continue;
+        ctx.fillStyle = 'rgba(20,40,80,0.075)';
+        ctx.beginPath();
+        for (const [ox, oy, rx, ry] of [[0, 0, 1, 0.5], [0.7, -0.15, 0.6, 0.35], [-0.6, 0.12, 0.55, 0.3]]) {
+          ctx.moveTo(p[0] + S * c.r * (ox + rx), p[1] + S * c.r * oy);
+          ctx.ellipse(p[0] + S * c.r * ox, p[1] + S * c.r * oy, S * c.r * rx, S * c.r * ry, 0, 0, TAU);
+        }
+        ctx.fill();
+      }
+      // the magnet's pull area and coins flying in
+      if (r.pw.magnet > 0 && !pl.dead) {
+        const c = P(pl.x, pl.y, (r.groundZ || 0) + 0.01);
+        ctx.strokeStyle = `rgba(255,107,107,${0.4 + Math.sin(gtime * 8) * 0.15})`; ctx.lineWidth = 2.5; ctx.setLineDash([7, 7]);
+        ctx.beginPath(); ctx.ellipse(c[0] + S * 0.1, c[1] - S * 0.2, S * 2.3, S * 1.3, 0, gtime * 2, gtime * 2 + TAU); ctx.stroke(); ctx.setLineDash([]);
+      }
+      for (const f of r.flying) {
+        const a = P(f.x, f.y, f.z), b2 = P(pl.x, pl.y, (r.groundZ || 0) + 0.5);
+        const k = f.t * f.t;
+        const x = lerp(a[0], b2[0], k), y = lerp(a[1], b2[1], k) - Math.sin(f.t * Math.PI) * S * 0.6;
+        ctx.globalAlpha = 1 - f.t * 0.6;
+        ctx.fillStyle = f.big ? '#ff5d8f' : '#ffd43b'; ctx.beginPath(); ctx.arc(x, y, S * 0.15 * (1 - f.t * 0.4), 0, TAU); ctx.fill();
+        ctx.fillStyle = '#fff3b0'; ctx.fillRect(x - S * 0.02, y - S * 0.08, S * 0.04, S * 0.16);
+        ctx.globalAlpha = 1;
+      }
       drawFx();
       if (r.eagle) drawEagle();
       for (const f of r.floaters) {
@@ -1435,18 +1803,35 @@
       const d = pl.dead;
       let flat = 0, z = pl.z, scale = 1, facing = pl.facing;
       const lane = world.lanes.get(Math.round(pl.y));
-      const base = lane ? Math.max(0, laneH(lane)) : 0;
-      if (pl.onLog) z += laneH(lane) + 0.16 - (pl.onLog.dip || 0) * 0.06;
-      else if (lane && lane.type === 'river' && lane.pads && !pl.hop && !d) z += laneH(lane) + 0.02;
-      else z += base;
+      // the height of whatever you stand on; mid-hop it blends smoothly from where you took off to where you land
+      let ground = standZ(lane, pl.x);
+      const mv = pl.hop || pl.slide;
+      if (mv && !d) {
+        const z0 = standZ(world.lanes.get(Math.round(mv.fy)), mv.fx), z1 = standZ(world.lanes.get(Math.round(mv.ty)), mv.tx);
+        z += lerp(z0, z1, clamp(mv.t, 0, 1));
+      } else if (pl.onLog) z += standZ(lane, pl.x);
+      else if (d && (d.kind === 'splash' || d.kind === 'swept')) z += laneH(lane || { type: 'river' });
+      else z += ground;
       if (d) {
         if (d.kind === 'squish') flat = Math.min(1, d.t * 10);
         if (d.kind === 'train') { facing = Math.floor(d.t * 12) % 4; }
-        if (d.kind === 'splash' || d.kind === 'swept') { if (z < -0.5) return; }
+        if (d.kind === 'splash' || d.kind === 'swept') { if (z < -0.7) return; ground = laneH(lane || { type: 'river' }); }
         if (d.kind === 'eagle' && r.eagle && r.eagle.t > 0.7) z += 0.1;
       }
+      // blink while the shield's safety time runs out
+      if (r.inv > 0 && Math.floor(r.inv * 12) % 2 === 0) return;
       const bx = pl.bump > 0 ? Math.sin(pl.bump * 40) * 0.05 : 0;
-      drawAnimal(save.animal, pl.x + bx, pl.y, z, facing, pl.hop ? -0.4 : pl.squash, scale, flat);
+      drawAnimal(save.animal, pl.x + bx, pl.y, z, facing, pl.hop ? -0.4 : pl.squash, scale, flat, d && d.kind === 'train' ? null : Math.min(ground, z));
+      // bubble shield
+      if (r.pw.shield && !d) {
+        const c = P(pl.x + 0.05, pl.y, z + 0.38), rad = S * 0.56 * (1 + Math.sin(gtime * 5) * 0.03);
+        const g = ctx.createRadialGradient(c[0] - rad * 0.35, c[1] - rad * 0.4, rad * 0.1, c[0], c[1], rad);
+        g.addColorStop(0, 'rgba(255,255,255,0.35)'); g.addColorStop(0.7, 'rgba(107,227,255,0.12)'); g.addColorStop(1, 'rgba(107,227,255,0.45)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c[0], c[1], rad, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(190,245,255,0.85)'; ctx.lineWidth = Math.max(1.5, S * 0.03); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.beginPath(); ctx.ellipse(c[0] - rad * 0.4, c[1] - rad * 0.45, rad * 0.18, rad * 0.09, -0.6, 0, TAU); ctx.fill();
+      }
+      r.groundZ = ground;
       if (mode === 'title' && !run.started) {
         // bounce arrows hint above the chick
         const p = P(pl.x, pl.y, z + 1.2 + Math.sin(gtime * 5) * 0.08);
@@ -1468,6 +1853,12 @@
           const p = P(pl.x + Math.cos(ang) * 0.4, pl.y + Math.sin(ang) * 0.3, 0.35);
           ctx.globalAlpha = Math.min(1, a * 2);
           star(p[0], p[1], S * 0.09, '#ffd43b');
+          ctx.globalAlpha = 1;
+        } else if (f.kind === 'bubble') {
+          const p = P(f.x, f.y, f.z);
+          ctx.globalAlpha = a;
+          ctx.strokeStyle = f.col; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(p[0], p[1], S * (0.05 + (1 - a) * 0.08), 0, TAU); ctx.stroke();
           ctx.globalAlpha = 1;
         } else {
           const p = P(f.x, f.y, f.z);
@@ -1496,38 +1887,84 @@
     const HUD_BTNS = { pause: { x: 0, y: 12, w: 46, h: 40 }, mute: { x: 0, y: 12, w: 46, h: 40 } };
     function drawHud() {
       const r = run;
-      label(String(r.score), 22, 44, 54, '#ffffff', 'left', 8);
-      label(`Best ${Math.max(save.best, r.score)}`, 24, 86, 17, '#fff3c4', 'left', 5, 'Nunito', 900);
-      // coins
-      const cw = 110, cxp = W - 128 - cw;
-      ctx.fillStyle = 'rgba(20,30,40,0.45)'; rrect(cxp, 12, cw, 40, 20); ctx.fill();
-      ctx.fillStyle = '#ffd43b'; ctx.beginPath(); ctx.arc(cxp + 22, 32, 11, 0, TAU); ctx.fill();
-      ctx.fillStyle = '#fff3b0'; ctx.fillRect(cxp + 20, 25, 4, 14);
-      label(String(save.coins + r.coinsGot), cxp + 68, 33, 21, '#ffd43b', 'center', 0);
-      HUD_BTNS.pause.x = W - 58; HUD_BTNS.mute.x = W - 110;
-      for (const [b, t] of [[HUD_BTNS.mute, save.muted ? '🔇' : '🔊'], [HUD_BTNS.pause, 'II']]) {
-        ctx.fillStyle = 'rgba(20,30,40,0.45)'; rrect(b.x, b.y, b.w, b.h, 12); ctx.fill();
-        label(t, b.x + b.w / 2, b.y + b.h / 2 + 1, 18, '#fff', 'center', 0);
+      const small = W < 560;
+      // score card
+      const pw = small ? 112 : 138, ph = small ? 74 : 88;
+      ctx.fillStyle = 'rgba(20,30,40,0.5)'; rrect(12, 12, pw, ph, 18); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 2; ctx.stroke();
+      label(String(r.score), 12 + pw / 2, 12 + ph * 0.42, small ? 40 : 50, '#ffffff', 'center', 6);
+      label(`BEST ${Math.max(save.best, r.score)}`, 12 + pw / 2, 12 + ph * 0.82, small ? 12 : 14, '#ffe27a', 'center', 0, 'Nunito', 900);
+      // hop streak flame
+      let hy = 12 + ph + 10;
+      if (r.streak >= 3) {
+        const left = clamp(1 - (r.time - r.lastFwd) / 0.85, 0, 1);
+        const hot = r.streak >= 10;
+        ctx.fillStyle = hot ? 'rgba(120,40,10,0.62)' : 'rgba(20,30,40,0.5)'; rrect(12, hy, pw, 34, 17); ctx.fill();
+        // flame
+        const fx = 32, fy = hy + 18, fl = 1 + Math.sin(gtime * 20) * 0.08;
+        ctx.save(); ctx.translate(fx, fy); ctx.scale(fl, fl);
+        ctx.fillStyle = hot ? '#ff6b2a' : '#ff922b'; ctx.beginPath(); ctx.moveTo(0, -13); ctx.quadraticCurveTo(10, -2, 7, 6); ctx.quadraticCurveTo(0, 12, -7, 6); ctx.quadraticCurveTo(-10, -4, 0, -13); ctx.fill();
+        ctx.fillStyle = '#ffe066'; ctx.beginPath(); ctx.moveTo(0, -4); ctx.quadraticCurveTo(5, 2, 3, 6); ctx.quadraticCurveTo(0, 9, -3, 6); ctx.quadraticCurveTo(-5, 1, 0, -4); ctx.fill();
+        ctx.restore();
+        label(`x${r.streak}${hot ? ' 2x coins' : ''}`, 48, hy + 15, hot ? 14 : 16, '#fff', 'left', 0, 'Fredoka', 700);
+        ctx.fillStyle = 'rgba(255,255,255,0.18)'; rrect(48, hy + 25, pw - 48, 4, 2); ctx.fill();
+        ctx.fillStyle = hot ? '#ffd43b' : '#ff922b'; rrect(48, hy + 25, (pw - 48) * left, 4, 2); ctx.fill();
+        hy += 42;
       }
-      // biome banner
+      // power-ups in use
+      for (const k of ['shield', 'magnet', 'slow']) {
+        const on = k === 'shield' ? r.pw.shield : r.pw[k] > 0;
+        if (!on) continue;
+        const P0 = POWERS[k];
+        ctx.fillStyle = 'rgba(20,30,40,0.55)'; rrect(12, hy, pw, 30, 15); ctx.fill();
+        if (k !== 'shield') { ctx.fillStyle = P0.color; ctx.globalAlpha = 0.45; rrect(12, hy, pw * (r.pw[k] / P0.dur), 30, 15); ctx.fill(); ctx.globalAlpha = 1; }
+        ctx.fillStyle = P0.color; ctx.beginPath(); ctx.arc(28, hy + 15, 11, 0, TAU); ctx.fill();
+        powerIcon(k, 28, hy + 15, 6.5);
+        label(P0.short, 44, hy + 16, 13, '#ffffff', 'left', 0, 'Nunito', 900);
+        hy += 36;
+      }
+      // coins
+      const cw = small ? 96 : 116, cxp = W - (small ? 112 : 128) - cw;
+      ctx.fillStyle = 'rgba(20,30,40,0.5)'; rrect(cxp, 12, cw, 40, 20); ctx.fill();
+      ctx.fillStyle = '#c78a00'; ctx.beginPath(); ctx.arc(cxp + 23, 33, 11, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#ffd43b'; ctx.beginPath(); ctx.arc(cxp + 21, 32, 11, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#fff3b0'; ctx.fillRect(cxp + 19, 26, 4, 12);
+      label(String(save.coins), cxp + 40, 33, 20, '#ffd43b', 'left', 0);
+      HUD_BTNS.pause.x = W - 58; HUD_BTNS.mute.x = W - 110;
+      for (const [b, kind] of [[HUD_BTNS.mute, 'mute'], [HUD_BTNS.pause, 'pause']]) {
+        ctx.fillStyle = 'rgba(20,30,40,0.5)'; rrect(b.x, b.y, b.w, b.h, 12); ctx.fill();
+        const bx = b.x + b.w / 2, by = b.y + b.h / 2;
+        ctx.fillStyle = '#fff'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+        if (kind === 'pause') { ctx.fillRect(bx - 6, by - 8, 4.5, 16); ctx.fillRect(bx + 1.5, by - 8, 4.5, 16); }
+        else {
+          ctx.beginPath(); ctx.moveTo(bx - 9, by - 4); ctx.lineTo(bx - 4, by - 4); ctx.lineTo(bx + 1, by - 9); ctx.lineTo(bx + 1, by + 9); ctx.lineTo(bx - 4, by + 4); ctx.lineTo(bx - 9, by + 4); ctx.closePath(); ctx.fill();
+          if (save.muted) { ctx.beginPath(); ctx.moveTo(bx + 5, by - 5); ctx.lineTo(bx + 11, by + 5); ctx.moveTo(bx + 11, by - 5); ctx.lineTo(bx + 5, by + 5); ctx.stroke(); }
+          else { ctx.beginPath(); ctx.arc(bx + 3, by, 6, -0.9, 0.9); ctx.stroke(); }
+        }
+      }
+      // slow-mo tint
+      if (r.pw.slow > 0) { ctx.fillStyle = `rgba(150,110,255,${0.08 + Math.sin(gtime * 4) * 0.02})`; ctx.fillRect(0, 0, W, H); }
+      // biome / power-up banner
       if (r.banner) {
         const bn = r.banner;
         const a = Math.min(1, bn.t * 4, (2.4 - bn.t) * 3);
         const sc = 0.8 + 0.2 * Math.min(1, bn.t * 5);
         ctx.save(); ctx.globalAlpha = Math.max(0, a); ctx.translate(W / 2, H * 0.28); ctx.scale(sc, sc);
-        label(bn.title, 0, 0, Math.min(56, W / 10), bn.color, 'center', 10);
-        label(bn.sub, 0, 44, 20, '#fff', 'center', 6, 'Nunito', 900);
+        label(bn.title, 0, 0, Math.min(56, W / 9), bn.color, 'center', 10);
+        label(bn.sub, 0, 44, Math.min(20, W / 19), '#fff', 'center', 6, 'Nunito', 900);
         ctx.restore();
       }
       r.toast.slice(0, 2).forEach((tt, i) => {
         const a = Math.min(1, tt.t * 5, (3.2 - tt.t) * 3);
         ctx.globalAlpha = Math.max(0, a);
-        ctx.font = '800 16px Nunito, sans-serif';
+        let fs = 16;
+        ctx.font = `800 ${fs}px Nunito, sans-serif`;
+        while (fs > 11 && ctx.measureText(tt.text).width + 36 > W - 20) { fs--; ctx.font = `800 ${fs}px Nunito, sans-serif`; }
         const w = Math.min(W - 20, ctx.measureText(tt.text).width + 36);
-        const y = 120 + i * 46;
+        const y = (small ? Math.max(270, hy + 30) : 120) + i * 46;
         ctx.fillStyle = 'rgba(20,30,40,0.85)'; rrect(W / 2 - w / 2, y - 18, w, 36, 18); ctx.fill();
         ctx.strokeStyle = '#ffcf3f'; ctx.lineWidth = 2; ctx.stroke();
-        label(tt.text, W / 2, y + 1, 16, '#ffcf3f', 'center', 0, 'Nunito', 800);
+        label(tt.text, W / 2, y + 1, fs, '#ffcf3f', 'center', 0, 'Nunito', 800);
         ctx.globalAlpha = 1;
       });
       if (!r.started && mode === 'play') label(touchUsed ? 'Tap to hop forward · swipe to turn' : 'Press ↑ (or W) to hop!', W / 2, H * 0.18, 24, '#fff', 'center', 6);
@@ -1566,7 +2003,7 @@
       c.fillStyle = 'rgba(255,255,255,0.06)'; c.beginPath(); c.ellipse(s / 2, s * 0.78, s * 0.3, s * 0.08, 0, 0, TAU); c.fill();
       S = s * 0.62; OX = s * 0.46; OY = s * 0.8; camY = 0; cx = 0;
       ctx = c;
-      drawAnimal(id, 0, 0, Math.abs(Math.sin(t * 4)) * 0.15, 1, 0, 1);
+      drawAnimal(id, 0, 0, Math.abs(Math.sin(t * 4)) * 0.15, 1, 0, 1, 0, 0);
       ctx = save1.ctxRef;
       S = save1.S; OX = save1.OX; OY = save1.OY; camY = save1.camY; cx = save1.cx;
     }
@@ -1736,6 +2173,10 @@
       step(frames = 60, dt = 1 / 60) { for (let i = 0; i < frames; i++) update(dt); frame(); return run; },
       newRun() { newRun(); startPlay(); return run; },
       addCoins(n) { save.coins += n; persist(); },
+      power(kind) { if (run && POWERS[kind]) grabPower(kind); },
+      // let the test robot play for a while (it can lose)
+      robot(secs = 10, skill = 1) { let th = 0; for (let i = 0; i < secs * 60 && mode === 'play'; i++) { update(1 / 60); th -= 1 / 60; if (th <= 0) { th = 0.03; robotThink(skill); } } frame(); return run; },
+      turtlePhase, standZ,
       lanes: () => world.lanes,
       showTitle, showChars, showMissions,
     };
@@ -1761,15 +2202,22 @@
       if (lane.type === 'river') {
         if (lane.pads) return lane.padSet.has(Math.round(x));
         const lx = (o) => o.x + lane.dir * lane.speed * tTo;
-        return lane.objs.some((o) => Math.abs(x - lx(o)) < o.len / 2 - 0.25) && Math.abs(x + lane.dir * lane.speed * tTo) < HALF + 0.6;
+        return lane.objs.some((o) => Math.abs(x - lx(o)) < o.len / 2 - 0.25 && (o.kind !== 'turtle' || (turtleHolds(o, tTo) && turtleHolds(o, tTo + 1.2)))) && Math.abs(x + lane.dir * lane.speed * tTo) < HALF + 0.6;
       }
       return true;
     }
     function robotThink(skill) {
       const r = run, pl = r.pl;
-      if (pl.hop || pl.dead) return;
+      if (pl.hop || pl.slide || pl.dead) return;
       const here = world.lanes.get(pl.y);
       const nxt = world.lanes.get(pl.y + 1);
+      // riding a turtle that is about to dive: get off forward or back
+      if (pl.onLog && pl.onLog.kind === 'turtle' && !turtleHolds(pl.onLog, 0.6)) {
+        const fx2 = nxt && nxt.type === 'river' && !nxt.pads ? pl.x : Math.round(pl.x);
+        if (safeAt(nxt, fx2, 0, 0.3)) { doHop('up'); return; }
+        const backL = world.lanes.get(pl.y - 1), bx2 = backL && backL.type === 'river' && !backL.pads ? pl.x : Math.round(pl.x);
+        if (safeAt(backL, bx2, 0, 0.3)) { doHop('down'); return; }
+      }
       // being carried off the edge on a log: step away from the edge
       if (pl.onLog && Math.abs(pl.x) > HALF - 0.6) {
         const dir = pl.x > 0 ? 'left' : 'right';
@@ -1888,7 +2336,10 @@
       newRun(); startPlay();
       const secs = Number(shot[1]) || 10;
       let thinkT = 0;
+      if (opt.get('pw')) for (const k of opt.get('pw').split(',')) if (POWERS[k]) grabPower(k);
       for (let i = 0; i < secs * 60 && mode === 'play'; i++) { update(1 / 60); thinkT -= 1 / 60; if (thinkT <= 0) { thinkT = 0.03; robotThink(1); } }
+      if (opt.get('pw2')) for (const k of opt.get('pw2').split(',')) if (POWERS[k]) grabPower(k);
+      if (opt.get('streak')) { run.streak = Number(opt.get('streak')); run.lastFwd = run.time - 0.2; }
       if (opt.get('die') && !run.pl.dead) { die(opt.get('die'), { dir: 1 }); for (let i = 0; i < (Number(opt.get('dt')) || 0.5) * 60; i++) update(1 / 60); }
       update = () => { gtime += 1 / 60; };
     }, 150);

@@ -86,7 +86,30 @@ const CONFIG = {
     tires: [350, 800, 1600],
     nitro: [300, 700, 1400],
     hook: [250, 600, 1200],
+    armor: [300, 700, 1300],
+    scanner: [350, 750, 1400],
   },
+
+  // ---------- street pickups (drive through them) ----------
+  pickups: {
+    count: 14,           // how many are out on the streets at once
+    grabRange: 38,
+    kinds: {
+      cash: { weight: 5, value: 35 },        // a bag of cash
+      nitro: { weight: 3, amount: 0.4 },     // a nitro can (40% of a tank)
+      shield: { weight: 2 },                 // bumper shield: your next crash is free
+      jammer: { weight: 1.2, seconds: 15 },  // siren jammer: cops ignore you, and it ends a chase
+      clock: { weight: 0.8, seconds: 10 },   // extra shift time
+    },
+  },
+
+  // ---------- delivery streak ----------
+  // Every car you deliver in a row (without losing a job or getting busted) raises the job pay.
+  streak: { step: 0.1, max: 1.5 },
+
+  // ---------- rush hour ----------
+  // Partway through the shift the streets fill up, and calls pay more for a while.
+  rushHour: { at: 140, seconds: 40, extraTraffic: 24, payMul: 1.5 },
 
   // ---------- traffic lights ----------
   lights: {

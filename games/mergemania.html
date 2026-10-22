@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Merge Mania – Slide and Merge Puzzle | Potato Games</title>
-  <meta name="description" content="Slide the tiles, merge matching pairs and hatch eggs into chicks, birds and dragons! Play classic endless mode or 30 goal levels with stars, use undo and hammer boosters, and unlock space, sweets and gem tile sets. A free puzzle game on Potato.">
+  <meta name="description" content="Slide the tiles, merge matching pairs and hatch eggs into chicks, birds and dragons! Play classic endless mode or 40 goal levels with stars, chain merges for combos, thaw ice blocks, catch Wild Stars, use undo, hammer and swap boosters, and unlock space, sweets and gem tile sets. A free puzzle game on Potato.">
   <link rel="icon" href="mergemania-icon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
@@ -117,7 +117,8 @@
         <li>Two <b>matching tiles</b> that bump together <b>merge</b> into the next one: eggs hatch into chicks, chicks grow into birds, birds become <b>dragons</b>!</li>
         <li>After each slide a new egg appears. Don't let the board fill up!</li>
         <li><b>Rocks</b> block the way. Merge right next to a rock to crack it.</li>
-        <li>Stuck? Use <b>Undo</b> (<b>Z</b>) or the <b>Hammer</b> (<b>H</b>) to smash a tile.</li>
+        <li>Merge on every slide to build a <b>combo chain</b> (up to x4 points). A rainbow <b>Wild Star</b> merges with anything!</li>
+        <li>Stuck? Use <b>Undo</b> (<b>Z</b>), the <b>Hammer</b> (<b>H</b>) to smash a tile, or <b>Swap</b> (<b>X</b>) two tiles.</li>
       </ul>
       <div class="row">
         <button class="btn" id="play-btn">Levels</button>
@@ -283,7 +284,10 @@
       { name: 'Meadow', sub: 'Learn to merge' },
       { name: 'Sky Isles', sub: 'Bigger tiles, more rocks' },
       { name: 'Star Peaks', sub: 'For merge masters' },
+      { name: 'Frost Caves', sub: 'Ice blocks and Wild Stars' },
     ];
+    const WILD = 50;               // the Wild Star tile merges with anything
+    const isWild = (k) => k === WILD;
     const LEVELS = [
       // ---- Meadow ----
       { type: 'reach', n: 4, target: 4, moves: 24, s2: 9, s3: 12 },
@@ -318,12 +322,24 @@
       { type: 'reach', n: 5, target: 9, moves: 322, s2: 185, s3: 266, rocks: [[0, 0, 1], [0, 4, 1], [2, 2, 2]], preset: [[4, 0, 8], [4, 1, 7], [4, 2, 6], [4, 3, 5]] },
       { type: 'score', n: 5, target: 2200, moves: 276, s2: 64, s3: 69, rocks: [[0, 0, 1]] },
       { type: 'reach', n: 5, target: 10, moves: 508, s2: 246, s3: 386, rocks: [[2, 2, 3]], preset: [[4, 0, 9], [4, 1, 8], [4, 2, 7], [4, 3, 5], [4, 4, 4]] },
+      // ---- Frost Caves ---- ice: [row, col, hp, tile frozen inside]
+      { type: 'ice', n: 4, moves: 24, s2: 8, s3: 12, ice: [[1, 1, 1, 2], [2, 2, 1, 2]] },
+      { type: 'reach', n: 4, target: 6, moves: 64, s2: 18, s3: 24, wild: true, ice: [[0, 0, 1, 3], [0, 3, 1, 3]] },
+      { type: 'score', n: 4, target: 500, moves: 80, s2: 20, s3: 26, wild: true },
+      { type: 'ice', n: 5, moves: 36, s2: 12, s3: 16, ice: [[1, 1, 1, 3], [1, 3, 1, 3], [3, 1, 1, 3], [3, 3, 1, 3]], rocks: [[2, 2, 1]] },
+      { type: 'reach', n: 5, target: 8, moves: 280, s2: 120, s3: 150, wild: true, ice: [[4, 4, 2, 6]], preset: [[4, 0, 6], [4, 1, 5]] },
+      { type: 'blocks', n: 5, moves: 50, s2: 14, s3: 18, wild: true, rocks: [[1, 1, 2], [1, 3, 2], [3, 1, 2], [3, 3, 2]], ice: [[2, 2, 1, 4]] },
+      { type: 'ice', n: 5, moves: 44, s2: 12, s3: 16, ice: [[0, 0, 2, 5], [0, 4, 2, 5], [4, 0, 2, 5], [4, 4, 2, 5], [2, 2, 1, 4]] },
+      { type: 'score', n: 5, target: 1500, moves: 160, s2: 40, s3: 56, wild: true, ice: [[2, 1, 1, 4], [2, 3, 1, 4]] },
+      { type: 'reach', n: 5, target: 9, moves: 260, s2: 120, s3: 170, wild: true, ice: [[0, 2, 2, 7]], rocks: [[2, 2, 2]], preset: [[4, 0, 8], [4, 1, 6]] },
+      { type: 'ice', n: 5, moves: 64, s2: 18, s3: 26, wild: true, ice: [[1, 1, 3, 6], [1, 3, 3, 6], [3, 1, 3, 6], [3, 3, 3, 6]], rocks: [[2, 2, 2]] },
     ];
 
     const BOOSTERS = [
       { id: 'undo', name: 'Undo pack', desc: 'Three undos. Take back your last slide when it goes wrong.', cost: 40, give: { undo: 3 } },
       { id: 'hammer', name: 'Hammer pack', desc: 'Two hammers. Smash any tile, or knock a rock down a crack.', cost: 60, give: { hammer: 2 } },
       { id: 'combo', name: 'Helper bundle', desc: 'Five undos and three hammers, a little cheaper.', cost: 150, give: { undo: 5, hammer: 3 } },
+      { id: 'swap', name: 'Swap pack', desc: 'Three swaps. Pick two tiles and they trade places.', cost: 70, give: { swap: 3 } },
     ];
 
     const $ = (id) => document.getElementById(id);
@@ -352,6 +368,9 @@
     save.best = save.best && typeof save.best === 'object' ? save.best : {};
     save.found = save.found && typeof save.found === 'object' ? save.found : {};
     save.muted = !!save.muted;
+    save.swap = save.swap == null ? 2 : Number(save.swap) || 0;
+    // players who finished the old last level get the new world right away
+    if (save.unlocked === 30 && (Number(save.stars[29]) || 0) > 0) save.unlocked = 31;
     const persist = () => Potato.save('save', save);
     const totalStars = () => Object.values(save.stars).reduce((s, n) => s + (Number(n) || 0), 0);
     const curSet = () => setById(save.set);
@@ -421,6 +440,11 @@
       win: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.24, 'triangle', 0.08, i * 0.1)),
       fail: () => [392, 330, 262].forEach((f, i) => tone(f, 0.25, 'triangle', 0.06, i * 0.16)),
       buy: () => [880, 1100, 1320].forEach((f, i) => tone(f, 0.12, 'triangle', 0.07, i * 0.06)),
+      wild: () => [1047, 1319, 1568, 2093].forEach((f, i) => tone(f, 0.12, 'sine', 0.05, i * 0.05)),
+      ice: () => { noise(0.12, 0.08, 3200); tone(1760, 0.08, 'triangle', 0.04); },
+      thaw: () => { noise(0.25, 0.1, 2600); [1319, 1568, 1976].forEach((f, i) => tone(f, 0.12, 'triangle', 0.05, 0.05 + i * 0.05)); },
+      swap: () => { tone(500, 0.08, 'triangle', 0.05); tone(750, 0.1, 'triangle', 0.05, 0.07); },
+      chain: (m) => tone(600 + m * 140, 0.12, 'square', 0.035, 0.08),
     };
 
     // =====================================================================
@@ -1163,7 +1187,62 @@
       }
       ctx.drawImage(c, -w * 0.6, -w * 0.6, w * 1.2, w * 1.2);
     }
+    // The Wild Star: a rainbow tile with a smiling star
+    function drawWild(w, t) {
+      const r = w * 0.16;
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      rr(-w / 2, -w / 2 + w * 0.05, w, w, r); ctx.fill();
+      const g = ctx.createLinearGradient(-w / 2, -w / 2, w / 2, w / 2);
+      for (let i = 0; i <= 6; i++) g.addColorStop(i / 6, hsl(t * 60 + i * 55, 85, 72));
+      ctx.fillStyle = g;
+      rr(-w / 2, -w / 2, w, w * 0.97, r); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = w * 0.03;
+      rr(-w / 2, -w / 2, w, w * 0.97, r); ctx.stroke();
+      ctx.fillStyle = lin(0, -w / 2, 0, 0, [[0, 'rgba(255,255,255,0.45)'], [1, 'rgba(255,255,255,0)']]);
+      rr(-w / 2 + w * 0.05, -w / 2 + w * 0.04, w * 0.9, w * 0.4, r * 0.8); ctx.fill();
+      ctx.save();
+      ctx.rotate(Math.sin(t * 2) * 0.12);
+      const s = 1 + 0.05 * Math.sin(t * 5);
+      ctx.scale(s, s);
+      star(0, -w * 0.04, w * 0.34, 'rgba(120,60,0,0.25)', 0, 5, 0.5);
+      star(0, -w * 0.07, w * 0.33, lin(0, -w * 0.4, 0, w * 0.3, [[0, '#fffbe0'], [1, '#ffc93c']]), 0, 5, 0.5);
+      ctx.save(); ctx.scale(w / 100, w / 100); face(0, -7, 7, 2.6, 'happy'); ctx.restore();
+      ctx.restore();
+      for (let i = 0; i < 3; i++) { const a = t * 2 + i * 2.1; twinkle(Math.cos(a) * w * 0.36, Math.sin(a) * w * 0.32 - w * 0.05, w * 0.06, 'rgba(255,255,255,0.9)'); }
+      ctx.fillStyle = 'rgba(80,30,120,0.55)';
+      rr(-w * 0.17, w * 0.3, w * 0.34, w * 0.15, w * 0.075); ctx.fill();
+      label('WILD', 0, w * 0.377, w * 0.12, '#fff', 'center', 700, 'Fredoka');
+    }
+    // An ice block with a tile frozen inside
+    function drawIce(x, y, w, k, hp, max, t) {
+      drawTile(save.set, k, x, y, w * 0.86, t, { still: true });
+      ctx.save();
+      ctx.translate(x, y);
+      const r = w * 0.16;
+      ctx.fillStyle = lin(-w / 2, -w / 2, w / 2, w / 2, [[0, 'rgba(225,248,255,0.72)'], [0.5, 'rgba(160,220,255,0.55)'], [1, 'rgba(120,190,240,0.7)']]);
+      rr(-w / 2, -w / 2, w, w, r); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = w * 0.035;
+      rr(-w / 2, -w / 2, w, w, r); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = w * 0.03; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-w * 0.34, -w * 0.12); ctx.lineTo(-w * 0.12, -w * 0.34); ctx.moveTo(-w * 0.34, w * 0.05); ctx.lineTo(w * 0.05, -w * 0.34); ctx.stroke();
+      const dmg = max - hp;
+      ctx.strokeStyle = 'rgba(40,110,170,0.8)'; ctx.lineWidth = w * 0.025;
+      if (dmg >= 1) { ctx.beginPath(); ctx.moveTo(w * 0.1, -w * 0.48); ctx.lineTo(w * 0.02, -w * 0.2); ctx.lineTo(w * 0.18, 0); ctx.lineTo(w * 0.06, w * 0.2); ctx.stroke(); }
+      if (dmg >= 2) { ctx.beginPath(); ctx.moveTo(-w * 0.48, w * 0.15); ctx.lineTo(-w * 0.2, w * 0.1); ctx.lineTo(-w * 0.1, w * 0.3); ctx.moveTo(w * 0.48, -w * 0.1); ctx.lineTo(w * 0.25, w * 0.05); ctx.stroke(); }
+      const sp = Math.max(0, Math.sin(t * 2 + x * 0.05));
+      twinkle(w * 0.3, -w * 0.3, w * 0.07 * sp, 'rgba(255,255,255,0.95)');
+      if (max > 1) for (let i = 0; i < max; i++) C(-((max - 1) * w * 0.07) + i * w * 0.14, w * 0.4, w * 0.045, i < hp ? '#e8fbff' : 'rgba(0,40,80,0.4)');
+      ctx.restore();
+    }
     function drawTile(setId, k, x, y, w, t, opts = {}) {
+      if (isWild(k)) {
+        ctx.save(); ctx.translate(x, y);
+        if (opts.scale != null && opts.scale !== 1) ctx.scale(opts.scale, opts.scale);
+        if (opts.alpha != null) ctx.globalAlpha = opts.alpha;
+        drawWild(w, t);
+        ctx.restore();
+        return;
+      }
       const set = setById(setId);
       ctx.save();
       ctx.translate(x, y);
@@ -1229,11 +1308,14 @@
           for (const id of seg) if (tiers[id]) { list.push({ id, k: tiers[id] }); out[id] = 0; }
           let pos = 0, last = null;
           for (const tl of list) {
-            if (last && !last.merged && last.k === tl.k) {
+            // same tiles merge; a Wild Star merges with any normal tile (two Wild Stars don't)
+            const can = last && !last.merged && (last.k === tl.k ? !isWild(tl.k) : isWild(last.k) || isWild(tl.k));
+            if (can) {
+              const nk = (isWild(last.k) ? tl.k : last.k) + 1;
               last.merged = true;
-              out[last.dest] = tl.k + 1;
-              moves.push({ from: tl.id, to: last.dest, merge: true });
-              merges.push({ id: last.dest, k: tl.k + 1 });
+              out[last.dest] = nk;
+              moves.push({ from: tl.id, to: last.dest, merge: true, wild: isWild(last.k) || isWild(tl.k) });
+              merges.push({ id: last.dest, k: nk, wild: isWild(last.k) || isWild(tl.k) });
               moved = true;
             } else {
               const dest = seg[pos++];
@@ -1301,6 +1383,9 @@
         ended: false, endT: 0, endKind: null,
         particles: [], rings: [], floaters: [], banner: null, shake: 0, nudge: null,
         rocksTotal: 0, rocksLeft: 0,
+        iceK: new Array(n * n).fill(0), iceTotal: 0, iceLeft: 0,
+        chain: 0, bestChain: 0, chainFx: 0,
+        swap: null,
         newFound: [],
         startT: now,
         cursor: { r: 0, c: 0 },
@@ -1309,6 +1394,9 @@
       if (def && def.rocks) for (const [r, c, hp] of def.rocks) { const id = r * n + c; game.rocks[id] = hp; game.rockMax[id] = hp; }
       game.rocksTotal = game.rocks.filter((h) => h > 0).length;
       game.rocksLeft = game.rocksTotal;
+      // ice blocks act like rocks until they thaw, then the tile inside is free
+      if (def && def.ice) for (const [r, c, hp, k] of def.ice) { const id = r * n + c; game.rocks[id] = hp; game.rockMax[id] = hp; game.iceK[id] = k; }
+      game.iceTotal = game.iceLeft = def && def.ice ? def.ice.length : 0;
       if (def && def.preset) for (const [r, c, k] of def.preset) { game.grid[r * n + c] = makeTile(k, r, c, now + 0.1); game.maxK = Math.max(game.maxK, k); }
       spawn(now + 0.05);
       spawn(now + 0.15);
@@ -1329,7 +1417,7 @@
       g.grid = c.tiers.map((k, i) => (k ? makeTile(k, Math.floor(i / g.n), i % g.n, now + Math.random() * 0.2) : null));
       g.score = c.score || 0;
       g.moves = c.moves || 0;
-      g.maxK = Math.max(1, ...c.tiers);
+      g.maxK = Math.max(1, ...c.tiers.filter((k) => !isWild(k)));
       g.banner = null;
       showBanner('Welcome back!', 'Pick up where you left off', null);
     }
@@ -1340,7 +1428,10 @@
       for (let i = 0; i < g.n * g.n; i++) if (!g.grid[i] && !g.rocks[i]) empty.push(i);
       if (!empty.length) return null;
       const id = empty[Math.floor(g.rngSpawn() * empty.length)];
-      const k = g.rngSpawn() < 0.9 ? 1 : 2;
+      let k = g.rngSpawn() < 0.9 ? 1 : 2;
+      // now and then a Wild Star shows up (once you've grown a bird, or in Frost Caves levels)
+      const wildOk = g.def ? g.def.wild : g.maxK >= 5;
+      if (wildOk && !g.grid.some((t) => t && isWild(t.k)) && g.rngSpawn() < (g.def ? 0.05 : 0.025)) { k = WILD; g.wildFx = { id, t: now }; }
       const t = makeTile(k, Math.floor(id / g.n), id % g.n, bornAt);
       g.grid[id] = t;
       return t;
@@ -1353,6 +1444,7 @@
       const set = curSet();
       if (def.type === 'reach') return `Make a ${set.names[clamp(def.target - 1, 0, 11)]} (${valueOf(def.target)})`;
       if (def.type === 'score') return `Score ${def.target.toLocaleString()} points`;
+      if (def.type === 'ice') return `Free all ${def.ice.length} frozen friends`;
       return `Crack all ${def.rocks.length} rocks`;
     }
     function goalMet(g) {
@@ -1360,6 +1452,7 @@
       if (!d) return false;
       if (d.type === 'reach') return g.maxK >= d.target;
       if (d.type === 'score') return g.score >= d.target;
+      if (d.type === 'ice') return g.iceLeft === 0;
       return g.rocksLeft === 0;
     }
     function starsFor(g) {
@@ -1370,7 +1463,7 @@
 
     function snapshot() {
       const g = game;
-      return { tiers: tiersOf(g), rocks: g.rocks.slice(), score: g.score, moves: g.moves, maxK: g.maxK, rocksLeft: g.rocksLeft };
+      return { tiers: tiersOf(g), rocks: g.rocks.slice(), iceK: g.iceK.slice(), iceLeft: g.iceLeft, chain: g.chain, score: g.score, moves: g.moves, maxK: g.maxK, rocksLeft: g.rocksLeft };
     }
     function pushHistory() {
       game.history.push(snapshot());
@@ -1400,6 +1493,7 @@
       if (!g || mode !== 'play' || g.ended) return false;
       lastInput = now;
       if (g.hammer) { g.hammer = false; }
+      g.swap = null;
       if (g.banner && g.banner.t > 0.3) { const life = g.banner.kind === 'new' ? 2.4 : 2; g.banner.t = Math.max(g.banner.t, life - 0.25); }
       finishAnim();
       const n = g.n;
@@ -1428,16 +1522,26 @@
         fx.push(t);
       }
       g.grid = newGrid;
-      g.score += gained;
+      // combo chain: merge something on every slide to grow the multiplier
+      const prevMult = chainMult(g.chain);
+      g.chain = res.merges.length ? g.chain + 1 : 0;
+      g.bestChain = Math.max(g.bestChain, g.chain);
+      const mult = chainMult(g.chain);
+      if (mult > prevMult) g.chainFx = now;
+      g.score += gained * mult;
       g.moves++;
-      // rocks next to merges crack
+      // rocks and ice next to merges crack
       const hits = rockHits(res.merges, g.rocks, n);
       const cracked = [];
       for (const id of hits) {
         if (g.rocks[id] <= 0) continue;
         g.rocks[id]--;
-        cracked.push({ id, broke: g.rocks[id] === 0 });
-        if (g.rocks[id] === 0) g.rocksLeft--;
+        const ice = g.iceK[id] > 0;
+        cracked.push({ id, broke: g.rocks[id] === 0, ice });
+        if (g.rocks[id] === 0) {
+          if (ice) { g.grid[id] = makeTile(g.iceK[id], Math.floor(id / n), id % n, 0); g.grid[id].wob = now + SLIDE; g.iceK[id] = 0; g.iceLeft--; }
+          else g.rocksLeft--;
+        }
       }
       g.anim = 0;
       const sp = spawn(now + SLIDE);
@@ -1448,22 +1552,23 @@
           const p = cellCenter(t.r, t.c);
           burst(p.x, p.y, 10 + t.k * 2, set.spark, t.k);
           g.rings.push({ x: p.x, y: p.y, t: 0, color: set.spark[i % set.spark.length] });
-          floater(`+${valueOf(t.k)}`, p.x, p.y - layoutCell() * 0.3, t.k >= 7 ? '#ffd43b' : '#ffffff', 18 + Math.min(16, t.k * 1.5));
+          floater(`+${valueOf(t.k) * mult}`, p.x, p.y - layoutCell() * 0.3, mult > 1 ? '#7af0ff' : t.k >= 7 ? '#ffd43b' : '#ffffff', 18 + Math.min(16, t.k * 1.5));
+          if (res.merges.find((m) => m.id === t.r * n + t.c && m.wild)) { burst(p.x, p.y, 26, ['#ff6fae', '#ffe066', '#7ee0ff', '#8ef0a0', '#b28dff'], 6); floater('WILD!', p.x, p.y - layoutCell() * 0.55, '#ffe066', 24); sfx.wild(); }
           if (t.k >= 8) g.shake = Math.max(g.shake, 0.18 + (t.k - 8) * 0.05);
           discover(t.k);
         });
         if (fx.length) sfx.merge(Math.max(...fx.map((t) => t.k)), fx.length);
         else sfx.slide();
-        if (fx.length >= 2) {
-          const p = cellCenter(fx[0].r, fx[0].c);
-          floater(fx.length >= 4 ? 'MEGA MERGE!' : fx.length === 3 ? 'Triple!' : 'Double!', boardRect().x + boardRect().size / 2, boardRect().y - 2 + 0 * p.y, '#7af0ff', 26);
-        }
+        if (fx.length >= 2) floater(fx.length >= 4 ? 'MEGA MERGE!' : fx.length === 3 ? 'Triple!' : 'Double!', boardRect().x + boardRect().size / 2, boardRect().y + 34, '#7af0ff', 26);
+        if (mult > prevMult) { floater(`Combo x${mult}!`, boardRect().x + boardRect().size / 2, boardRect().y + boardRect().size - 30, '#ffe066', 30); sfx.chain(mult); }
         for (const c of cracked) {
           const p = cellCenter(Math.floor(c.id / n), c.id % n);
-          rockBurst(p.x, p.y, c.broke);
-          if (c.broke) floater('Crack!', p.x, p.y - 20, '#ffe08a', 20);
+          if (c.ice) iceBurst(p.x, p.y, c.broke); else rockBurst(p.x, p.y, c.broke);
+          if (c.broke) floater(c.ice ? 'Free!' : 'Crack!', p.x, p.y - 20, c.ice ? '#bff4ff' : '#ffe08a', 20);
         }
-        if (cracked.length) sfx.crack();
+        if (cracked.some((c) => c.ice && c.broke)) sfx.thaw();
+        else if (cracked.some((c) => c.ice)) sfx.ice();
+        if (cracked.some((c) => !c.ice)) sfx.crack();
         if (sp) sfx.spawn();
       }];
       afterMove();
@@ -1542,14 +1647,50 @@
       g.grid = s.tiers.map((k, i) => (k ? makeTile(k, Math.floor(i / n), i % n, -1) : null));
       g.grid.forEach((t) => { if (t) t.wob = now; });
       g.rocks = s.rocks.slice();
+      if (s.iceK) { g.iceK = s.iceK.slice(); g.iceLeft = s.iceLeft; }
+      g.chain = s.chain || 0;
       g.score = s.score; g.moves = s.moves; g.maxK = s.maxK; g.rocksLeft = s.rocksLeft;
       g.ghosts = []; g.pending = null; g.anim = 1;
     }
 
+    // Swap booster: pick two tiles and they trade places
+    function toggleSwap() {
+      const g = game;
+      if (!g || mode !== 'play' || g.ended) return;
+      if (!g.swap && save.swap <= 0) { flash('No swaps left. Get more in the Shop!'); return; }
+      finishAnim();
+      g.hammer = false;
+      g.swap = g.swap ? null : { first: null };
+      if (g.swap) { g.cursor = { r: Math.floor(g.n / 2), c: Math.floor(g.n / 2) }; flash('Pick the first tile'); }
+      sfx.click();
+    }
+    function pickSwap(r, c) {
+      const g = game, n = g.n, id = r * n + c;
+      if (!g.swap) return;
+      if (!g.grid[id]) { flash('Pick a tile (not an empty spot or a rock)'); return; }
+      if (g.swap.first == null) { g.swap.first = id; flash('Now pick the tile to swap with'); sfx.click(); return; }
+      if (g.swap.first === id) { g.swap.first = null; return; }
+      const a = g.swap.first;
+      pushHistory();
+      save.swap--;
+      persist();
+      const ta = g.grid[a], tb = g.grid[id];
+      g.grid[a] = tb; g.grid[id] = ta;
+      ta.fr = ta.r; ta.fc = ta.c; tb.fr = tb.r; tb.fc = tb.c;
+      [ta.r, ta.c, tb.r, tb.c] = [tb.r, tb.c, ta.r, ta.c];
+      g.anim = 0;
+      g.pending = null;
+      g.swap = null;
+      g.flash = null;
+      sfx.swap();
+      if (g.kind !== 'level') saveContinue();
+      checkEnd();
+    }
     function toggleHammer() {
       const g = game;
       if (!g || mode !== 'play' || g.ended) return;
       if (!g.hammer && save.hammer <= 0) { flash('No hammers left. Get more in the Shop!'); return; }
+      g.swap = null;
       g.hammer = !g.hammer;
       g.cursor = { r: Math.floor(g.n / 2), c: Math.floor(g.n / 2) };
       sfx.click();
@@ -1567,8 +1708,12 @@
       g.hammerFx = { x: p.x, y: p.y, t: 0 };
       if (g.rocks[id]) {
         g.rocks[id]--;
-        rockBurst(p.x, p.y, g.rocks[id] === 0);
-        if (g.rocks[id] === 0) g.rocksLeft--;
+        const ice = g.iceK[id] > 0;
+        if (ice) iceBurst(p.x, p.y, g.rocks[id] === 0); else rockBurst(p.x, p.y, g.rocks[id] === 0);
+        if (g.rocks[id] === 0) {
+          if (ice) { g.grid[id] = makeTile(g.iceK[id], r, c, 0); g.grid[id].wob = now; g.iceK[id] = 0; g.iceLeft--; sfx.thaw(); }
+          else g.rocksLeft--;
+        }
       } else {
         const t = g.grid[id];
         g.grid[id] = null;
@@ -1601,6 +1746,15 @@
         g.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 90, life: 0.7 + Math.random() * 0.4, max: 1, color: pick(['#8a8494', '#b0aab8', '#6a6474']), size: 4 + Math.random() * 5, kind: 'chunk', rot: Math.random() * TAU, grav: 600 });
       }
     }
+    function iceBurst(x, y, broke) {
+      const g = game;
+      for (let i = 0; i < (broke ? 22 : 10); i++) {
+        const a = Math.random() * TAU, s = 60 + Math.random() * 180;
+        g.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 90, life: 0.7 + Math.random() * 0.4, max: 1, color: pick(['#e8fbff', '#bfefff', '#8fd8ff', '#ffffff']), size: 3 + Math.random() * 5, kind: Math.random() < 0.5 ? 'chunk' : 'star', rot: Math.random() * TAU, grav: 500 });
+      }
+    }
+    // 1-3 merging slides in a row: x1, 4-6: x2, 7-9: x3, 10+: x4
+    function chainMult(chain) { return chain <= 0 ? 1 : Math.min(4, 1 + Math.floor((chain - 1) / 3)); }
     function floater(text, x, y, color, size = 22) {
       game.floaters.push({ text, x, y, color, size, life: 1.1 });
     }
@@ -1699,6 +1853,7 @@
       let prog = '';
       if (d.type === 'reach') prog = `Your biggest tile was ${valueOf(g.maxK)} (goal ${valueOf(d.target)}).`;
       else if (d.type === 'score') prog = `You scored ${g.score.toLocaleString()} of ${d.target.toLocaleString()}.`;
+      else if (d.type === 'ice') prog = `${g.iceLeft} frozen friend${g.iceLeft === 1 ? '' : 's'} still stuck in the ice.`;
       else prog = `${g.rocksLeft} rock${g.rocksLeft === 1 ? '' : 's'} left to crack.`;
       $('f-text').textContent = `${prog} ${stuck ? 'An undo or a hammer can get you going again.' : 'Want a few more moves?'}`;
       $('f-more-btn').hidden = stuck;
@@ -1807,7 +1962,7 @@
           const open = i < save.unlocked;
           const def = LEVELS[i];
           b.className = 'day' + (open ? '' : ' locked') + (i === save.unlocked - 1 && s === 0 ? ' next' : '');
-          const ty = def.type === 'reach' ? `Make ${valueOf(def.target)}` : def.type === 'score' ? 'Score' : 'Rocks';
+          const ty = def.type === 'reach' ? `Make ${valueOf(def.target)}` : def.type === 'score' ? 'Score' : def.type === 'ice' ? 'Ice' : 'Rocks';
           b.innerHTML = `<b>${open ? i + 1 : '🔒'}</b><span class="st">${[0, 1, 2].map((k) => (k < s ? '<i>★</i>' : '★')).join('')}</span><span class="ty">${open ? ty : ''}</span>`;
           if (open) b.addEventListener('click', () => { sfx.click(); showIntro(i); });
           grid.appendChild(b);
@@ -1824,14 +1979,15 @@
       const have = Number(save.stars[i]) || 0;
       $('i-title').textContent = `Level ${i + 1}`;
       $('i-goal').textContent = goalText(def);
-      const extra = def.rocks && def.type !== 'blocks' ? ' Watch out for rocks!' : '';
+      const extra = (def.rocks && def.type !== 'blocks' ? ' Watch out for rocks!' : '') + (def.ice && def.type !== 'ice' ? ' Some tiles are frozen in ice.' : '') + (def.wild ? ' Wild Stars can appear!' : '');
       $('i-sub').textContent = `in ${def.moves} moves on a ${def.n}×${def.n} board.${extra}`;
       const c = $('i-art');
       if (def.type === 'reach') paintTileTo(c, save.set, def.target);
       else if (def.type === 'blocks') paintRock(c);
+      else if (def.type === 'ice') { const keep = ctx; ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height); drawIce(c.width / 2, c.width / 2, c.width * 0.85, def.ice[0][3], 2, 2, 0.6); ctx = keep; }
       else paintScore(c);
       const goals = ['Reach the goal', `...with ${def.s2}+ moves left`, `...with ${def.s3}+ moves left`];
-      const TIPS = { reach: 'Tip: keep your biggest tile tucked in a corner and build toward it.', score: 'Tip: big merges give big points. Chain them together!', blocks: 'Tip: rocks only crack when a merge happens right next to them.' };
+      const TIPS = { reach: 'Tip: keep your biggest tile tucked in a corner and build toward it.', score: 'Tip: merge on every slide to keep your combo chain going!', blocks: 'Tip: rocks only crack when a merge happens right next to them.', ice: 'Tip: merge right next to an ice block to thaw it and free the tile inside.' };
       $('i-tip').textContent = TIPS[def.type];
       $('i-goals').innerHTML = '';
       goals.forEach((t, k) => {
@@ -1869,7 +2025,7 @@
       if (back) shopBack = back;
       mode = 'shop';
       setPills('s');
-      $('s-boost').textContent = `↶ ${save.undo} · 🔨 ${save.hammer}`;
+      $('s-boost').textContent = `↶ ${save.undo} · 🔨 ${save.hammer} · ⇄ ${save.swap}`;
       document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('on', t.dataset.tab === shopTab));
       const list = $('shop-list');
       list.innerHTML = '';
@@ -1930,6 +2086,7 @@
             save.coins -= u.cost;
             save.undo += u.give.undo || 0;
             save.hammer += u.give.hammer || 0;
+            save.swap += u.give.swap || 0;
             persist();
             sfx.buy();
             showShop();
@@ -2000,27 +2157,33 @@
     function computeLayout() {
       land = W >= H * 0.95;
       VW = land ? 1000 : 600;
-      VH = land ? 640 : 1000;
+      // tall phones get a taller layout instead of empty bands
+      VH = land ? 640 : clamp((600 * H) / W, 1000, 1240);
       const s = Math.min(W / VW, H / VH);
       view = { s, ox: (W - VW * s) / 2, oy: (H - VH * s) / 2 };
       if (land) {
         L = {
           board: { x: 250, y: 92, size: 520 },
           goal: { x: 22, y: 92, w: 206, h: 520 },
-          undo: { x: 792, y: 300, w: 186, h: 86 },
-          hammer: { x: 792, y: 400, w: 186, h: 86 },
+          undo: { x: 792, y: 300, w: 186, h: 98 },
+          hammer: { x: 792, y: 407, w: 186, h: 98 },
+          swapB: { x: 792, y: 514, w: 186, h: 98 },
           side: { x: 792, y: 92, w: 186, h: 194 },
+          chain: { x: 618, y: 18, w: 168, h: 44 },
           pauseB: { x: 936, y: 14, w: 50, h: 50 },
           muteB: { x: 878, y: 14, w: 50, h: 50 },
           menuB: { x: 820, y: 14, w: 50, h: 50 },
           top: 40,
         };
       } else {
+        const e = VH - 1000;
         L = {
-          board: { x: 25, y: 300, size: 550 },
-          goal: { x: 25, y: 96, w: 550, h: 186 },
-          undo: { x: 25, y: 880, w: 265, h: 92 },
-          hammer: { x: 310, y: 880, w: 265, h: 92 },
+          board: { x: 25, y: 324 + e * 0.45, size: 550 },
+          goal: { x: 25, y: 92 + e * 0.15, w: 550, h: 186 },
+          chain: { x: 25, y: 288 + e * 0.3, w: 550, h: 28 },
+          undo: { x: 25, y: 894 + e * 0.8, w: 174, h: 92 },
+          hammer: { x: 213, y: 894 + e * 0.8, w: 174, h: 92 },
+          swapB: { x: 401, y: 894 + e * 0.8, w: 174, h: 92 },
           side: null,
           pauseB: { x: 532, y: 18, w: 54, h: 54 },
           muteB: { x: 470, y: 18, w: 54, h: 54 },
@@ -2071,6 +2234,12 @@
       if (inRect(p, L.menuB)) { pause(true); return; }
       if (inRect(p, L.undo)) { undo(); return; }
       if (inRect(p, L.hammer)) { toggleHammer(); return; }
+      if (inRect(p, L.swapB)) { toggleSwap(); return; }
+      if (game.swap) {
+        const cell = cellAt(p.x, p.y);
+        if (cell) pickSwap(cell.r, cell.c); else game.swap = null;
+        return;
+      }
       if (game.hammer) {
         const cell = cellAt(p.x, p.y);
         if (cell) smash(cell.r, cell.c);
@@ -2082,8 +2251,8 @@
     });
     canvas.addEventListener('pointermove', (e) => {
       const p = toView(e);
-      hoverBtn = mode === 'play' && L ? ['undo', 'hammer', 'pauseB', 'muteB', 'menuB'].find((k) => inRect(p, L[k])) || null : null;
-      canvas.style.cursor = hoverBtn || (game && game.hammer && cellAt(p.x, p.y)) ? 'pointer' : 'default';
+      hoverBtn = mode === 'play' && L ? ['undo', 'hammer', 'swapB', 'pauseB', 'muteB', 'menuB'].find((k) => inRect(p, L[k])) || null : null;
+      canvas.style.cursor = hoverBtn || (game && (game.hammer || game.swap) && cellAt(p.x, p.y)) ? 'pointer' : 'default';
       if (!swipe || swipe.used) return;
       const dx = p.x - swipe.x, dy = p.y - swipe.y;
       if (Math.hypot(dx, dy) > 28) {
@@ -2102,7 +2271,23 @@
       if (mode === 'paused' && (e.code === 'KeyP' || e.code === 'Escape')) { pause(false); return; }
       if (mode === 'intro' && e.code === 'Enter') { newGame('level', introLevel); return; }
       if (mode !== 'play' || !game) return;
-      if (e.code === 'KeyP' || (e.code === 'Escape' && !game.hammer)) { pause(true); return; }
+      if (e.code === 'KeyP' || (e.code === 'Escape' && !game.hammer && !game.swap)) { pause(true); return; }
+      if (game.swap) {
+        const c = game.cursor;
+        if (e.code === 'Escape' || e.code === 'KeyX') { game.swap = null; return; }
+        if (KEYDIR[e.code] != null) {
+          const d = KEYDIR[e.code];
+          if (d === 0) c.r = Math.max(0, c.r - 1);
+          if (d === 2) c.r = Math.min(game.n - 1, c.r + 1);
+          if (d === 3) c.c = Math.max(0, c.c - 1);
+          if (d === 1) c.c = Math.min(game.n - 1, c.c + 1);
+          game.cursorKb = true;
+          return;
+        }
+        if (e.code === 'Enter' || e.code === 'Space') pickSwap(c.r, c.c);
+        return;
+      }
+      if (e.code === 'KeyX') { toggleSwap(); return; }
       if (game.hammer) {
         const c = game.cursor;
         if (e.code === 'Escape' || e.code === 'KeyH') { game.hammer = false; return; }
@@ -2210,6 +2395,13 @@
           for (let x = 0; x <= w + 20; x += 20) ctx.lineTo(x0 + x, y0 + h * base - Math.sin(x / 160 + ph) * amp - Math.sin(x / 70 + ph * 2) * amp * 0.3);
           ctx.lineTo(x0 + w + 20, y0 + h); ctx.fill();
         };
+        // little birds flapping across the sky
+        for (let i = 0; i < 3; i++) {
+          const bx = x0 + (((t * (0.025 + i * 0.008) + i * 0.37) % 1.2) - 0.1) * w, by = y0 + h * (0.12 + i * 0.09) + Math.sin(t * 1.5 + i) * 10;
+          const f = Math.sin(t * 9 + i * 2) * 6;
+          ctx.beginPath(); ctx.moveTo(bx - 10, by - f * 0.6); ctx.quadraticCurveTo(bx - 5, by - 4 - f, bx, by); ctx.quadraticCurveTo(bx + 5, by - 4 - f, bx + 10, by - f * 0.6);
+          S('rgba(60,70,110,0.55)', 2.5);
+        }
         hill(0.78, 26, '#9be37a', 0.4);
         hill(0.88, 20, '#6fcf5a', 2.1);
         for (let i = 0; i < 12; i++) {
@@ -2272,6 +2464,17 @@
       rr(b.x, b.y, b.size, b.size, 26); ctx.fill();
       ctx.strokeStyle = st.edge; ctx.lineWidth = 4;
       rr(b.x, b.y, b.size, b.size, 26); ctx.stroke();
+      // the board glows while a combo chain is going
+      const cm = chainMult(g.chain);
+      if (cm > 1) {
+        ctx.save();
+        ctx.strokeStyle = cm >= 4 ? hsl(t * 120, 90, 65) : cm === 3 ? '#ff9f43' : '#ffe066';
+        ctx.globalAlpha = 0.45 + 0.35 * Math.sin(t * 6);
+        ctx.lineWidth = 6 + cm * 2;
+        ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 18;
+        rr(b.x - 4, b.y - 4, b.size + 8, b.size + 8, 30); ctx.stroke();
+        ctx.restore();
+      }
       if (save.set === 'nest') {
         ctx.save(); rr(b.x, b.y, b.size, b.size, 26); ctx.clip();
         ctx.strokeStyle = 'rgba(90,50,20,0.15)'; ctx.lineWidth = 2;
@@ -2290,7 +2493,8 @@
         if (g.rocks[i] > 0) {
           const p = cellCenter(Math.floor(i / n), i % n);
           const wob = Math.sin(t * 2 + i) * 0.6;
-          drawRock(p.x, p.y + wob, cs * 0.86, g.rocks[i], g.rockMax[i], t);
+          if (g.iceK[i] > 0) drawIce(p.x, p.y, cs - gap * 2, g.iceK[i], g.rocks[i], g.rockMax[i], t);
+          else drawRock(p.x, p.y + wob, cs * 0.86, g.rocks[i], g.rockMax[i], t);
         }
       }
       // tiles
@@ -2327,6 +2531,14 @@
           rr(p.x - tw / 2 - 4, p.y - tw / 2 - 4, tw + 8, tw + 8, 16); ctx.stroke(); ctx.setLineDash([]);
         }
       }
+      if (g.swap) {
+        const pulse = 0.5 + 0.5 * Math.sin(t * 8);
+        ctx.fillStyle = `rgba(90,180,255,${0.06 + pulse * 0.06})`;
+        rr(b.x, b.y, b.size, b.size, 26); ctx.fill();
+        const mark = (id, col) => { const p = cellCenter(Math.floor(id / n), id % n); ctx.strokeStyle = col; ctx.lineWidth = 5; ctx.setLineDash([10, 6]); ctx.lineDashOffset = -t * 30; rr(p.x - tw / 2 - 4, p.y - tw / 2 - 4, tw + 8, tw + 8, 16); ctx.stroke(); ctx.setLineDash([]); };
+        if (g.swap.first != null) mark(g.swap.first, '#7af0ff');
+        if (g.cursorKb || !land) mark(g.cursor.r * n + g.cursor.c, 'rgba(255,255,255,0.8)');
+      }
       if (g.hammerFx) {
         const h = g.hammerFx, k = h.t / 0.4;
         ctx.save(); ctx.translate(h.x + 30, h.y - 30); ctx.rotate(-1.2 + Math.min(1, k * 3) * 1.4); ctx.globalAlpha = 1 - Math.max(0, k - 0.6) / 0.4;
@@ -2351,6 +2563,35 @@
       ctx.restore();
     }
 
+    function swapIcon(x, y, s, t) {
+      ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+      ctx.beginPath(); ctx.arc(0, 0, 15, Math.PI * 1.1, Math.PI * 1.9); S('#ffffff', 5);
+      P([[15, -10], [17, 4], [5, -2]], '#ffffff');
+      ctx.beginPath(); ctx.arc(0, 0, 15, Math.PI * 0.1, Math.PI * 0.9); S('#ffffff', 5);
+      P([[-15, 10], [-17, -4], [-5, 2]], '#ffffff');
+      ctx.restore();
+      void t;
+    }
+    // combo chain meter: three pips per level, multiplier up to x4
+    function drawChain(t) {
+      const g = game, R = L.chain;
+      if (!R) return;
+      const mult = chainMult(g.chain);
+      const into = g.chain <= 0 ? 0 : mult >= 4 ? 3 : ((g.chain - 1) % 3) + 1;
+      const pop = g.chainFx && now - g.chainFx < 0.35 ? 1 + 0.25 * Math.sin(((now - g.chainFx) / 0.35) * Math.PI) : 1;
+      const cx = land ? R.x + 36 : R.x + 40, cy = R.y + R.h / 2;
+      ctx.fillStyle = 'rgba(20,18,26,0.75)';
+      rr(R.x, R.y, R.w, R.h, R.h / 2); ctx.fill();
+      ctx.save(); ctx.translate(cx, cy); ctx.scale(pop, pop);
+      const hot = mult > 1;
+      ctx.fillStyle = hot ? lin(-26, 0, 26, 0, [[0, '#ffb020'], [1, '#ffe066']]) : 'rgba(255,255,255,0.12)';
+      rr(-28, -R.h / 2 + 4, 56, R.h - 8, (R.h - 8) / 2); ctx.fill();
+      outlined(`x${mult}`, 0, 1, land ? 20 : 17, hot ? '#5a3000' : '#cfc8dc', 'rgba(0,0,0,0)', 0);
+      ctx.restore();
+      label(land ? 'COMBO' : 'COMBO CHAIN', cx + 34, cy, 12, '#a69fb2', 'left', 900);
+      const px = R.x + R.w - (land ? 16 : 24), gap2 = land ? 14 : 18;
+      for (let i = 0; i < 3; i++) C(px - (2 - i) * gap2, cy, land ? 5 : 6, i < into ? (mult >= 4 ? hsl(t * 120 + i * 40, 90, 65) : '#ffe066') : 'rgba(255,255,255,0.15)');
+    }
     function button(r, hot, colTop, colBot, glow) {
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
       rr(r.x, r.y + 5, r.w, r.h, 18); ctx.fill();
@@ -2380,7 +2621,7 @@
       const title = g.kind === 'level' ? `Level ${g.level + 1}` : g.kind === 'big' ? 'Big Board' : 'Classic';
       outlined(title, land ? 26 : 26, L.top, land ? 34 : 36, '#ffffff', 'rgba(0,0,0,0.45)', 6, 'left');
       // score pill
-      const sx = land ? 500 : 250, sw = land ? 210 : 190;
+      const sx = land ? 500 : 300, sw = land ? 210 : 180;
       ctx.fillStyle = 'rgba(20,18,26,0.75)';
       rr(sx - sw / 2, L.top - 24, sw, 48, 24); ctx.fill();
       label('SCORE', sx - sw / 2 + 22, L.top, 12, '#a69fb2', 'left', 900);
@@ -2416,6 +2657,12 @@
       ctx.save(); ctx.translate(L.hammer.x + 42, L.hammer.y + L.hammer.h / 2 + 4); ctx.rotate(hb ? -0.4 + Math.sin(t * 10) * 0.25 : -0.4); hammerIcon(0, 0, 0.95); ctx.restore();
       label(hb ? 'Pick a tile' : 'Hammer', L.hammer.x + 78, L.hammer.y + L.hammer.h / 2 - 12, 20, '#fff', 'left', 700, 'Fredoka');
       label(`${save.hammer} left · H`, L.hammer.x + 78, L.hammer.y + L.hammer.h / 2 + 14, 13, '#ffe0d0', 'left', 800);
+      const swOn = !!g.swap;
+      button(L.swapB, hoverBtn === 'swapB', swOn ? '#5fe0c0' : '#3bb58e', swOn ? '#2a9a78' : '#1f7d5e', swOn ? '#ffe08a' : null);
+      swapIcon(L.swapB.x + 42, L.swapB.y + L.swapB.h / 2, swOn ? 1 + 0.08 * Math.sin(t * 10) : 1, t);
+      label(swOn ? 'Pick tiles' : 'Swap', L.swapB.x + 78, L.swapB.y + L.swapB.h / 2 - 12, 20, '#fff', 'left', 700, 'Fredoka');
+      label(`${save.swap} left · X`, L.swapB.x + 78, L.swapB.y + L.swapB.h / 2 + 14, 13, '#d0fff0', 'left', 800);
+      drawChain(t);
 
       // flash message
       if (g.flash) {
@@ -2452,7 +2699,7 @@
       if (land) {
         label('GOAL', cx, P0.y + 24, 14, '#a69fb2', 'center', 900);
         goalArt(cx, P0.y + 104, 116, t);
-        const txt = d.type === 'reach' ? set.names[clamp(d.target - 1, 0, 11)] : d.type === 'score' ? `${d.target.toLocaleString()} pts` : 'Crack the rocks';
+        const txt = d.type === 'reach' ? set.names[clamp(d.target - 1, 0, 11)] : d.type === 'score' ? `${d.target.toLocaleString()} pts` : d.type === 'ice' ? 'Free the ice' : 'Crack the rocks';
         label(txt, cx, P0.y + 178, 17, '#fff', 'center', 800);
         goalProgress(P0.x + 20, P0.y + 198, P0.w - 40);
         label('MOVES LEFT', cx, P0.y + 262, 14, '#a69fb2', 'center', 900);
@@ -2466,7 +2713,7 @@
       } else {
         goalArt(P0.x + 78, P0.y + P0.h / 2, 120, t);
         label('GOAL', P0.x + 160, P0.y + 30, 14, '#a69fb2', 'left', 900);
-        const txt = d.type === 'reach' ? set.names[clamp(d.target - 1, 0, 11)] : d.type === 'score' ? `${d.target.toLocaleString()} pts` : 'Crack the rocks';
+        const txt = d.type === 'reach' ? set.names[clamp(d.target - 1, 0, 11)] : d.type === 'score' ? `${d.target.toLocaleString()} pts` : d.type === 'ice' ? 'Free the ice' : 'Crack the rocks';
         label(txt, P0.x + 160, P0.y + 58, 20, '#fff', 'left', 800);
         goalProgress(P0.x + 160, P0.y + 80, 200);
         drawStarTrack(P0.x + 160, P0.y + 130, 200);
@@ -2478,6 +2725,7 @@
       const d = game.def;
       if (d.type === 'reach') drawTile(save.set, d.target, x, y, w, t);
       else if (d.type === 'blocks') drawRock(x, y, w * 0.9, 2, 2, t);
+      else if (d.type === 'ice') drawIce(x, y, w * 0.85, d.ice[0][3], 2, 2, t);
       else {
         ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(t * 2) * 0.08);
         star(0, 0, w * 0.45, lin(0, -w / 2, 0, w / 2, [[0, '#fff0a0'], [1, '#ffb020']]), 0, 5, 0.5);
@@ -2490,6 +2738,7 @@
       let k = 0, txt = '';
       if (d.type === 'reach') { k = (g.maxK - 1) / (d.target - 1); txt = `Biggest: ${valueOf(g.maxK)}`; }
       else if (d.type === 'score') { k = g.score / d.target; txt = `${g.score.toLocaleString()} / ${d.target.toLocaleString()}`; }
+      else if (d.type === 'ice') { k = 1 - g.iceLeft / Math.max(1, g.iceTotal); txt = `${g.iceTotal - g.iceLeft} / ${g.iceTotal} freed`; }
       else { k = 1 - g.rocksLeft / Math.max(1, g.rocksTotal); txt = `${g.rocksTotal - g.rocksLeft} / ${g.rocksTotal} cracked`; }
       k = clamp(k, 0, 1);
       ctx.fillStyle = 'rgba(255,255,255,0.1)';
@@ -2634,7 +2883,7 @@
         const res = slide(tiers, g.rocks, g.n, d);
         if (!res.moved) continue;
         let sc = evalBoard(res.tiers, g.n) + res.merges.reduce((s, m) => s + valueOf(m.k), 0) * 0.5;
-        if (g.def && g.def.type === 'blocks') sc += rockHits(res.merges, g.rocks, g.n).length * 4000;
+        if (g.def && (g.def.type === 'blocks' || g.def.type === 'ice')) sc += rockHits(res.merges, g.rocks, g.n).filter((id) => g.def.type === 'ice' ? g.iceK[id] > 0 : !g.iceK[id]).length * 4000;
         if (d === 0) sc -= 30; // gently prefer keeping big tiles low
         if (sc > bestScore) { bestScore = sc; best = d; }
       }
@@ -2643,7 +2892,7 @@
     // A more careful player: looks one spawn ahead.
     function botChoose2(g) {
       const tiers = tiersOf(g), n = g.n, rocks = g.rocks;
-      const blocks = g.def && g.def.type === 'blocks';
+      const blocks = g.def && (g.def.type === 'blocks' || g.def.type === 'ice');
       const score1 = (res) => evalBoard(res.tiers, n) + res.merges.reduce((s, m) => s + valueOf(m.k), 0) * 0.5 + (blocks ? rockHits(res.merges, rocks, n).length * 4000 : 0);
       let best = -1, bestScore = -Infinity;
       for (let d = 0; d < 4; d++) {
@@ -2664,7 +2913,8 @@
       }
       return best;
     }
-    function evalBoard(tiers, n) {
+    function evalBoard(tiers0, n) {
+      const tiers = tiers0.map((k) => (isWild(k) ? 0 : k));
       let empty = 0, mono = 0, smooth = 0, maxK = 0, maxIdx = 0;
       for (let i = 0; i < n * n; i++) { if (!tiers[i]) empty++; if (tiers[i] > maxK) { maxK = tiers[i]; maxIdx = i; } }
       for (let r = 0; r < n; r++) for (let c = 0; c < n - 1; c++) {
@@ -2815,6 +3065,11 @@
     else if (scene === 'classic') { newGame('classic'); for (let i = 0; i < 40; i++) { doMove(botChoose(game)); update(0.2); } }
     else if (scene === 'shop') showShop('title');
     else if (scene === 'map') showMap();
+    if (game && params.has('swapmode')) { game.swap = { first: game.grid.findIndex((t) => t) }; }
+    if (params.has('moves') && game) for (let i = 0; i < Number(params.get('moves')); i++) { doMove(botChoose(game)); update(0.2); }
+    if (game && params.has('chain')) game.chain = Number(params.get('chain'));
+    if (game && params.has('wild')) { const e = game.grid.map((t, i) => (t || game.rocks[i] ? -1 : i)).filter((i) => i >= 0); if (e.length) { const id = e[0]; game.grid[id] = makeTile(WILD, Math.floor(id / game.n), id % game.n, 0); } }
+    if (scene === 'win') { save.unlocked = 33; newGame('level', Number(params.get('n') || 1) - 1); playToEnd(600); update(1.2); }
     requestAnimationFrame(loop);
   })();
   </script>

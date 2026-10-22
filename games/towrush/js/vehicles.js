@@ -435,7 +435,7 @@ const Vehicles = (() => {
     car.angle = Math.atan2(hy - car.y, hx - car.x);
   }
 
-  function spawnTraffic(count, avoid) {
+  function spawnTraffic(count, avoid, avoidDist = 350, existing = []) {
     const list = [];
     let tries = 0;
     while (list.length < count && tries++ < count * 40) {
@@ -443,14 +443,19 @@ const Vehicles = (() => {
       const dirs = W.validDirs(node);
       const dir = dirs[Math.floor(Math.random() * dirs.length)];
       const along = 90 + Math.random() * (W.CELL - 180);
-      const van = Math.random() < 0.2;
+      const roll = Math.random();
+      const van = roll < 0.18, taxi = roll >= 0.18 && roll < 0.28, pickup = roll >= 0.28 && roll < 0.38;
       const f = makeFollower(node, dir, along, {
         kind: 'traffic',
         speed: C.trafficSpeed[0] + Math.random() * (C.trafficSpeed[1] - C.trafficSpeed[0]),
-        len: van ? 54 : 44, wid: van ? 24 : 22,
+        len: van ? 54 : pickup ? 50 : 44, wid: van ? 24 : 22,
+        color: taxi ? "#f6b818" : undefined,
       });
       f.van = van;
-      if (avoid && Math.hypot(f.x - avoid.x, f.y - avoid.y) < 350) continue;
+      f.taxi = taxi;
+      f.pickup = pickup;
+      if (avoid && Math.hypot(f.x - avoid.x, f.y - avoid.y) < avoidDist) continue;
+      if (existing.some((o) => Math.hypot(o.x - f.x, o.y - f.y) < 90)) continue;
       if (list.some((o) => Math.hypot(o.x - f.x, o.y - f.y) < 90)) continue;
       list.push(f);
     }

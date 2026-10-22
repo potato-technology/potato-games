@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Slice Squad – Juicy Fruit Slicing Game | Potato Games</title>
-  <meta name="description" content="Swipe to slice flying fruit into juicy halves! Chain combos, dodge the bombs, and grab special bananas for Frenzy, Double Points and Freeze. Play Classic, Arcade or Zen, finish missions for stars and unlock blade trails and backgrounds. A free game on Potato.">
+  <meta name="description" content="Swipe to slice flying fruit into juicy halves! Chain combos, build a streak, smash Giant Melons, dodge the bombs and grab special bananas. Play Classic, Arcade, Zen or the Daily Challenge, finish missions for stars and unlock blade trails and backgrounds. A free game on Potato.">
   <link rel="icon" href="slicesquad-icon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
@@ -59,13 +59,18 @@
     .mode .best { display: block; margin-top: 6px; font-weight: 900; font-size: 14px; color: var(--gold); }
     .mode .st { font-size: 17px; letter-spacing: 2px; color: #57485f; }
     .mode .st i { font-style: normal; color: var(--gold); }
+    .mode.daily { background: linear-gradient(180deg, #2b3a4f, #263042); border-color: #4b7aa8; }
+    .mode.daily .st { font: 800 14px var(--body); letter-spacing: 0; color: #9fd8ff; }
+    .mode.daily.won { border-color: var(--good); }
+    .mode .tag { display: block; font: 900 11px var(--body); color: #9fd8ff; text-transform: uppercase; letter-spacing: 1px; }
+    .mode.daily .st i { color: var(--good); }
     .bigstars { font-size: 60px; letter-spacing: 6px; margin: 0 0 4px; color: #4a3d52; }
     .bigstars span { display: inline-block; }
     .bigstars span.on { color: var(--gold); text-shadow: 0 4px 0 #a07c00; animation: pop 0.45s backwards; }
     .bigstars span:nth-child(2).on { animation-delay: 0.25s; }
     .bigstars span:nth-child(3).on { animation-delay: 0.5s; }
     @keyframes pop { 0% { transform: scale(0) rotate(-30deg); } 70% { transform: scale(1.3); } 100% { transform: scale(1); } }
-    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0; }
     .stats div { padding: 9px; border-radius: 12px; background: var(--panel-2); }
     .stats span { display: block; font-size: 12px; color: var(--muted); }
     .stats b { font: 700 21px var(--display); }
@@ -93,7 +98,7 @@
     .up button { align-self: flex-start; padding: 7px 16px; font-size: 15px; box-shadow: 0 3px 0 var(--accent-dark); }
     .confetti { position: fixed; top: -12px; width: 10px; height: 14px; border-radius: 2px; pointer-events: none; animation: fall linear forwards; z-index: 50; }
     @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
-    @media (max-width: 520px) { .logo { font-size: 44px; } .stats { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 520px) { .logo { font-size: 44px; } .stats { grid-template-columns: repeat(2, 1fr); } .modes { grid-template-columns: repeat(2, 1fr); gap: 8px; } .mode { padding: 10px 6px; } .mode .ico { font-size: 24px; } .mode b { font-size: 19px; } .mode small { min-height: 0; font-size: 12px; } .card { padding: 18px 14px; } .how { font-size: 14px; } }
   </style>
 </head>
 <body>
@@ -106,7 +111,8 @@
       <div class="modes" id="modes"></div>
       <ul class="how">
         <li><b>Hold and swipe</b> with the mouse (or drag a finger) to slice fruit as it flies up.</li>
-        <li><b>Combos:</b> slice 3 or more fruit in one swipe for bonus points!</li>
+        <li><b>Combos:</b> slice 3 or more fruit in one swipe for bonus points! Don't drop any fruit to grow your <b>streak</b> up to x5.</li>
+        <li><b>Giant Melons</b> hover in the air: swipe them again and again! Grab <b>Time Berries</b> and <b>Heart Peaches</b> too.</li>
         <li><b>Don't slice the bombs!</b> In Classic, letting 3 fruit drop is game over too.</li>
         <li><b>Missions</b> give you stars. Spend coins on new blades and backgrounds.</li>
       </ul>
@@ -138,6 +144,8 @@
         <div><span>Best combo</span><b id="r-combo">-</b></div>
         <div><span>Combos</span><b id="r-combos">0</b></div>
         <div><span>Coins</span><b id="r-coins">+0</b></div>
+        <div><span>Top streak</span><b id="r-mult">-</b></div>
+        <div><span>Giant melons</span><b id="r-giants">0</b></div>
       </div>
       <div class="note gold" id="r-new"></div>
       <div class="note good" id="r-missions"></div>
@@ -185,10 +193,33 @@
     // Data
     // =====================================================================
     const MODES = {
-      classic: { name: 'Classic', ico: '🍎', desc: 'Miss 3 fruit or hit a bomb and it\'s over.', stars: [20, 60, 120] },
-      arcade: { name: 'Arcade', ico: '⏱️', desc: '60 seconds. Slice special bananas for power-ups!', stars: [60, 150, 250], time: 60 },
-      zen: { name: 'Zen', ico: '🌸', desc: '90 calm seconds. No bombs at all.', stars: [60, 140, 230], time: 90 },
+      classic: { name: 'Classic', ico: '🍎', desc: 'Miss 3 fruit or hit a bomb and it\'s over.', stars: [25, 75, 150] },
+      arcade: { name: 'Arcade', ico: '⏱️', desc: '60 seconds. Slice special bananas for power-ups!', stars: [80, 200, 350], time: 60 },
+      zen: { name: 'Zen', ico: '🌸', desc: '90 calm seconds. No bombs at all.', stars: [80, 190, 320], time: 90 },
+      daily: { name: 'Daily', ico: '📅', desc: 'A new twist every day!', stars: [40, 80, 130], time: 60 },
     };
+
+    // Daily challenge: one rule per day, everyone gets the same one.
+    const DAILY_RULES = [
+      { id: 'pick', name: 'Picky Chef', desc: 'Only slice the two fruit shown at the top! Other fruit cost 2 points.' },
+      { id: 'bombs', name: 'Bomb Party', desc: 'Lots of bombs, but every fruit is worth 2!' },
+      { id: 'giants', name: 'Melon Madness', desc: 'A Giant Melon floats up every few seconds. Smash it!' },
+      { id: 'tiny', name: 'Tiny Fruit', desc: 'Teeny tiny fruit worth 2 points each. Aim well!' },
+      { id: 'bananas', name: 'Banana Bonanza', desc: 'Special bananas fly up all the time!' },
+      { id: 'speedy', name: 'Speed Slice', desc: 'Everything moves faster, and your streak grows twice as quick.' },
+    ];
+    const dayKey = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+    const dayNum = () => { const d = new Date(); return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000); };
+    const yesterdayKey = () => { const y = new Date(); y.setDate(y.getDate() - 1); return `${y.getFullYear()}-${y.getMonth() + 1}-${y.getDate()}`; };
+    const todayRule = () => DAILY_RULES[((dayNum() % DAILY_RULES.length) + DAILY_RULES.length) % DAILY_RULES.length];
+    const DAILY_TARGET = 80;
+
+    // Helper fruit: the Time Berry adds seconds, the Heart Peach forgives a miss.
+    const HELPERS = {
+      clock: { name: '+5 SECONDS!', color: '#5cc8ff', juice: '#8fd8ff' },
+      heart: { name: 'MISS FORGIVEN!', color: '#ff6fa8', juice: '#ffb3cf' },
+    };
+    const GIANT_HP = 10;
 
     // r = size, juice = splat color, w = how often it is thrown
     const FRUITS = {
@@ -265,6 +296,14 @@
       { text: 'Slice 6 fruit in one swipe', key: 'combo', run: true, target: 6 },
       { text: 'Score 250 in Classic', key: 'score', mode: 'classic', run: true, target: 250 },
       { text: 'Slice 2,500 fruit', key: 'sliced', target: 2500 },
+      // added later (always add new missions at the end so old saves stay right)
+      { text: 'Smash a Giant Melon', key: 'giants', target: 1 },
+      { text: 'Reach a x3 streak', key: 'mult', run: true, target: 3 },
+      { text: 'Play a Daily Challenge', key: 'g_daily', target: 1 },
+      { text: 'Slice 5 Time Berries', key: 'h_clock', target: 5 },
+      { text: 'Reach a x5 streak', key: 'mult', run: true, target: 5 },
+      { text: 'Beat the Daily target 3 times', key: 'dailyWins', target: 3 },
+      { text: 'Smash 10 Giant Melons', key: 'giants', target: 10 },
     ];
     const MISSION_COINS = 20;
 
@@ -295,9 +334,10 @@
     save.blade = BLADES.some((b) => b.id === save.blade) ? save.blade : 'steel';
     save.bg = BGS.some((b) => b.id === save.bg) ? save.bg : 'dojo';
     save.muted = !!save.muted;
+    save.daily = save.daily && typeof save.daily === 'object' ? save.daily : {};
     const persist = () => Potato.save('save', save);
-    // Stars = finished missions + best stars in each mode
-    const totalStars = () => save.done + Object.values(save.mstars).reduce((s, n) => s + (Number(n) || 0), 0);
+    // Stars = finished missions + best stars in each mode (the daily challenge gives coins instead)
+    const totalStars = () => save.done + Object.entries(save.mstars).reduce((s, [k, n]) => s + (k === 'daily' ? 0 : Number(n) || 0), 0);
 
     // =====================================================================
     // Sound (WebAudio synth)
@@ -362,6 +402,12 @@
       fanfare: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.22, 'triangle', 0.08, i * 0.1)),
       over: () => [440, 392, 330, 262].forEach((f, i) => tone(f, 0.22, 'triangle', 0.07, i * 0.14)),
       mission: () => [988, 1319, 1760].forEach((f, i) => tone(f, 0.16, 'sine', 0.07, i * 0.07)),
+      thud: (k) => { noise(0.14, 0.16, 900, 200, 'lowpass', 0, 1); tone(140 + k * 18, 0.12, 'triangle', 0.08, 0, -40); },
+      burst: () => { noise(0.5, 0.22, 2400, 200, 'lowpass', 0, 0.8); [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => tone(f, 0.16, 'triangle', 0.07, 0.05 + i * 0.05)); },
+      streak: (m) => [523, 659, 784, 1047, 1319].slice(0, Math.min(5, m)).forEach((f, i) => tone(f * 1.5, 0.1, 'square', 0.035, i * 0.05)),
+      lost: () => tone(300, 0.25, 'triangle', 0.05, 0, -150),
+      helper: () => [880, 1175, 1568].forEach((f, i) => tone(f, 0.14, 'sine', 0.08, i * 0.06)),
+      wrong: () => { tone(200, 0.18, 'square', 0.05); tone(150, 0.2, 'square', 0.05, 0.08); },
     };
 
     // =====================================================================
@@ -414,6 +460,12 @@
         shake: 0, flash: 0, banner: null, toast: [],
         lifeAt: 50, lastTick: 99,
         t: 0,
+        // streak multiplier: slice fruit without dropping any or hitting a bomb
+        streak: 0, mult: 1, multFx: 0,
+        // helpers and giant melons
+        nextHelper: rand(12, 18), giantAt: kind === 'classic' ? 30 : 0, giantT: kind === 'arcade' ? 28 : kind === 'zen' ? 40 : 9999,
+        cuts: [], hang: 0,
+        rule: kind === 'daily' ? todayRule() : null, picks: null,
       };
     }
 
@@ -428,16 +480,20 @@
       return 'apple';
     }
 
+    const gravity = () => G * (run && run.rule && run.rule.id === 'speedy' ? 1.45 : 1);
     function throwItem(type, kind, opt = {}) {
-      const r = (type === 'bomb' ? 34 : type === 'special' ? 44 : FRUITS[kind].r) * SIZE;
+      const tiny = run.rule && run.rule.id === 'tiny' && type === 'fruit' ? 0.62 : 1;
+      const r = (type === 'bomb' ? 34 : type === 'special' ? 44 : type === 'helper' ? 36 : type === 'giant' ? 92 : FRUITS[kind].r * tiny) * SIZE;
       const x = opt.x != null ? opt.x : rand(WW * 0.14, WW * 0.86);
       const apexY = opt.apex != null ? opt.apex : rand(WH * 0.1, WH * 0.4);
       const h = WH + r - apexY;
-      const vy = -Math.sqrt(2 * G * h);
-      const tA = -vy / G;
+      const g = gravity();
+      const vy = -Math.sqrt(2 * g * h);
+      const tA = -vy / g;
       const tx = clamp(x + rand(-WW * 0.25, WW * 0.25), WW * 0.18, WW * 0.82);
       const vx = ((tx - x) / tA) * 0.85;
       const it = { type, kind, x, y: WH + r + 6, vx, vy, rot: rand(0, TAU), spin: rand(-2.6, 2.6), r, t: 0, side: false };
+      if (type === 'giant') { it.hp = GIANT_HP; it.maxHp = GIANT_HP; it.hits = 0; it.hitCd = 0; it.wob = 0; it.spin = rand(-0.6, 0.6); it.vx *= 0.4; }
       if (opt.side) Object.assign(it, opt.side);
       run.items.push(it);
       if (!run.demo) sfx.throw();
@@ -476,6 +532,13 @@
         count = 2 + Math.floor(Math.random() * 4);
         gap = 1.25;
         spread = 0.16;
+      } else if (r.kind === 'daily') {
+        const p = 1 - r.timeLeft / MODES.daily.time;
+        count = 2 + Math.floor(Math.random() * (2 + p * 3));
+        gap = lerp(1.35, 0.9, p) * (r.rule.id === 'speedy' ? 0.8 : 1);
+        bombChance = r.rule.id === 'bombs' ? 0.42 : 0.18 + p * 0.1;
+        maxBombs = r.rule.id === 'bombs' ? 3 : 1;
+        spread = 0.15;
       } else { // demo on the title screen
         count = 1 + Math.floor(Math.random() * 2);
         gap = 1.4;
@@ -485,7 +548,8 @@
       for (let i = 0; i < count; i++) {
         const isBomb = bombs < maxBombs && i > 0 && Math.random() < bombChance;
         if (isBomb) bombs++;
-        r.queue.push({ at: together ? 0 : i * spread, type: isBomb ? 'bomb' : 'fruit', kind: isBomb ? 'bomb' : weightedFruit() });
+        const fk = r.picks && Math.random() < 0.55 ? pick(r.picks) : weightedFruit();
+        r.queue.push({ at: together ? 0 : i * spread, type: isBomb ? 'bomb' : 'fruit', kind: isBomb ? 'bomb' : fk });
       }
       // One wave out of a few, a lone bomb sneaks up alone (only in later Classic and Arcade).
       if (maxBombs && Math.random() < bombChance * 0.25) r.queue.push({ at: count * spread + 0.3, type: 'bomb', kind: 'bomb' });
@@ -512,6 +576,7 @@
       for (const it of r.items) {
         if (it.dead || it.y - it.r > WH) continue;
         if (segDist(it.x, it.y, ax, ay, bx, by) < it.r * 0.95) {
+          if (it.type === 'giant') { if (hitGiant(it, ang)) hits++; continue; }
           hitItem(it, ang);
           hits++;
           if (r.over) break;
@@ -551,8 +616,7 @@
           rot: ang + (side > 0 ? Math.PI : 0), spin: side * rand(2, 5), r: it.r, life: 3,
         });
       }
-      const def = FRUITS[it.type === 'special' ? 'banana' : it.kind];
-      const juice = it.type === 'special' ? SPECIALS[it.kind].color : def.juice;
+      const juice = it.type === 'special' ? SPECIALS[it.kind].color : it.type === 'helper' ? HELPERS[it.kind].juice : FRUITS[it.kind].juice;
       for (let i = 0; i < 16; i++) {
         const a = rand(0, TAU), s = rand(80, 340);
         r.drops.push({ x: it.x, y: it.y, vx: Math.cos(a) * s + it.vx * 0.3, vy: Math.sin(a) * s - 90, r: rand(2.5, 6.5), color: juice, life: rand(0.5, 0.9) });
@@ -560,11 +624,31 @@
       // a slash of juice drops along the cut
       for (let i = -3; i <= 3; i++) r.drops.push({ x: it.x + Math.cos(ang) * i * it.r * 0.3, y: it.y + Math.sin(ang) * i * it.r * 0.3, vx: Math.cos(ang) * 160, vy: Math.sin(ang) * 160, r: rand(2, 4), color: '#ffffff', life: 0.25 });
       splat(it.x, it.y, it.r, juice);
+      r.cuts.push({ x: it.x, y: it.y, a: ang, r: it.r, life: 0.18 });
       r.shake = Math.max(r.shake, 2.5);
       const st = r.stroke;
       if (r.t - st.last > 0.4) finishStroke();
       st.count++; st.last = r.t; st.x = it.x; st.y = it.y;
       sfx.slice(st.count);
+
+      if (it.type === 'helper') {
+        const hp = HELPERS[it.kind];
+        bump('h_' + it.kind, 1);
+        sfx.helper();
+        if (it.kind === 'clock') { r.timeLeft += 5; r.lastTick = 99; }
+        if (it.kind === 'heart' && r.misses > 0) r.misses--;
+        popup(it.x, it.y - it.r - 10, hp.name, hp.color, 30);
+        for (let i = 0; i < 10; i++) { const a = rand(0, TAU), s = rand(60, 200); r.drops.push({ x: it.x, y: it.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60, r: rand(3, 6), color: '#ffffff', life: 0.6, star: true }); }
+        return;
+      }
+      if (it.type === 'fruit' && r.picks && !r.picks.includes(it.kind)) {
+        // daily "Picky Chef": wrong fruit!
+        sfx.wrong();
+        addScore(-2, it.x, it.y - it.r - 6, '#ff6b6b', 28, true);
+        popup(it.x, it.y + it.r + 16, 'Wrong fruit!', '#ff9f9f', 20);
+        breakStreak(it.x, it.y);
+        return;
+      }
 
       if (it.type === 'special') {
         const sp = SPECIALS[it.kind];
@@ -581,8 +665,59 @@
         r.fruitCounts[it.kind] = (r.fruitCounts[it.kind] || 0) + 1;
         bump('sliced', 1);
         bump('f_' + it.kind, 1);
-        addScore(1, it.x, it.y - it.r - 6, r.double > 0 ? '#ffd23f' : '#ffffff', r.double > 0 ? 30 : 24);
+        // streak: every 10 fruit in a row (5 in Speed Slice) bumps the multiplier
+        r.streak++;
+        const per = r.rule && r.rule.id === 'speedy' ? 5 : 10;
+        const m = Math.min(5, 1 + Math.floor(r.streak / per));
+        if (m > r.mult) { r.mult = m; r.multFx = 1; r.stats.mult = Math.max(r.stats.mult || 1, m); sfx.streak(m); popup(it.x, it.y - it.r - 46, `STREAK x${m}!`, '#7fe8ff', 30); }
+        const worth = (r.rule && (r.rule.id === 'bombs' || r.rule.id === 'tiny') ? 2 : 1) * r.mult;
+        addScore(worth, it.x, it.y - it.r - 6, r.double > 0 ? '#ffd23f' : r.mult > 1 ? '#bff4ff' : '#ffffff', r.double > 0 || r.mult > 1 ? 30 : 24);
       }
+    }
+
+    // A dropped fruit or a bomb ends your streak
+    function breakStreak(x, y) {
+      const r = run;
+      if (r.mult > 1) { popup(clamp(x, 80, WW - 80), clamp(y, 140, WH - 80), 'Streak lost', '#ffb3b3', 22); sfx.lost(); }
+      r.streak = 0; r.mult = 1;
+    }
+
+    // Giant Melon: hovers in the air while you slice it again and again
+    function hitGiant(it, ang) {
+      const r = run;
+      if (it.hitCd > 0 || it.hp <= 0) return false;
+      it.hitCd = 0.09;
+      it.hp--; it.hits++;
+      it.wob = 1;
+      if (!it.hang) { it.hang = 2.8; popup(clamp(it.x, 170, WW - 170), clamp(it.y + it.r + 46, 80, WH - 40), 'KEEP SWIPING!', '#7ee081', 30); }
+      it.vx *= 0.2; it.vy = Math.min(it.vy, 0) * 0.1;
+      r.cuts.push({ x: it.x, y: it.y, a: ang, r: it.r, life: 0.18 });
+      for (let i = 0; i < 10; i++) { const a = rand(0, TAU), s = rand(120, 360); r.drops.push({ x: it.x + Math.cos(a) * it.r * 0.6, y: it.y + Math.sin(a) * it.r * 0.6, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60, r: rand(3, 7), color: '#ff4d6d', life: rand(0.5, 0.9) }); }
+      splat(it.x + rand(-30, 30), it.y + rand(-30, 30), it.r * 0.5, '#ff4d6d');
+      r.shake = Math.max(r.shake, 5);
+      sfx.thud(it.hits);
+      addScore(1, it.x + rand(-it.r * 0.6, it.r * 0.6), it.y - it.r * 0.8, '#ffe066', 30);
+      if (it.hp <= 0) burstGiant(it);
+      return true;
+    }
+    function burstGiant(it) {
+      const r = run;
+      it.dead = true;
+      r.hang = 0;
+      bump('giants', 1);
+      r.stats.giants = (r.stats.giants || 0) + 1;
+      sfx.burst();
+      r.shake = 14; r.flash = Math.max(r.flash, 0.35);
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * TAU + rand(-0.3, 0.3);
+        r.halves.push({ kind: 'watermelon', x: it.x + Math.cos(a) * 20, y: it.y + Math.sin(a) * 20, vx: Math.cos(a) * rand(160, 300), vy: Math.sin(a) * rand(160, 300) - 200, rot: a, spin: rand(-6, 6), r: it.r * 0.45, life: 3 });
+      }
+      for (let i = 0; i < 46; i++) { const a = rand(0, TAU), s = rand(150, 520); r.drops.push({ x: it.x, y: it.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 120, r: rand(3, 9), color: pick(['#ff4d6d', '#ff8fa3', '#2f9e44', '#ffffff']), life: rand(0.6, 1.1) }); }
+      splat(it.x, it.y, it.r * 1.2, '#ff4d6d');
+      r.rings.push({ x: it.x, y: it.y, r: it.r, life: 0.6, color: '255,140,170' });
+      const bonus = 10;
+      addScore(bonus);
+      popup(clamp(it.x, 160, WW - 160), clamp(it.y, 120, WH - 120), 'MELON SMASH!', '#7ee081', 44, `+${bonus * (r.double > 0 ? 2 : 1)}`);
     }
 
     function finishStroke() {
@@ -615,6 +750,7 @@
         r.drops.push({ x: it.x, y: it.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, r: rand(2, 5), color: pick(['#ffd23f', '#ff8a3d', '#fff2b0']), life: rand(0.3, 0.7) });
       }
       popup(it.x, it.y - 20, 'BOOM!', '#ffd23f', 54);
+      breakStreak(it.x, it.y + 60);
       sfx.bomb();
       finishStroke();
       if (r.kind === 'classic') {
@@ -634,7 +770,9 @@
         const a = rand(0, TAU), d = rand(rr * 0.9, rr * 1.6);
         blobs.push({ x: Math.cos(a) * d, y: Math.sin(a) * d, r: rand(3, 8) });
       }
-      run.splats.push({ x, y, color, blobs, life: 3.5 });
+      const drips = [];
+      for (let i = 0; i < 3; i++) drips.push({ x: rand(-rr * 0.6, rr * 0.6), y: rand(0, rr * 0.4), w: rand(3, 6), speed: rand(14, 30), max: rand(30, 90) });
+      run.splats.push({ x, y, color, blobs, drips, life: 3.5 });
       if (run.splats.length > 30) run.splats.shift();
     }
 
@@ -705,7 +843,16 @@
       bump('g_' + kind, 1);
       bump('games', 1);
       const m = MODES[kind];
-      showBanner(m.name.toUpperCase(), kind === 'classic' ? "Don't drop 3 fruit!" : kind === 'arcade' ? '60 seconds. Go go go!' : 'Relax and slice', '#ff5d73');
+      if (kind === 'daily') {
+        if (run.rule.id === 'pick') {
+          const d = dayNum(), n = FRUIT_KINDS.length;
+          const a = FRUIT_KINDS[d % n];
+          let b = FRUIT_KINDS[(d * 7 + 3) % n];
+          if (b === a) b = FRUIT_KINDS[(d + 5) % n];
+          run.picks = [a, b];
+        }
+        showBanner(run.rule.name.toUpperCase(), `Daily challenge: score ${DAILY_TARGET}!`, '#7fe8ff');
+      } else showBanner(m.name.toUpperCase(), kind === 'classic' ? "Don't drop 3 fruit!" : kind === 'arcade' ? '60 seconds. Go go go!' : 'Relax and slice', '#ff5d73');
       persist();
     }
 
@@ -726,17 +873,33 @@
       const m = MODES[r.kind];
       checkMissions();
       const stars = m.stars.filter((t) => r.score >= t).length;
-      const prevBest = Number(save.best[r.kind]) || 0;
+      const daily = r.kind === 'daily';
+      const today = dayKey();
+      if (daily && save.daily.day !== today) save.daily = { day: today, best: 0, won: false, streak: save.daily.streak || 0, last: save.daily.last || '' };
+      const prevBest = daily ? save.daily.best : Number(save.best[r.kind]) || 0;
       const newBest = r.score > prevBest;
-      if (newBest) save.best[r.kind] = r.score;
-      const prevStars = Number(save.mstars[r.kind]) || 0;
-      const newStars = Math.max(0, stars - prevStars);
-      save.mstars[r.kind] = Math.max(prevStars, stars);
-      const coins = Math.floor(r.score / 3) + r.stats.combos * 2;
+      if (newBest) { if (daily) save.daily.best = r.score; else save.best[r.kind] = r.score; }
+      const prevStars = daily ? 0 : Number(save.mstars[r.kind]) || 0;
+      const newStars = daily ? 0 : Math.max(0, stars - prevStars);
+      if (!daily) save.mstars[r.kind] = Math.max(prevStars, stars);
+      let coins = Math.floor(r.score / 3) + r.stats.combos * 2;
+      let dailyWin = false;
+      if (daily && r.score >= DAILY_TARGET && !save.daily.won) {
+        // first win today: bonus coins, and keep a day streak going
+        dailyWin = true;
+        save.daily.won = true;
+        const y = new Date(); y.setDate(y.getDate() - 1);
+        const yKey = `${y.getFullYear()}-${y.getMonth() + 1}-${y.getDate()}`;
+        save.daily.streak = save.daily.last === yKey ? (save.daily.streak || 0) + 1 : 1;
+        save.daily.last = today;
+        coins += 40 + Math.min(5, save.daily.streak) * 10;
+        bump('dailyWins', 1);
+      }
       save.coins += coins;
+      checkMissions();
       persist();
 
-      const spuds = Math.min(40, clamp(Math.floor(r.score / 8), r.score > 0 ? 1 : 0, 30) + (newStars + missionsThisRun.length) * 2);
+      const spuds = Math.min(40, clamp(Math.floor(r.score / 8), r.score > 0 ? 1 : 0, 30) + (newStars + missionsThisRun.length) * 2 + (dailyWin ? 5 : 0));
       if (spuds > 0) Potato.earn(spuds);
       Potato.score(r.score);
 
@@ -752,6 +915,13 @@
       $('r-missions').textContent = missionsThisRun.length ? `Missions done: ${missionsThisRun.join(' · ')}` : '';
       const nextT = m.stars.find((t) => r.score < t);
       $('r-next').textContent = nextT ? `Score ${nextT} in ${m.name} for the next ★` : `You got all 3 ★ in ${m.name}!`;
+      if (daily) {
+        $('r-title').textContent = dailyWin ? 'Daily challenge beaten!' : r.score >= DAILY_TARGET ? 'Daily target smashed again!' : "Time's up!";
+        $('r-next').textContent = save.daily.won ? `Day streak: ${save.daily.streak || 1} 🔥  Come back tomorrow for a new twist!` : `Score ${DAILY_TARGET} to beat today's challenge (${r.rule.name}).`;
+        if (dailyWin) $('r-new').textContent = `★ Challenge bonus: +${40 + Math.min(5, save.daily.streak) * 10} coins! ★`;
+      }
+      $('r-mult').textContent = r.stats.mult > 1 ? `x${r.stats.mult}` : '-';
+      $('r-giants').textContent = Number(r.stats.giants) || 0;
       $('r-spuds').textContent = Potato.inHub && spuds > 0 ? `+${spuds} Spuds` : '';
       showOverlay('results');
       if (stars === 3 || newBest) { sfx.fanfare(); if (stars === 3) confetti(); } else sfx.over();
@@ -768,8 +938,18 @@
       if (!run) return;
       if (mode === 'paused') return;
       const r = run;
-      const slow = r.freeze > 0 ? 0.42 : 1;
+      // a hovering Giant Melon slows everything else down
+      const giant = r.items.find((it) => it.type === 'giant' && it.hang > 0 && !it.dead);
+      r.hang = giant ? giant.hang : 0;
+      const slow = Math.min(r.freeze > 0 ? 0.42 : 1, giant ? 0.35 : 1);
       const dt = rdt * slow;
+      if (giant && !r.over) {
+        giant.hang -= rdt;
+        if (giant.hang <= 0) { giant.hang = -1; if (giant.hits >= 3) burstGiant(giant); }
+      }
+      r.multFx = Math.max(0, r.multFx - rdt * 2);
+      for (const c of r.cuts) c.life -= rdt;
+      r.cuts = r.cuts.filter((c) => c.life > 0);
       r.t += rdt;
       if (r.banner) { r.banner.t += rdt; if (r.banner.t > 2.2) r.banner = null; }
       for (const t of r.toast) t.t += rdt;
@@ -807,13 +987,36 @@
       for (const q of r.queue) q.at -= dt;
       for (const q of r.queue.filter((q) => q.at <= 0)) throwItem(q.type, q.kind);
       r.queue = r.queue.filter((q) => q.at > 0);
-      // special bananas (Arcade only)
-      if (r.kind === 'arcade') {
+      // special bananas (Arcade, and the Banana Bonanza daily)
+      const bonanza = r.rule && r.rule.id === 'bananas';
+      if (r.kind === 'arcade' || bonanza) {
         r.nextSpecial -= dt;
         if (r.nextSpecial <= 0 && r.timeLeft > 6) {
           const kinds = Object.keys(SPECIALS).filter((k) => !r.bananaSeen[k]);
           throwItem('special', pick(kinds.length && Math.random() < 0.7 ? kinds : Object.keys(SPECIALS)), { apex: rand(WH * 0.15, WH * 0.3) });
-          r.nextSpecial = rand(9, 13);
+          r.nextSpecial = bonanza ? rand(4.5, 6.5) : rand(9, 13);
+        }
+      }
+      if (!r.demo) {
+        // Giant Melons
+        const hasGiant = r.items.some((it) => it.type === 'giant');
+        if (r.kind === 'classic') {
+          if (r.score >= r.giantAt && !hasGiant) { throwItem('giant', 'watermelon', { x: rand(WW * 0.3, WW * 0.7), apex: rand(WH * 0.2, WH * 0.3) }); r.giantAt += 45; }
+        } else {
+          if (r.rule && r.rule.id === 'giants' && r.giantT > 20) r.giantT = 6;
+          r.giantT -= dt;
+          if (r.giantT <= 0 && !hasGiant && r.timeLeft > 8) {
+            throwItem('giant', 'watermelon', { x: rand(WW * 0.3, WW * 0.7), apex: rand(WH * 0.2, WH * 0.3) });
+            r.giantT = r.rule && r.rule.id === 'giants' ? 11 : r.kind === 'zen' ? 35 : 30;
+          }
+        }
+        // helper fruit: Time Berries in timed modes, Heart Peaches in Classic when you've missed
+        r.nextHelper -= dt;
+        if (r.nextHelper <= 0) {
+          if (r.kind === 'classic') {
+            if (r.misses > 0) { throwItem('helper', 'heart', { apex: rand(WH * 0.15, WH * 0.35) }); r.nextHelper = rand(18, 26); }
+            else r.nextHelper = 4;
+          } else if (r.timeLeft > 4 && (r.clocks || 0) < 2) { r.clocks = (r.clocks || 0) + 1; throwItem('helper', 'clock', { apex: rand(WH * 0.15, WH * 0.35) }); r.nextHelper = rand(16, 22); }
         }
       }
 
@@ -843,9 +1046,19 @@
 
     function stepThings(dt) {
       const r = run;
+      const g = gravity();
       for (const it of r.items) {
         it.t += dt;
-        it.vy += G * dt;
+        if (it.type === 'giant') {
+          it.hitCd -= dt * 2.5; // dt is slowed while it hovers
+          it.wob = Math.max(0, it.wob - dt * 4);
+        }
+        if (it.type === 'giant' && it.hang > 0) {
+          // hover in place with a little bob
+          it.vx *= Math.pow(0.02, dt); it.vy *= Math.pow(0.02, dt);
+          it.y += Math.sin(r.t * 6) * 6 * dt;
+          it.x = clamp(it.x, it.r, WW - it.r);
+        } else it.vy += g * dt;
         it.x += it.vx * dt;
         it.y += it.vy * dt;
         it.rot += it.spin * dt;
@@ -854,6 +1067,8 @@
         const gone = (it.vy > 0 && it.y - it.r > WH + 10) || (it.side && (it.x < -it.r * 3 || it.x > WW + it.r * 3) && it.t > 0.5);
         if (gone) {
           it.dead = true;
+          const wrongPick = r.picks && !r.picks.includes(it.kind);
+          if (it.type === 'fruit' && !it.side && !r.demo && !r.over && !wrongPick) breakStreak(it.x, WH - 60);
           if (it.type === 'fruit' && !it.side && r.kind === 'classic' && !r.over) {
             r.misses++;
             r.missFx = { x: clamp(it.x, 40, WW - 40), t: 0 };
@@ -1166,6 +1381,16 @@
           c.fillStyle = 'rgba(150,110,40,0.5)';
           for (let k = 0; k < 3; k++) { const a = (k / 3) * TAU; c.beginPath(); c.arc(Math.cos(a) * r * 0.15, Math.sin(a) * r * 0.15, r * 0.05, 0, TAU); c.fill(); }
           break;
+        case 'clock':
+          skin('#2f8fe0', '#12407a');
+          flesh([[0, '#f0fbff'], [1, '#9fdcff']]); c.beginPath(); c.arc(0, 0, r * 0.86, 0, TAU); c.fill();
+          for (let k = 0; k < 8; k++) { const a = (k / 8) * TAU; circ(c, Math.cos(a) * r * 0.45, Math.sin(a) * r * 0.45, r * 0.05, '#2f5f9e'); }
+          break;
+        case 'heart':
+          skin('#ff6fa8', '#8a0f45');
+          flesh([[0, '#fff3f8'], [1, '#ffb3cf']]); c.beginPath(); c.arc(0, 0, r * 0.86, 0, TAU); c.fill();
+          c.fillStyle = '#c2185b'; c.beginPath(); c.ellipse(0, 0, r * 0.22, r * 0.3, 0, 0, TAU); c.fill();
+          break;
         case 'dragon': {
           skin('#f0468f', '#70093a');
           flesh([[0, '#ffffff'], [1, '#f3eef5']]); c.beginPath(); c.arc(0, 0, r * 0.86, 0, TAU); c.fill();
@@ -1239,6 +1464,77 @@
       text(c, label, 0, r * 0.95, r * 0.5, '#fff', 'center', 'Fredoka', 700, 4);
     }
 
+    // Time Berry (a blue berry with a clock face) and Heart Peach
+    function drawHelper(c, it, t) {
+      const r = it.r, hp = HELPERS[it.kind];
+      const pulse = 0.5 + 0.5 * Math.sin(t * 7);
+      c.fillStyle = rad(c, 0, 0, r * 0.4, r * 1.6, [[0, hp.color + 'aa'], [1, hp.color + '00']]);
+      c.globalAlpha = 0.5 + pulse * 0.4; c.beginPath(); c.arc(0, 0, r * 1.6, 0, TAU); c.fill(); c.globalAlpha = 1;
+      c.save(); c.rotate(Math.sin(it.rot) * 0.4);
+      if (it.kind === 'clock') {
+        c.beginPath(); c.arc(0, 0, r, 0, TAU);
+        ball(c, r, ['#a8e6ff', '#2f8fe0', '#12407a']); c.fill();
+        c.strokeStyle = '#0c2f5c'; c.lineWidth = r * 0.07; c.stroke();
+        circ(c, 0, r * 0.05, r * 0.62, '#fffdf5');
+        c.strokeStyle = '#0c2f5c'; c.lineWidth = r * 0.05; c.beginPath(); c.arc(0, r * 0.05, r * 0.62, 0, TAU); c.stroke();
+        for (let k = 0; k < 12; k++) { const a = (k / 12) * TAU; circ(c, Math.cos(a) * r * 0.5, r * 0.05 + Math.sin(a) * r * 0.5, r * (k % 3 ? 0.025 : 0.05), '#0c2f5c'); }
+        c.strokeStyle = '#e8364a'; c.lineCap = 'round'; c.lineWidth = r * 0.07;
+        const a1 = t * 3, a2 = t * 0.6;
+        c.beginPath(); c.moveTo(0, r * 0.05); c.lineTo(Math.cos(a1) * r * 0.42, r * 0.05 + Math.sin(a1) * r * 0.42); c.stroke();
+        c.strokeStyle = '#0c2f5c';
+        c.beginPath(); c.moveTo(0, r * 0.05); c.lineTo(Math.cos(a2) * r * 0.28, r * 0.05 + Math.sin(a2) * r * 0.28); c.stroke();
+        c.fillStyle = '#51cf66'; c.beginPath(); c.ellipse(r * 0.25, -r * 1.0, r * 0.3, r * 0.12, -0.4, 0, TAU); c.fill();
+        c.strokeStyle = '#5a3418'; c.lineWidth = r * 0.08; c.beginPath(); c.moveTo(0, -r * 0.95); c.lineTo(0, -r * 1.15); c.stroke();
+        shine(c, r, -0.55, -0.5, 0.8);
+      } else {
+        c.beginPath();
+        c.moveTo(0, r * 0.95);
+        c.bezierCurveTo(-r * 1.4, 0, -r * 0.9, -r * 1.1, 0, -r * 0.45);
+        c.bezierCurveTo(r * 0.9, -r * 1.1, r * 1.4, 0, 0, r * 0.95);
+        ball(c, r, ['#ffd1e3', '#ff6fa8', '#c2185b']); c.fill();
+        c.strokeStyle = '#8a0f45'; c.lineWidth = r * 0.07; c.stroke();
+        c.strokeStyle = 'rgba(160,20,80,0.35)'; c.lineWidth = r * 0.06;
+        c.beginPath(); c.moveTo(0, -r * 0.4); c.quadraticCurveTo(r * 0.15, r * 0.2, 0, r * 0.85); c.stroke();
+        c.fillStyle = '#51cf66'; c.beginPath(); c.ellipse(r * 0.2, -r * 0.62, r * 0.28, r * 0.11, -0.5, 0, TAU); c.fill();
+        shine(c, r, -0.5, -0.35, 0.9);
+      }
+      c.restore();
+    }
+
+    // The Giant Melon wobbles when hit and cracks up as it loses health
+    function drawGiant(c, it, t) {
+      const r = it.r;
+      const wob = it.wob || 0;
+      const sx = 1 + Math.sin(t * 40) * 0.07 * wob, sy = 1 - Math.sin(t * 40) * 0.07 * wob;
+      if (it.hang > 0) {
+        c.fillStyle = rad(c, 0, 0, r * 0.6, r * 1.5, [[0, 'rgba(255,240,140,0.45)'], [1, 'rgba(255,240,140,0)']]);
+        c.beginPath(); c.arc(0, 0, r * 1.5, 0, TAU); c.fill();
+      }
+      c.save(); c.scale(sx, sy); c.rotate(it.rot);
+      drawFruit(c, 'watermelon', r, t);
+      // cracks
+      const dmg = 1 - it.hp / it.maxHp;
+      if (dmg > 0) {
+        const rnd = seeded(7);
+        c.strokeStyle = 'rgba(255,90,120,0.95)'; c.lineWidth = r * 0.05; c.lineCap = 'round';
+        const n = Math.ceil(dmg * 7);
+        for (let k = 0; k < n; k++) {
+          let a = rnd() * TAU, x = Math.cos(a) * r * 0.2, y = Math.sin(a) * r * 0.2;
+          c.beginPath(); c.moveTo(x, y);
+          for (let s = 0; s < 4; s++) { a += rnd() - 0.5; x += Math.cos(a) * r * 0.2; y += Math.sin(a) * r * 0.2; c.lineTo(x, y); }
+          c.stroke();
+        }
+      }
+      c.restore();
+      // health ring
+      c.lineCap = 'round';
+      c.strokeStyle = 'rgba(0,0,0,0.35)'; c.lineWidth = 10;
+      c.beginPath(); c.arc(0, 0, r * 1.18, 0, TAU); c.stroke();
+      c.strokeStyle = '#7ee081'; c.lineWidth = 7;
+      c.beginPath(); c.arc(0, 0, r * 1.18, -Math.PI / 2, -Math.PI / 2 + TAU * (it.hp / it.maxHp)); c.stroke();
+      if (it.hang > 0) text(c, `${it.hits} hit${it.hits === 1 ? '' : 's'}!`, 0, -r * 1.42, 26, '#ffe066', 'center', 'Fredoka', 700, 6);
+    }
+
     // ---------------- backgrounds ----------------
     function drawBackground(c, id, w, h, preview = false) {
       const rnd = seeded(77);
@@ -1265,15 +1561,16 @@
         }
         // bamboo on both sides
         for (const side of [0, 1]) {
-          for (let k = 0; k < 3; k++) {
-            const bx = side ? w - 30 - k * 34 : 30 + k * 34, bw = 18 - k * 3;
+          const bs = w < 700 ? 0.7 : 1;
+          for (let k = 0; k < (w < 700 ? 2 : 3); k++) {
+            const bx = side ? w - (30 + k * 34) * bs : (30 + k * 34) * bs, bw = (18 - k * 3) * bs;
             c.fillStyle = lin(c, bx - bw, 0, bx + bw, 0, [[0, '#3f7d20'], [0.4, '#9be15d'], [1, '#2b5e12']]);
             c.fillRect(bx - bw / 2, 0, bw, h);
             for (let y = (k * 57) % 120; y < h; y += 120) {
               c.fillStyle = '#2b5e12'; c.fillRect(bx - bw / 2 - 2, y, bw + 4, 6);
               c.fillStyle = 'rgba(255,255,255,0.25)'; c.fillRect(bx - bw / 2, y - 2, bw, 2);
               c.fillStyle = '#4caf50';
-              c.beginPath(); c.ellipse(bx + (side ? -1 : 1) * 26, y + 12, 26, 7, side ? 0.5 : -0.5, 0, TAU); c.fill();
+              c.beginPath(); c.ellipse(bx + (side ? -1 : 1) * 26 * bs, y + 12, 26 * bs, 7 * bs, side ? 0.5 : -0.5, 0, TAU); c.fill();
             }
           }
         }
@@ -1391,7 +1688,27 @@
     // Floating snowflakes and twinkles for some backgrounds
     const ambient = Array.from({ length: 50 }, () => ({ x: Math.random(), y: Math.random(), s: 0.5 + Math.random(), p: Math.random() * TAU }));
     function drawAmbient(c, id, t) {
-      if (id === 'snow') {
+      if (id === 'dojo') {
+        // warm light beams, dust motes and the odd bamboo leaf drifting down
+        c.save();
+        c.globalCompositeOperation = 'lighter';
+        for (let k = 0; k < 3; k++) {
+          const x = WW * (0.25 + k * 0.28) + Math.sin(t * 0.2 + k) * 30;
+          c.fillStyle = lin(c, x, 0, x + 160, WH, [[0, 'rgba(255,210,140,0.08)'], [1, 'rgba(255,210,140,0)']]);
+          c.beginPath(); c.moveTo(x - 40, 0); c.lineTo(x + 50, 0); c.lineTo(x + 240, WH); c.lineTo(x + 90, WH); c.closePath(); c.fill();
+        }
+        c.restore();
+        for (const a of ambient.slice(0, 26)) {
+          const x = (a.x * WW + Math.sin(t * 0.4 + a.p) * 30) % WW, y = ((a.y - t * 0.01 * a.s) % 1 + 1) % 1 * WH;
+          circ(c, x, y, 1 + a.s, `rgba(255,230,180,${0.25 + 0.2 * Math.sin(t * 2 + a.p)})`);
+        }
+        for (const a of ambient.slice(26, 32)) {
+          const y = ((a.y + t * 0.05 * a.s) % 1) * (WH + 60) - 30, x = a.x * WW + Math.sin(t * 1.3 + a.p) * 50;
+          c.save(); c.translate(x, y); c.rotate(Math.sin(t * 1.3 + a.p) * 0.9);
+          c.fillStyle = 'rgba(110,190,80,0.75)'; c.beginPath(); c.ellipse(0, 0, 14, 4, 0, 0, TAU); c.fill();
+          c.restore();
+        }
+      } else if (id === 'snow') {
         for (const a of ambient) {
           const y = ((a.y + t * 0.04 * a.s) % 1) * WH, x = (a.x * WW + Math.sin(t + a.p) * 20) % WW;
           circ(c, x, y, 2 + a.s * 2, 'rgba(255,255,255,0.8)');
@@ -1494,6 +1811,15 @@
           ctx.globalAlpha = clamp(s.life / 3.5, 0, 1) * 0.55;
           ctx.fillStyle = s.color;
           for (const b of s.blobs) { ctx.beginPath(); ctx.arc(s.x + b.x, s.y + b.y, b.r, 0, TAU); ctx.fill(); }
+          // juice drips slowly running down the wall
+          const age = 3.5 - s.life;
+          ctx.lineCap = 'round';
+          for (const d of s.drips || []) {
+            const len = Math.min(d.max, age * d.speed);
+            ctx.strokeStyle = s.color; ctx.lineWidth = d.w;
+            ctx.beginPath(); ctx.moveTo(s.x + d.x, s.y + d.y); ctx.lineTo(s.x + d.x, s.y + d.y + len); ctx.stroke();
+            ctx.beginPath(); ctx.arc(s.x + d.x, s.y + d.y + len, d.w * 0.75, 0, TAU); ctx.fill();
+          }
         }
         ctx.globalAlpha = 1;
         for (const h of r.halves) drawHalf(ctx, h);
@@ -1502,7 +1828,14 @@
           ctx.translate(it.x, it.y);
           if (it.type === 'bomb') drawBomb(ctx, it, t);
           else if (it.type === 'special') drawSpecial(ctx, it, t);
+          else if (it.type === 'helper') drawHelper(ctx, it, t);
+          else if (it.type === 'giant') drawGiant(ctx, it, t);
           else {
+            if (r.picks && r.picks.includes(it.kind)) {
+              // daily Picky Chef: the right fruit glow
+              ctx.fillStyle = rad(ctx, 0, 0, it.r * 0.6, it.r * 1.5, [[0, 'rgba(127,232,255,0.55)'], [1, 'rgba(127,232,255,0)']]);
+              ctx.beginPath(); ctx.arc(0, 0, it.r * 1.5, 0, TAU); ctx.fill();
+            }
             ctx.fillStyle = 'rgba(0,0,0,0.18)';
             ctx.beginPath(); ctx.arc(4, 7, it.r * 0.95, 0, TAU); ctx.fill();
             ctx.rotate(it.rot);
@@ -1510,10 +1843,19 @@
           }
           ctx.restore();
         }
-        for (const d of r.drops) { ctx.globalAlpha = clamp(d.life * 2, 0, 1); circ(ctx, d.x, d.y, d.r, d.color); }
+        for (const d of r.drops) { ctx.globalAlpha = clamp(d.life * 2, 0, 1); if (d.star) starShape(ctx, d.x, d.y, d.r * 1.4, d.color); else circ(ctx, d.x, d.y, d.r, d.color); }
         ctx.globalAlpha = 1;
+        // bright flash along each cut
+        for (const cu of r.cuts) {
+          const a = cu.life / 0.18;
+          ctx.save(); ctx.translate(cu.x, cu.y); ctx.rotate(cu.a);
+          ctx.globalAlpha = a;
+          ctx.fillStyle = lin(ctx, -cu.r * 1.6, 0, cu.r * 1.6, 0, [[0, 'rgba(255,255,255,0)'], [0.5, 'rgba(255,255,255,1)'], [1, 'rgba(255,255,255,0)']]);
+          ctx.beginPath(); ctx.ellipse(0, 0, cu.r * 1.6, 3 + 5 * a, 0, 0, TAU); ctx.fill();
+          ctx.restore(); ctx.globalAlpha = 1;
+        }
         for (const s of r.smoke) { const a = clamp(s.life / s.max, 0, 1); circ(ctx, s.x, s.y, s.r, `rgba(${90 + (1 - a) * 80},${90 + (1 - a) * 80},${100 + (1 - a) * 80},${a * 0.6})`); }
-        for (const g of r.rings) { ctx.strokeStyle = `rgba(255,240,200,${g.life / 0.6})`; ctx.lineWidth = 10 * (g.life / 0.6); ctx.beginPath(); ctx.arc(g.x, g.y, g.r, 0, TAU); ctx.stroke(); }
+        for (const g of r.rings) { ctx.strokeStyle = `rgba(${g.color || '255,240,200'},${g.life / 0.6})`; ctx.lineWidth = 10 * (g.life / 0.6); ctx.beginPath(); ctx.arc(g.x, g.y, g.r, 0, TAU); ctx.stroke(); }
         for (const p of r.popups) {
           const a = clamp(p.life / p.max * 2, 0, 1);
           const k = 1 + Math.max(0, (p.life - p.max + 0.15)) * 3;
@@ -1543,7 +1885,26 @@
     const HUD_BTNS = { pause: { x: 0, y: 0, w: 44, h: 38 }, mute: { x: 0, y: 0, w: 44, h: 38 } };
     function drawHud(r, t) {
       // score
-      const best = Number(save.best[r.kind]) || 0;
+      const best = r.kind === 'daily' ? (save.daily.day === dayKey() ? save.daily.best : 0) : Number(save.best[r.kind]) || 0;
+      // score plaque
+      ctx.font = '700 44px Fredoka, sans-serif';
+      const sw = Math.max(150, ctx.measureText(String(r.score)).width + 104);
+      ctx.fillStyle = 'rgba(20,12,24,0.45)'; rr(ctx, 10, 8, sw, 84, 20); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 2; ctx.stroke();
+      // streak meter
+      {
+        const per = r.rule && r.rule.id === 'speedy' ? 5 : 10;
+        const frac = r.mult >= 5 ? 1 : (r.streak % per) / per;
+        const y = 104, x = 14, w = 128;
+        const pop = 1 + r.multFx * 0.25;
+        ctx.save(); ctx.translate(x + 24, y + 13); ctx.scale(pop, pop);
+        ctx.fillStyle = r.mult > 1 ? lin(ctx, -24, 0, 24, 0, [[0, '#2fa8d8'], [1, '#7fe8ff']]) : 'rgba(20,12,24,0.55)';
+        rr(ctx, -24, -14, 48, 28, 14); ctx.fill();
+        text(ctx, `x${r.mult}`, 0, 1, 18, r.mult > 1 ? '#06324a' : 'rgba(255,255,255,0.75)', 'center', 'Fredoka', 700);
+        ctx.restore();
+        ctx.fillStyle = 'rgba(20,12,24,0.55)'; rr(ctx, x + 54, y + 8, w - 54, 10, 5); ctx.fill();
+        if (frac > 0) { ctx.fillStyle = lin(ctx, x + 54, 0, x + w, 0, [[0, '#7fe8ff'], [1, '#c3f7ff']]); rr(ctx, x + 54, y + 8, (w - 54) * frac, 10, 5); ctx.fill(); }
+      }
       ctx.save();
       ctx.translate(26, 34);
       ctx.save(); ctx.translate(12, 8); ctx.rotate(-0.3); ctx.beginPath(); ctx.rect(-26, -26, 52, 26); ctx.clip(); drawInside(ctx, 'watermelon', 20); ctx.restore();
@@ -1552,7 +1913,7 @@
       text(ctx, `Best ${Math.max(best, r.score)}`, 28, 72, 17, '#ffe7b0', 'left', 'Nunito', 900, 4);
       if (r.double > 0) {
         const p = 1 + 0.06 * Math.sin(t * 10);
-        ctx.save(); ctx.translate(36, 104); ctx.scale(p, p);
+        ctx.save(); ctx.translate(36, 148); ctx.scale(p, p);
         ctx.fillStyle = lin(ctx, -10, 0, 120, 0, [[0, '#ffb000'], [1, '#ffd23f']]);
         rr(ctx, -12, -15, 112, 30, 15); ctx.fill();
         text(ctx, `x2 · ${Math.ceil(r.double)}s`, 44, 1, 17, '#5a3a00', 'center', 'Fredoka', 700);
@@ -1589,6 +1950,17 @@
         rr(ctx, -62, -22, 124, 44, 22); ctx.fill();
         text(ctx, `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`, 0, 2, 30, warn ? '#ff6b6b' : r.freeze > 0 ? '#9fe6ff' : '#fff', 'center', 'Fredoka', 700);
         ctx.restore();
+        if (r.kind === 'daily') {
+          // goal bar, and the fruit to slice for Picky Chef
+          const done = r.score >= DAILY_TARGET;
+          ctx.fillStyle = 'rgba(20,12,24,0.55)'; rr(ctx, WW / 2 - 70, 64, 140, 24, 12); ctx.fill();
+          ctx.fillStyle = done ? '#4fd88a' : '#7fe8ff'; rr(ctx, WW / 2 - 66, 68, 132 * clamp(r.score / DAILY_TARGET, 0, 1), 16, 8); ctx.fill();
+          text(ctx, done ? 'Goal reached!' : `Goal ${r.score} / ${DAILY_TARGET}`, WW / 2, 77, 13, done ? '#0b3a1e' : '#fff', 'center', 'Nunito', 900, done ? 0 : 3);
+          if (r.picks) {
+            ctx.fillStyle = 'rgba(20,12,24,0.55)'; rr(ctx, WW / 2 - 70, 94, 140, 52, 16); ctx.fill();
+            r.picks.forEach((k, i) => { ctx.save(); ctx.translate(WW / 2 - 30 + i * 60, 120); drawFruit(ctx, k, 17, t); ctx.restore(); });
+          }
+        }
       }
       // banner
       if (r.banner) {
@@ -1609,7 +1981,8 @@
         ctx.globalAlpha = Math.max(0, a);
         ctx.font = '800 17px Nunito, sans-serif';
         const w = ctx.measureText(tt.text).width + 36;
-        const y = WH - 56 - i * 48 + (1 - Math.min(1, tt.t * 5)) * 30;
+        const hintUp = r.t < 6 && (Number(save.tot.games) || 0) <= 2 ? 44 : 0;
+        const y = WH - 56 - hintUp - i * 48 + (1 - Math.min(1, tt.t * 5)) * 30;
         ctx.fillStyle = 'rgba(30,20,10,0.85)';
         rr(ctx, WW / 2 - w / 2, y - 19, w, 38, 19); ctx.fill();
         ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 2; ctx.stroke();
@@ -1654,7 +2027,12 @@
         const b = document.createElement('button');
         b.className = 'mode';
         const st = Number(save.mstars[id]) || 0;
-        b.innerHTML = `<span class="ico">${m.ico}</span><b>${m.name}</b><small>${m.desc}</small><span class="st">${[0, 1, 2].map((k) => (k < st ? '<i>★</i>' : '★')).join('')}</span><span class="best">Best: ${Number(save.best[id]) || 0}</span>`;
+        if (id === 'daily') {
+          const rule = todayRule(), d = save.daily.day === dayKey() ? save.daily : null;
+          b.className = 'mode daily' + (d && d.won ? ' won' : '');
+          b.innerHTML = `<span class="ico">${m.ico}</span><span class="tag">Daily challenge</span><b>${rule.name}</b><small></small><span class="st">${d && d.won ? '<i>✓ Beaten today</i>' : `Goal: ${DAILY_TARGET}`}</span><span class="best">Today: ${d ? d.best : 0}${save.daily.streak && (save.daily.last === dayKey() || save.daily.last === yesterdayKey()) ? ` · 🔥${save.daily.streak}` : ''}</span>`;
+          b.querySelector('small').textContent = rule.desc;
+        } else b.innerHTML = `<span class="ico">${m.ico}</span><b>${m.name}</b><small>${m.desc}</small><span class="st">${[0, 1, 2].map((k) => (k < st ? '<i>★</i>' : '★')).join('')}</span><span class="best">Best: ${Number(save.best[id]) || 0}</span>`;
         b.addEventListener('click', () => { sfx.click(); startGame(id); });
         box.appendChild(b);
       }
@@ -1886,7 +2264,7 @@
       Potato.score = (n) => { calls.score.push(n); os(n); };
       Potato.earn = (n) => { calls.earn.push(n); oe(n); };
       try {
-        const tests = [['classic', 'robot', 1, 300], ['arcade', 'robot', 1, 80], ['zen', 'robot', 1, 100]];
+        const tests = [['classic', 'robot', 1, 300], ['arcade', 'robot', 1, 80], ['zen', 'robot', 1, 100], ['daily', 'robot', 1, 80], ['daily', 'kid', 0.8, 80]];
         for (const p of [0.95, 0.9, 0.8, 0.7]) for (let k = 0; k < 4; k++) tests.push(['classic', 'kid', p, 600]);
         for (const p of [0.9, 0.75]) tests.push(['arcade', 'kid', p, 80], ['zen', 'kid', p, 100]);
         for (const [kind, who, skill, maxT] of tests) {
@@ -1937,9 +2315,17 @@
       if (opt.get('blade')) save.blade = opt.get('blade');
       if (shot[1] === 'shop') { save.coins = 400; showShop('title'); return; }
       if (shot[1] === 'missions') { showMissions(); return; }
+      if (opt.get('rule')) { const k = DAILY_RULES.findIndex((q) => q.id === opt.get('rule')); if (k >= 0) DAILY_RULES.unshift(...DAILY_RULES.splice(k, 1)); const d0 = dayNum(); while (todayRule().id !== opt.get('rule')) DAILY_RULES.push(DAILY_RULES.shift()); void d0; }
       startGame(shot[1]);
       const secs = Number(shot[2]) || 3;
-      for (let i = 0; i < secs * 60; i++) { update(1 / 60); if (i % 5 === 0) SliceSquad.humanSlice(0.5); }
+      const skill = Number(opt.get('skill') || 0.5);
+      for (let i = 0; i < secs * 60; i++) { update(1 / 60); if (i % 5 === 0) SliceSquad.humanSlice(skill); }
+      if (opt.get('giant')) {
+        const g = throwItem('giant', 'watermelon', { x: WW * 0.5, apex: WH * 0.3 });
+        for (let i = 0; i < 200 && g.vy < -40; i++) update(1 / 60);
+        for (let k = 0; k < Number(opt.get('giant')); k++) { g.hitCd = 0; sliceSegment(g.x - g.r * 1.3, g.y - 30 + k * 12, g.x + g.r * 1.3, g.y + 30 - k * 12); for (let i = 0; i < 6; i++) update(1 / 60); }
+      }
+      if (opt.get('mult')) { run.mult = Number(opt.get('mult')); run.streak = (run.mult - 1) * 10 + 6; }
       if (opt.get('results')) { endGame('time'); for (let i = 0; i < 90; i++) update(1 / 60); }
       const now = performance.now() / 1000;
       const it = run.items[0];

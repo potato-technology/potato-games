@@ -45,6 +45,7 @@ const Police = (() => {
   // ---------- breaking the rules ----------
   function violate(g, reason, range = P.seeRange) {
     if (g.jail > 0) return;
+    if (g.jammer > 0) { if (!g.wanted && (g.rules.cd[reason] || 0) <= g.clock) { g.rules.cd[reason] = g.clock + 4; g.notice(`${reason}! The jammer hid you.`, "#c69bff"); } return; }
     const rs = g.rules;
     if ((rs.cd[reason] || 0) > g.clock) return;
     rs.cd[reason] = g.clock + 4;
@@ -195,13 +196,14 @@ const Police = (() => {
     if (!g.wanted || g.jail > 0) return;
     const chasers = g.police.filter((p) => p.mode === 'chase');
     // Cops you drive past during a chase join in.
-    for (const p of g.police) if (p.mode === 'patrol' && dist(p, t) < 450) { toChase(p); chasers.push(p); }
+    for (const p of g.police) if (p.mode === "patrol" && !(g.jammer > 0) && dist(p, t) < 450) { toChase(p); chasers.push(p); }
     const near = chasers.reduce((m, p) => Math.min(m, dist(p, t)), Infinity);
 
     if (near > P.escapeRange) g.wanted.escape += dt;
     else g.wanted.escape = Math.max(0, g.wanted.escape - dt * 2);
-    if (g.wanted.escape >= P.escapeSeconds || !chasers.length) {
+    if (g.wanted.escape >= (g.stats.escapeSeconds || P.escapeSeconds) || !chasers.length) {
       endChase(g);
+      g.track.escapes++;
       g.toast('ESCAPED!', 'You lost the cops', '#5ee07a');
       return;
     }
@@ -223,6 +225,7 @@ const Police = (() => {
     endChase(g);
     g.jail = P.jailSeconds;
     g.arrests++;
+    Extras.streakLost(g, "busted");
     Jobs.dropTow(g);
     const t = g.truck;
     t.x = W.station.x + W.station.w / 2;
@@ -248,6 +251,12 @@ const Police = (() => {
     g.toast('RELEASED', 'Drive carefully this time', '#c9ced8');
   }
 
+  // For the police scanner: is a cop close enough to see you break a rule right now?
+  function canSee(g) {
+    if (g.jammer > 0) return false;
+    return g.police.some((p) => (p.mode === 'patrol' || p.mode === 'scene') && dist(p, g.truck) < P.seeRange);
+  }
+
   // Volume for the siren: louder the closer the nearest chasing cop is.
   function sirenLevel(g) {
     let near = Infinity;
@@ -255,5 +264,5 @@ const Police = (() => {
     return near === Infinity ? 0 : clamp(1 - near / 1400, 0.15, 1);
   }
 
-  return { reset, update, checkRules, violate, updateJail, sirenLevel, chase, toChase, makeSceneCop };
+  return { reset, update, checkRules, violate, updateJail, sirenLevel, chase, toChase, makeSceneCop, endChase, canSee };
 })();

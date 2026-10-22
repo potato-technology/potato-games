@@ -105,6 +105,18 @@
     .up small { color: var(--muted); margin: 8px 0 10px; flex: 1; }
     .up button { align-self: flex-start; padding: 7px 16px; font-size: 15px; }
     .up.owned { border-color: rgba(63,208,255,0.6); }
+    .best { margin-top: 10px; font: 800 13px var(--body); color: var(--muted); min-height: 18px; }
+    @media (max-width: 600px) {
+      .logo { font-size: 46px; }
+      .card { padding: 18px 16px; }
+      .how { font-size: 13.5px; }
+      .how li.extra { display: none; }
+      .btn { padding: 11px 20px; font-size: 18px; }
+      .stats { gap: 6px; } .stats div { padding: 7px 4px; } .stats b { font-size: 18px; }
+      .final { font-size: 46px; } .bigstars { font-size: 46px; }
+    }
+    .opp.boss { border-color: #ff8a2a; background: linear-gradient(180deg, #3a2a3a, #222c4c); }
+    .opp.boss .rank { color: #ff9f5a; }
     .confetti { position: fixed; top: -12px; width: 10px; height: 14px; border-radius: 2px; pointer-events: none; animation: fall linear forwards; z-index: 50; }
     @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
     #selftest { position: fixed; left: 0; top: 0; z-index: 99; background: #000; color: #0f0; font: 12px monospace; white-space: pre-wrap; max-width: 100%; }
@@ -118,15 +130,19 @@
       <h1 class="logo">Puck Blast<small>Air hockey tournament · first to 7 wins!</small></h1>
       <div class="pills"><span class="pill coins" id="t-coins">0 coins</span><span class="pill stars" id="t-stars">0 ★</span></div>
       <ul class="how">
-        <li><b>Move your mallet</b> with the mouse or your finger (or the arrow keys). You play on the left side.</li>
-        <li><b>Hit the puck into the goal</b> on the right. Swing fast for a <b>slap shot!</b> Bounce it off the walls to trick your opponent.</li>
-        <li><b>Defend!</b> Stay between the puck and your own goal. First to 7 goals wins the match.</li>
-        <li><b>Beat 8 opponents</b> in the Classic Cup, then try the wild <b>Power Cup</b> with power-ups. Spend coins on new tables, mallets and pucks.</li>
+        <li><b>Move your mallet</b> with the mouse or your finger (or the arrow keys). You play on the left side, or at the bottom on a tall phone screen.</li>
+        <li><b>Hit the puck into the other goal.</b> Swing fast for a <b>slap shot!</b> Bounce it off the walls to trick your opponent.</li>
+        <li class="extra"><b>Defend!</b> Stay between the puck and your own goal. First to 7 goals wins the match.</li>
+        <li class="extra"><b>Beat 8 opponents</b> in the Classic Cup, then try the wild <b>Power Cup</b> with power-ups. Beat the champion to face a <b>bonus boss</b> with two mallets!</li>
+        <li><b>Super Shot:</b> good hits and saves fill your meter. When it's full, your next shot becomes a <b>curving fireball</b>!</li>
+        <li><b>Trick Shots:</b> hit targets in 60 seconds. Bank shots off the walls score double. Spend coins on new tables, mallets and pucks.</li>
       </ul>
       <div class="row">
         <button class="btn" id="play-btn">Tournament</button>
+        <button class="btn hot" id="trick-btn">Trick Shots</button>
         <button class="btn ghost" id="t-shop-btn">Pro Shop</button>
       </div>
+      <div class="best" id="t-trick"></div>
     </div>
   </div>
 
@@ -240,7 +256,14 @@
         q: { start: 'Stripes and speed, baby!', score: 'Zebra zoom!', conceded: 'Nice moves!', win: 'Stripes win!', lose: 'You earned it!' } },
       { id: 'blaze', name: 'Blaze', title: 'the Dragon Champ', animal: 'dragon', blurb: 'The undefeated champion! Blaze is fast, clever and powerful. Can you take the crown?', speed: 1180, strike: 1650, react: 0.1, err: 30, home: 88, shadow: 0.7, predict: 1, bank: 0.4, accel: 20000,
         q: { start: 'So, a new challenger appears!', score: 'Feel the heat!', conceded: 'Impressive...', win: 'The crown stays with me!', lose: 'A new champion! Take the crown!' } },
+      // bonus boss: two mallets at once! One guards the goal, the other attacks.
+      { id: 'twins', name: 'Rex & Roxy', title: 'the Raccoon Twins', animal: 'raccoon', boss: true, blurb: 'BONUS BOSS! The twins play with TWO mallets: Roxy guards the goal while Rex attacks. Bank shots past the goalie!', speed: 1080, strike: 1550, react: 0.12, err: 36, home: 70, shadow: 0.8, predict: 0.95, bank: 0.35, accel: 18000,
+        q: { start: 'Two against one? Sounds fair to us!', score: 'Teamwork!', conceded: 'Hey! Who was guarding?!', win: 'Twin power wins!', lose: 'You beat BOTH of us?!' } },
     ];
+    const CHAMP = 7; // Blaze is the champion; the twins are a bonus boss after her
+    const SUPER_HIT = 0.14, SUPER_SAVE = 0.22; // how much a good hit / a save fills your Super Shot meter
+    const TRICK_TIME = 60;
+    const TRICK_STARS = [2500, 6000, 10000];
 
     const TABLES = [
       { id: 'classic', name: 'Classic Rink', price: 0, desc: 'A shiny pro air hockey table.', surf: ['#f2f8ff', '#c7def6'], line: '#e8464f', line2: '#2f6fd6', rail: ['#34508a', '#18244a'], railHi: '#7a9ae0', holes: 'rgba(40,80,140,0.16)', room: ['#1a2446', '#070b18'] },
@@ -310,9 +333,13 @@
     save.muted = !!save.muted;
     save.wins = Number(save.wins) || 0;
     save.fastest = Number(save.fastest) || 0;
+    save.trick = save.trick && typeof save.trick === 'object' ? save.trick : {};
+    save.trick.best = Number(save.trick.best) || 0;
+    save.trick.stars = clamp(Number(save.trick.stars) || 0, 0, 3);
+    save.supers = Number(save.supers) || 0;
     const persist = () => Potato.save('save', save);
     const cupStars = (c) => Object.values(save.stars[c]).reduce((s, n) => s + (Number(n) || 0), 0);
-    const totalStars = () => cupStars('classic') + cupStars('power');
+    const totalStars = () => cupStars('classic') + cupStars('power') + save.trick.stars;
 
     // =====================================================================
     // Sound
@@ -373,6 +400,11 @@
       win: () => { [523, 659, 784, 1046, 1318, 1568].forEach((f, i) => tone(f, 0.24, 'triangle', 0.07, i * 0.1)); noise(2, 0.1, 1400, 0.4, 0.1, 'bandpass', 0.4); },
       lose: () => { [523, 494, 440, 392].forEach((f, i) => tone(f, 0.3, 'triangle', 0.05, i * 0.16)); },
       shield: () => tone(520, 0.2, 'sine', 0.06, 0, 400),
+      superReady: () => { [523, 784, 1046, 1568].forEach((f, i) => tone(f, 0.14, 'triangle', 0.05, i * 0.06)); },
+      super: () => { noise(0.4, 0.4, 1800, 0.6); tone(220, 0.5, 'sawtooth', 0.06, 0, 900); tone(880, 0.3, 'square', 0.03, 0.05, 600); },
+      bumper: () => { tone(660, 0.12, 'square', 0.04, 0, 400); tone(990, 0.1, 'triangle', 0.04, 0.03); },
+      target: (k) => { [880, 1175, 1568].forEach((f, i) => tone(f * (1 + k * 0.1), 0.1, 'triangle', 0.06, i * 0.05)); },
+      whistle: () => { tone(2100, 0.35, 'sine', 0.05, 0, -200); tone(2300, 0.35, 'sine', 0.03); },
     };
 
     // =====================================================================
@@ -380,6 +412,7 @@
     // =====================================================================
     let mode = 'title'; // title | ladder | intro | play | paused | results | shop
     let run = null, gtime = 0, cup = 'classic', introOpp = 0;
+    let portrait = false; // tall screen: the table is drawn turned on its side
     let botPlayer = null; // self-test: a computer brain driving the player's mallet
     const sdkLog = [];
     const pointer = { x: TX0 + 100, y: CY, active: false };
@@ -397,20 +430,39 @@
 
     function newMatch(oppIndex, cupId, demo) {
       const prof = OPPS[oppIndex];
+      const trick = cupId === 'trick';
       const r = {
-        demo: !!demo, opp: oppIndex, prof, cup: cupId, power: cupId === 'power',
-        p: newMallet(-1), a: newMallet(1),
-        brain: newBrain(prof),
+        demo: !!demo, opp: oppIndex, prof, cup: cupId, power: cupId === 'power', trick,
+        p: newMallet(-1), a: newMallet(1), a2: null,
+        brain: newBrain(prof), brain2: null,
         pucks: [],
         score: [0, 0], // [player, opponent]
         state: 'serve', stateT: 1.2, serveSide: -1,
         tokens: [], tokenT: rand(5, 8),
         fx: { '-1': { big: 0, shield: 0, mega: 0, freeze: 0 }, '1': { big: 0, shield: 0, mega: 0, freeze: 0 } },
-        parts: [], floaters: [], banner: null, shake: 0, flash: null,
-        stats: { shots: 0, fastest: 0, saves: 0, powers: 0, oppShots: 0 },
+        parts: [], floaters: [], banner: null, shake: 0, flash: null, rings: [],
+        stats: { shots: 0, fastest: 0, saves: 0, powers: 0, oppShots: 0, supers: 0, targets: 0, banks: 0 },
         mood: 'focus', moodT: 0, bubble: null,
-        time: 0,
+        time: 0, superCharge: 0, superReady: false,
       };
+      // the twins: Roxy guards the goal, Rex attacks
+      if (prof.boss && !trick) {
+        r.a2 = newMallet(1); r.a2.x = TX1 - 60; r.a2.twin = 'goalie';
+        r.a.x = CX + 170; r.a.twin = 'striker';
+        r.brain.zone = { x0: CX + MALLET_R, x1: TX1 - 170 };
+        r.brain2 = newBrain(Object.assign({}, prof, { home: 46, shadow: 1, predict: 1, speed: 860, err: 28 }));
+        r.brain2.zone = { x0: TX1 - 150, x1: TX1 - MALLET_R };
+        r.brain2.goalie = true;
+      }
+      // Trick Shots: no opponent, just targets, bumpers and a little robot goalie
+      if (trick) {
+        r.time = 0; r.timeLeft = TRICK_TIME; r.points = 0; r.combo = 0; r.comboT = 0;
+        r.targets = []; r.targetT = 0.2;
+        r.bumpers = [{ x: CX + 150, y: CY - 120, r: 30, hit: 0 }, { x: CX + 150, y: CY + 120, r: 30, hit: 0 }, { x: CX + 300, y: CY, r: 24, hit: 0 }];
+        r.a.x = TX1 - 40; r.a.r = 26; r.a.robot = true;
+        r.fx['-1'].shield = Infinity; // your own goal is closed in practice
+        r.state = 'serve'; r.stateT = 1.4;
+      }
       r.pucks.push(newPuck(CX - 150, CY));
       return r;
     }
@@ -420,8 +472,9 @@
       r.serveSide = servingSide;
       r.state = 'serve'; r.stateT = 1.1;
       r.p.vx = r.p.vy = r.a.vx = r.a.vy = 0;
-      r.a.x = TX1 - 95; r.a.y = CY;
+      r.a.x = r.a.twin === 'striker' ? CX + 170 : TX1 - 95; r.a.y = CY;
       r.brain.state = 'home'; r.brain.thinkT = 0;
+      if (r.a2) { r.a2.vx = r.a2.vy = 0; r.a2.x = TX1 - 60; r.a2.y = CY; r.brain2.state = 'home'; r.brain2.thinkT = 0; }
       if (botPlayer) { botPlayer.state = 'home'; botPlayer.thinkT = 0; }
     }
 
@@ -469,7 +522,9 @@
       const pk = threatPuck(r, s);
       const ownX = s > 0 ? TX1 : TX0;
       const homeX = ownX - s * (P.home + (m.r - MALLET_R));
-      const inHalf = s * (pk.x - CX) > -PUCK_R * 0.5;
+      // twins only chase the puck inside their own zone
+      const inZone = !B.zone || (pk.x > B.zone.x0 - 30 && pk.x < B.zone.x1 + 40);
+      const inHalf = s * (pk.x - CX) > -PUCK_R * 0.5 && inZone;
       const sp = Math.hypot(pk.vx, pk.vy);
       const toward = s * pk.vx > 140;
       if (B.state === 'strike' || B.state === 'recover') return;
@@ -495,7 +550,7 @@
         B.ty = (y == null ? pk.y : lerp(pk.y, y, 0.4 + P.predict * 0.6)) + rand(-1, 1) * (P.err * 0.7 + 22);
       } else {
         B.state = 'home';
-        B.tx = homeX + rand(-10, 10);
+        B.tx = (B.zone && !B.goalie ? (B.zone.x0 + B.zone.x1) / 2 + 40 : homeX) + rand(-10, 10);
         let ty = CY + (pk.y - CY) * P.shadow;
         if (toward && P.predict > 0) { const y = predictY(pk, homeX); if (y != null) ty = lerp(ty, y, P.predict); }
         B.ty = ty + rand(-1, 1) * P.err * 0.4;
@@ -546,10 +601,13 @@
       }
       if (B.state === 'recover') {
         B.t -= dt;
-        tx = homeX; ty = CY + (pk.y - CY) * 0.4;
+        tx = B.zone && !B.goalie ? (B.zone.x0 + B.zone.x1) / 2 + 40 : homeX; ty = CY + (pk.y - CY) * 0.4;
         if (B.t <= 0) { B.state = 'home'; B.thinkT = 0; }
       }
       if (B.state === 'block') { vmax = P.speed * 1.2; accel = P.accel * 1.4; }
+      if (B.zone) tx = clamp(tx, B.zone.x0, B.zone.x1);
+      // a Super Shot fireball is hard to read: the computer reacts slower to it
+      if (pk.fire > 0 && s * pk.vx > 0) { vmax *= 0.72; accel *= 0.6; }
       if (r.fx[s].freeze > 0) { vmax *= 0.3; accel *= 0.3; }
       // steer with limited speed and acceleration
       const ddx = tx - m.x, ddy = ty - m.y, d = Math.hypot(ddx, ddy);
@@ -565,8 +623,9 @@
     function drivePlayer(r, m, dt) {
       if (botPlayer) { brainAct(r, m, botPlayer, dt); return; }
       let tx = pointer.x, ty = pointer.y;
-      const kx = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
-      const ky = (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0);
+      let kx = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
+      let ky = (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0);
+      if (portrait) { const ox = kx; kx = -ky; ky = ox; } // the table is turned on its side on tall screens
       if (kx || ky) {
         const l = Math.hypot(kx, ky);
         pointer.x += (kx / l) * 760 * dt; pointer.y += (ky / l) * 760 * dt;
@@ -606,27 +665,49 @@
       pk.x = m.x + nx * R; pk.y = m.y + ny * R;
       const rvx = pk.vx - m.vx, rvy = pk.vy - m.vy, vn = rvx * nx + rvy * ny;
       if (vn < 0) {
+        const preVx = pk.vx;
         pk.vx -= (1 + MALLET_E) * vn * nx;
         pk.vy -= (1 + MALLET_E) * vn * ny;
         capSpeed(pk);
         pk.last = m.side;
+        if (m.side < 0) pk.banked = false;
+        if (m.side > 0 || m.robot) pk.fire = 0; // the other side put the fire out
         if (m.hitCd <= 0) {
           m.hitCd = 0.08;
           const sp = Math.hypot(pk.vx, pk.vy), k = clamp(-vn / 1800, 0, 1);
-          if (!r.demo) {
+          const toward = m.side < 0 ? pk.vx > 300 : pk.vx < -300;
+          // Super Shot: a full meter turns your next real shot into a curving fireball
+          if (m.side < 0 && !r.demo && r.superCharge >= 1 && toward && sp > 500) {
+            r.superCharge = 0; r.superReady = false;
+            const boost = Math.max(sp * 1.35, 1950) / sp;
+            pk.vx *= boost; pk.vy *= boost; capSpeed(pk);
+            pk.fire = 1.6;
+            pk.curve = Math.abs(m.vy) > 200 ? -Math.sign(m.vy) : (pk.y < CY ? 1 : -1);
+            r.stats.supers++; save.supers++;
+            sfx.super(); r.shake = Math.max(r.shake, 0.6);
+            r.floaters.push({ x: pk.x, y: pk.y - 34, text: 'SUPER SHOT!', color: '#ff8a2a', size: 26, life: 1.1 });
+            sparks(r, pk.x, pk.y, 30, ['#ffffff', '#ffcc4d', '#ff5a1f']);
+            r.rings.push({ x: pk.x, y: pk.y, t: 0, color: '#ff8a2a', big: true });
+          } else if (!r.demo) {
             if (sp > 1500) { sfx.slap(); r.shake = Math.max(r.shake, 0.35); }
             else sfx.hit(k);
           }
           sparks(r, m.x + nx * m.r, m.y + ny * m.r, Math.round(4 + k * 14), sp > 1500 ? ['#ffffff', '#ffd84a', '#ff9f43'] : ['#ffffff', '#bfe8ff']);
-          if (sp > 1500) r.floaters.push({ x: pk.x, y: pk.y - 30, text: 'SLAP SHOT!', color: '#ffd84a', size: 20, life: 0.9 });
+          if (k > 0.25) r.rings.push({ x: m.x + nx * m.r, y: m.y + ny * m.r, t: 0, color: sp > 1500 ? '#ffd84a' : '#ffffff' });
+          if (sp > 1500 && !pk.fire) r.floaters.push({ x: pk.x, y: pk.y - 30, text: 'SLAP SHOT!', color: '#ffd84a', size: 20, life: 0.9 });
           // stats: shots toward the other goal
-          const toward = m.side < 0 ? pk.vx > 300 : pk.vx < -300;
           if (toward) {
             if (m.side < 0) { r.stats.shots++; r.stats.fastest = Math.max(r.stats.fastest, sp); }
             else r.stats.oppShots++;
           }
-          // a save: the puck was flying at your goal and you stopped it
-          if (m.side < 0 && rvx < -500) r.stats.saves++;
+          // a save: the puck was flying fast at your goal, near it, and you stopped it
+          const saved = m.side < 0 && preVx < -380 && pk.x < TX0 + 320 && !r.trick;
+          if (saved) r.stats.saves++;
+          // good hits and saves fill the Super Shot meter
+          if (m.side < 0 && !r.demo && !pk.fire && r.superCharge < 1) {
+            r.superCharge = Math.min(1, r.superCharge + (saved ? SUPER_SAVE : toward && sp > 700 ? SUPER_HIT : 0.04));
+            if (r.superCharge >= 1 && !r.superReady) { r.superReady = true; sfx.superReady(); r.floaters.push({ x: m.x, y: m.y - 46, text: 'SUPER READY!', color: '#ff8a2a', size: 18, life: 1.2 }); }
+          }
         }
       }
       // squeezed against a wall? slide the mallet back a bit
@@ -636,6 +717,7 @@
     }
 
     function wallHit(r, pk, k, x, y) {
+      if (pk.last === -1) pk.banked = true;
       if (pk.wallCd > 0) return;
       pk.wallCd = 0.05;
       if (!r.demo && k > 0.08) sfx.wall(k);
@@ -707,20 +789,46 @@
       }
     }
 
+    // round pinball bumpers (Trick Shots): they kick the puck away a little faster
+    function collideBumper(r, pk, b) {
+      const dx = pk.x - b.x, dy = pk.y - b.y, d = Math.hypot(dx, dy), R = pk.r + b.r;
+      if (d >= R || d < 0.001) return;
+      const nx = dx / d, ny = dy / d;
+      pk.x = b.x + nx * R; pk.y = b.y + ny * R;
+      const vn = pk.vx * nx + pk.vy * ny;
+      if (vn < 0) {
+        pk.vx -= 2 * vn * nx; pk.vy -= 2 * vn * ny;
+        const sp = Math.hypot(pk.vx, pk.vy), want = Math.max(sp * 1.1, 650);
+        pk.vx *= want / sp; pk.vy *= want / sp; capSpeed(pk);
+        if (b.hit <= 0) {
+          b.hit = 0.25;
+          if (!r.demo) sfx.bumper();
+          sparks(r, b.x + nx * b.r, b.y + ny * b.r, 10, ['#ffffff', '#ff5fa8', '#3fd0ff']);
+          if (r.trick) { r.points += 10; r.floaters.push({ x: b.x, y: b.y - b.r - 14, text: '+10', color: '#ff5fa8', size: 16, life: 0.7 }); }
+        }
+      }
+    }
+
     function physics(r, dt) {
       const h = dt / SUB;
-      for (const m of [r.p, r.a]) {
-        const target = r.fx[m.side].big > 0 ? BIG_R : MALLET_R;
+      const mallets = r.a2 ? [r.p, r.a, r.a2] : [r.p, r.a];
+      for (const m of mallets) {
+        const target = r.fx[m.side].big > 0 ? BIG_R : m.robot ? 26 : MALLET_R;
         m.r = approach(m.r, target, 60 * dt);
         if (m.hitCd > 0) m.hitCd -= dt;
       }
       const held = r.state === 'serve';
       for (let i = 0; i < SUB; i++) {
-        moveMallet(r.p, h); moveMallet(r.a, h);
+        for (const m of mallets) moveMallet(m, h);
+        // the twins never stand on top of each other
+        if (r.a2) {
+          const dx = r.a2.x - r.a.x, dy = r.a2.y - r.a.y, d = Math.hypot(dx, dy), R = r.a.r + r.a2.r;
+          if (d < R && d > 0.001) { const push = (R - d) / 2; r.a.x -= (dx / d) * push; r.a.y -= (dy / d) * push; r.a2.x += (dx / d) * push; r.a2.y += (dy / d) * push; }
+        }
         for (const pk of r.pucks) {
           if (!held) { pk.x += pk.vx * h; pk.y += pk.vy * h; }
-          collideMallet(r, pk, r.p);
-          collideMallet(r, pk, r.a);
+          for (const m of mallets) collideMallet(r, pk, m);
+          if (r.bumpers) for (const b of r.bumpers) collideBumper(r, pk, b);
           collideWalls(r, pk);
         }
         for (let a = 0; a < r.pucks.length; a++) for (let b = a + 1; b < r.pucks.length; b++) collidePucks(r.pucks[a], r.pucks[b]);
@@ -728,6 +836,12 @@
       }
       const drag = Math.exp(-DRAG * dt);
       for (const pk of r.pucks) {
+        // a Super Shot fireball bends (curves) as it flies
+        if (pk.fire > 0) {
+          pk.fire -= dt;
+          if (pk.curve) { pk.vy += pk.curve * 1100 * dt; }
+          if (Math.random() < dt * 40) r.parts.push({ x: pk.x + rand(-6, 6), y: pk.y + rand(-6, 6), vx: rand(-60, 60) - pk.vx * 0.1, vy: rand(-60, 60) - pk.vy * 0.1, life: rand(0.25, 0.5), max: 0.5, color: pick(['#ff5a1f', '#ffcc4d', '#ff8a2a']), size: rand(3, 6), kind: 'spark' });
+        }
         pk.vx *= drag; pk.vy *= drag;
         // a puck sitting in the goal slot drops in
         if (pk.x < TX0 + 2) pk.vx -= 500 * dt;
@@ -759,7 +873,7 @@
       r.time += dt;
       for (const p of r.parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 1 - dt * 3; p.vy *= 1 - dt * 3; p.vy += (p.g || 0) * dt; p.life -= dt; }
       r.parts = r.parts.filter((p) => p.life > 0);
-      for (const f of r.floaters) { f.y -= 40 * dt; f.life -= dt; }
+      for (const f of r.floaters) { f.rise = (f.rise || 0) + 40 * dt; f.life -= dt; }
       r.floaters = r.floaters.filter((f) => f.life > 0);
       if (r.shake > 0) r.shake = Math.max(0, r.shake - dt * 2.2);
       if (r.banner) { r.banner.t += dt; if (r.banner.t > r.banner.dur) r.banner = null; }
@@ -767,6 +881,9 @@
       if (r.moodT > 0) { r.moodT -= dt; if (r.moodT <= 0) r.mood = 'focus'; }
       if (r.bubble) { r.bubble.t -= dt; if (r.bubble.t <= 0) r.bubble = null; }
       for (const s of ['-1', '1']) for (const k of Object.keys(r.fx[s])) if (r.fx[s][k] > 0) r.fx[s][k] = Math.max(0, r.fx[s][k] - dt);
+      for (const g of r.rings) g.t += dt;
+      r.rings = r.rings.filter((g) => g.t < (g.big ? 0.6 : 0.35));
+      if (r.trick) { if (trickUpdate(r, dt)) return; }
 
       if (r.state === 'goal') {
         r.stateT -= dt;
@@ -785,7 +902,8 @@
         if (r.stateT <= 0) { r.state = 'play'; if (!r.demo) sfx.beep(true); }
       }
       if (r.demo) { demoDrive(r, dt); } else drivePlayer(r, r.p, dt);
-      brainAct(r, r.a, r.brain, dt);
+      if (r.a.robot) robotGoalie(r, r.a, dt); else brainAct(r, r.a, r.brain, dt);
+      if (r.a2) brainAct(r, r.a2, r.brain2, dt);
       physics(r, dt);
 
       // goals
@@ -825,6 +943,71 @@
       }
     }
 
+    // ---- Trick Shots ----
+    function addTrickPoints(r, n, x, y, color) {
+      r.combo = r.comboT > 0 ? r.combo + 1 : 1;
+      r.comboT = 2.2;
+      const mult = Math.min(3, 1 + Math.floor(r.combo / 3));
+      const pts = n * mult;
+      r.points += pts;
+      r.floaters.push({ x, y, text: `+${pts}${mult > 1 ? ` x${mult}` : ''}`, color, size: mult > 1 ? 24 : 20, life: 1 });
+    }
+    function spawnTarget(r) {
+      for (let tries = 0; tries < 30; tries++) {
+        const x = rand(CX + 60, TX1 - 120), y = rand(TY0 + 50, TY1 - 50);
+        if (r.bumpers.some((b) => Math.hypot(b.x - x, b.y - y) < b.r + 60)) continue;
+        if (r.targets.some((t) => Math.hypot(t.x - x, t.y - y) < 90)) continue;
+        if (r.pucks.some((pk) => Math.hypot(pk.x - x, pk.y - y) < 70)) continue;
+        const gold = Math.random() < 0.18;
+        r.targets.push({ x, y, r: gold ? 20 : 26, gold, t: 0, life: gold ? 6 : 11, vx: gold ? rand(-60, 60) : 0, vy: gold ? rand(-80, 80) : 0 });
+        return;
+      }
+    }
+    // returns true when the session is over
+    function trickUpdate(r, dt) {
+      if (r.state === 'serve' || r.state === 'over') return false;
+      r.timeLeft -= dt;
+      if (r.comboT > 0) { r.comboT -= dt; if (r.comboT <= 0) r.combo = 0; }
+      for (const b of r.bumpers) if (b.hit > 0) b.hit -= dt;
+      r.targetT -= dt;
+      if (r.targets.length < 3 && r.targetT <= 0) { spawnTarget(r); r.targetT = rand(0.6, 1.4); }
+      for (const t of r.targets) {
+        t.t += dt;
+        if (t.gold) { t.x += t.vx * dt; t.y += t.vy * dt; if (t.y < TY0 + 40 || t.y > TY1 - 40) t.vy = -t.vy; if (t.x < CX + 40 || t.x > TX1 - 100) t.vx = -t.vx; }
+        for (const pk of r.pucks) {
+          if (t.hit || Math.hypot(pk.x - t.x, pk.y - t.y) > pk.r + t.r) continue;
+          t.hit = true;
+          const bank = !!pk.banked;
+          const base = (t.gold ? 150 : 50) * (bank ? 2 : 1) * (pk.fire > 0 ? 2 : 1);
+          addTrickPoints(r, base, t.x, t.y - 30, t.gold ? '#ffd84a' : '#4fe39a');
+          if (bank) { r.stats.banks++; r.floaters.push({ x: t.x, y: t.y + 26, text: 'BANK SHOT x2', color: '#3fd0ff', size: 16, life: 1 }); }
+          r.stats.targets++;
+          sfx.target(Math.min(5, r.combo));
+          sparks(r, t.x, t.y, 22, t.gold ? ['#ffd84a', '#ffffff', '#ff9f43'] : ['#4fe39a', '#ffffff', '#3fd0ff']);
+          r.rings.push({ x: t.x, y: t.y, t: 0, color: t.gold ? '#ffd84a' : '#4fe39a', big: true });
+          // a hit target gives the Super meter a little boost too
+          r.superCharge = Math.min(1, r.superCharge + 0.12);
+          if (r.superCharge >= 1 && !r.superReady) { r.superReady = true; sfx.superReady(); }
+        }
+      }
+      r.targets = r.targets.filter((t) => !t.hit && t.t < t.life);
+      if (r.timeLeft <= 0) {
+        r.timeLeft = 0; r.state = 'over';
+        sfx.whistle();
+        banner(r, "TIME'S UP!", `${r.points} points`, '#ffd84a', 1.6);
+        setTimeout(() => { if (run === r && mode === 'play') endTrick(); }, 1600);
+        return true;
+      }
+      return false;
+    }
+    // the little practice goalie slides up and down in front of the goal
+    function robotGoalie(r, m, dt) {
+      const speed = 0.9 + Math.min(1.2, r.time / 40);
+      const ty = CY + Math.sin(r.time * speed) * (GOAL_H / 2 + 10);
+      const tx = TX1 - 40;
+      m.vx = (tx - m.x) * 8; m.vy = clamp((ty - m.y) * 8, -420, 420);
+    }
+
     function demoDrive(r, dt) {
       if (!r.demoBrain) r.demoBrain = newBrain(OPPS[3]);
       brainAct(r, r.p, r.demoBrain, dt);
@@ -857,6 +1040,18 @@
     }
 
     function goalScored(r, scorer, pk) {
+      // Trick Shots: a goal is worth big points, then you get a new puck right away
+      if (r.trick) {
+        const bank = !!pk.banked;
+        addTrickPoints(r, (bank ? 200 : 100) * (pk.fire > 0 ? 2 : 1), TX1 - 80, pk.y - 20, '#3fd0ff');
+        if (bank) r.stats.banks++;
+        r.flash = { side: 1, t: 0.6 }; r.shake = 0.4;
+        for (let i = 0; i < 30; i++) { const a = rand(-1.2, 1.2) + Math.PI, s = rand(150, 600); r.parts.push({ x: TX1, y: pk.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(0.6, 1.2), max: 1.2, color: pick(['#3fd0ff', '#ffd84a', '#ffffff', '#4fe39a']), size: rand(3, 6), kind: 'confetti', rot: rand(0, 6) }); }
+        sfx.goal();
+        r.pucks = [newPuck(CX - 160, CY + rand(-80, 80))];
+        if (r.state !== 'over') { r.state = 'serve'; r.stateT = 0.5; }
+        return;
+      }
       // scorer: -1 = player, 1 = opponent
       const idx = scorer < 0 ? 0 : 1;
       r.score[idx]++;
@@ -929,12 +1124,14 @@
       if (spuds > 0) { Potato.earn(spuds); sdkLog.push(['earn', spuds]); }
       Potato.score(totalStars()); sdkLog.push(['score', totalStars()]);
 
-      $('r-title').textContent = won ? (r.opp === OPPS.length - 1 ? 'CHAMPION!' : 'You win!') : 'So close!';
+      $('r-title').textContent = won ? (r.opp === CHAMP ? 'CHAMPION!' : r.prof.boss ? 'Boss beaten!' : 'You win!') : 'So close!';
+      $('r-final').hidden = false; $('r-stars').hidden = false;
+      $('r-replay-btn').textContent = 'Rematch'; $('r-ladder-btn').hidden = false;
       $('r-final').innerHTML = `${r.score[0]}<span>–</span>${r.score[1]}`;
       [...$('r-stars').children].forEach((s, i) => { s.className = got[i] ? 'on' : ''; });
       const stat = (l, v) => `<div><span>${l}</span><b>${v}</b></div>`;
       $('r-stats').innerHTML = stat('Shots', r.stats.shots) + stat('Saves', r.stats.saves) + stat('Fastest shot', `${Math.round(r.stats.fastest * KMH)} km/h`) +
-        stat('Coins', `+${coins}`) + stat(r.power ? 'Power-ups' : 'Opponent', r.power ? r.stats.powers : r.prof.name) + stat('Cup stars', `${cupStars(r.cup)} ★`);
+        stat('Coins', `+${coins}`) + stat(r.power ? 'Power-ups' : 'Super shots', r.power ? r.stats.powers : r.stats.supers) + stat('Cup stars', `${cupStars(r.cup)} ★`);
       const note = $('r-note');
       if (won) {
         note.className = 'note ' + (stars === 3 ? 'good' : 'bad');
@@ -944,8 +1141,8 @@
         note.textContent = matchTip(r);
       }
       const unl = [];
-      if (unlockedNow && r.opp + 1 < OPPS.length) unl.push(`Next up: ${OPPS[r.opp + 1].name} ${OPPS[r.opp + 1].title}!`);
-      if (unlockedNow && r.opp === OPPS.length - 1 && r.cup === 'classic') unl.push('The Champion Gold table and Dragon Crown mallet are yours!');
+      if (unlockedNow && r.opp + 1 < OPPS.length) unl.push(OPPS[r.opp + 1].boss ? `BONUS BOSS unlocked: ${OPPS[r.opp + 1].name}!` : `Next up: ${OPPS[r.opp + 1].name} ${OPPS[r.opp + 1].title}!`);
+      if (unlockedNow && r.opp === CHAMP && r.cup === 'classic') unl.push('The Champion Gold table and Dragon Crown mallet are yours!');
       if (unlockedNow && r.opp === 0 && r.cup === 'classic' && save.beat.power === 0) unl.push('Psst: the Power Cup has wild power-ups!');
       $('r-unlock').textContent = unl.join(' ');
       $('r-spuds').textContent = Potato.inHub && spuds > 0 ? `+${spuds} Spuds` : '';
@@ -953,6 +1150,41 @@
       showOverlay('results');
       say(r, won ? r.prof.q.lose : r.prof.q.win);
       if (won) { sfx.win(); confetti(); } else sfx.lose();
+    }
+    function endTrick() {
+      const r = run;
+      mode = 'results';
+      document.body.classList.remove('playing');
+      const pts = r.points;
+      const stars = TRICK_STARS.filter((t) => pts >= t).length;
+      const record = pts > save.trick.best;
+      const newStars = Math.max(0, stars - save.trick.stars);
+      save.trick.best = Math.max(save.trick.best, pts);
+      save.trick.stars = Math.max(save.trick.stars, stars);
+      const coins = Math.min(60, Math.floor(pts / 100)) + newStars * 5;
+      save.coins += coins;
+      persist();
+      const spuds = Math.min(30, Math.floor(pts / 300) + newStars * 3);
+      if (spuds > 0) { Potato.earn(spuds); sdkLog.push(['earn', spuds]); }
+      Potato.score(totalStars()); sdkLog.push(['score', totalStars()]);
+      $('r-title').textContent = record ? 'New best!' : 'Trick Shots';
+      $('r-final').hidden = false;
+      $('r-final').innerHTML = `${pts}<span>pts</span>`;
+      $('r-stars').hidden = false;
+      [...$('r-stars').children].forEach((s, i) => { s.className = i < stars ? 'on' : ''; });
+      const stat = (l, v) => `<div><span>${l}</span><b>${v}</b></div>`;
+      $('r-stats').innerHTML = stat('Targets hit', r.stats.targets) + stat('Bank shots', r.stats.banks) + stat('Super shots', r.stats.supers) +
+        stat('Coins', `+${coins}`) + stat('Best', save.trick.best) + stat('Fastest shot', `${Math.round(r.stats.fastest * KMH)} km/h`);
+      const next = TRICK_STARS.find((t) => pts < t);
+      $('r-note').className = 'note ' + (stars === 3 ? 'good' : 'bad');
+      $('r-note').textContent = next ? `Score ${next} for the next ★. Bank shots off the walls count double!` : 'Three stars! You are a trick shot master!';
+      $('r-unlock').textContent = '';
+      $('r-spuds').textContent = Potato.inHub && spuds > 0 ? `+${spuds} Spuds` : '';
+      $('r-next-btn').hidden = true;
+      $('r-replay-btn').textContent = 'Play again';
+      $('r-ladder-btn').hidden = true;
+      showOverlay('results');
+      if (stars >= 2 || record) { sfx.win(); confetti(); }
     }
     function matchTip(r) {
       if (r.stats.shots < 8) return 'Tip: swing your mallet fast THROUGH the puck to make it zoom!';
@@ -981,6 +1213,7 @@
         $(p + '-coins').textContent = `${save.coins} coins`;
         $(p + '-stars').textContent = `${totalStars()} ★`;
       }
+      $('t-trick').textContent = save.trick.best ? `Trick Shots best: ${save.trick.best} pts ${'★'.repeat(save.trick.stars)}` : '';
     }
     function startDemo() { run = newMatch(4, 'power', true); run.power = true; }
     function ensureDemo() { if (!run || !run.demo) startDemo(); }
@@ -998,8 +1231,8 @@
       OPPS.forEach((o, i) => {
         const open = i <= save.beat[cup], s = Number(save.stars[cup][i]) || 0;
         const b = document.createElement('button');
-        b.className = 'opp' + (open ? '' : ' locked') + (i === save.beat[cup] ? ' next' : '');
-        b.innerHTML = `<span class="rank">ROUND ${i + 1}</span><canvas width="152" height="152"></canvas><b>${open ? o.name : '???'}</b><em>${open ? o.title : 'Locked'}</em><span class="st">${[0, 1, 2].map((k) => (k < s ? '<i>★</i>' : '★')).join('')}</span>`;
+        b.className = 'opp' + (open ? '' : ' locked') + (i === save.beat[cup] ? ' next' : '') + (o.boss ? ' boss' : '');
+        b.innerHTML = `<span class="rank">${o.boss ? 'BONUS BOSS' : `ROUND ${i + 1}`}</span><canvas width="152" height="152"></canvas><b>${open ? o.name : '???'}</b><em>${open ? o.title : o.boss ? 'Beat Blaze to unlock' : 'Locked'}</em><span class="st">${[0, 1, 2].map((k) => (k < s ? '<i>★</i>' : '★')).join('')}</span>`;
         const c = b.querySelector('canvas').getContext('2d');
         withCtx(c, () => { ctx.save(); ctx.scale(2, 2); if (open) drawAnimal(o.animal, 38, 40, 26, s >= 1 ? 'sad' : 'focus', 0); else drawMystery(38, 40, 26); ctx.restore(); });
         if (open) b.addEventListener('click', () => { sfx.click(); showIntro(i); });
@@ -1012,13 +1245,13 @@
       introOpp = i;
       mode = 'intro';
       const o = OPPS[i], s = Number(save.stars[cup][i]) || 0;
-      $('i-title').textContent = `${cup === 'power' ? 'Power Cup' : 'Classic Cup'} · Round ${i + 1}`;
+      $('i-title').textContent = `${cup === 'power' ? 'Power Cup' : 'Classic Cup'} · ${o.boss ? 'Bonus Boss' : `Round ${i + 1}`}`;
       $('i-name').textContent = `${o.name} ${o.title}`;
       $('i-quote').textContent = `"${o.q.start}"`;
       $('i-blurb').textContent = o.blurb;
       const goals = [['Win the match (first to 7)', 1], ['Let in 4 goals or fewer', 2], ['Let in 2 goals or fewer', 3]];
       $('i-goals').innerHTML = goals.map(([t, k]) => `<div><span class="s${s >= k ? '' : ' off'}">★</span>${t}</div>`).join('');
-      $('i-tip').textContent = cup === 'power'
+      $('i-tip').textContent = o.boss ? 'Roxy guards the goal and Rex attacks. Bank the puck off the walls to sneak it past them, and save up a Super Shot!' : cup === 'power'
         ? 'Power-ups: BIG MALLET, MULTI PUCK, GOAL SHIELD, FREEZE and MEGA GOAL. Whoever hit the puck last gets it!'
         : i === 0 ? 'Move your mouse (or finger) to slide your mallet. Hit the puck hard toward the right goal!' : pick(['Shots off the side walls are hard to block!', 'Keep your mallet between the puck and your goal.', 'A fast swing makes a SLAP SHOT!', 'Hit the puck when it is slow and close for the best aim.']);
       const you = $('i-you').getContext('2d');
@@ -1040,10 +1273,14 @@
       document.body.classList.add('playing');
       hideOverlays();
       pointer.x = run.p.x; pointer.y = run.p.y;
-      banner(run, 'FACE OFF!', `vs ${run.prof.name} · first to ${WIN_SCORE}`, '#3fd0ff', 1.6);
-      say(run, run.prof.q.start);
+      if (run.trick) banner(run, 'TRICK SHOTS!', `Hit the targets! ${TRICK_TIME} seconds`, '#ffd84a', 1.6);
+      else {
+        banner(run, run.prof.boss ? 'BOSS MATCH!' : 'FACE OFF!', `vs ${run.prof.name} · first to ${WIN_SCORE}`, run.prof.boss ? '#ff8a2a' : '#3fd0ff', 1.6);
+        say(run, run.prof.q.start);
+      }
       sfx.beep(false);
     }
+    function startTrick() { startMatch(0, 'trick'); }
 
     function pause(on) {
       if (!run || run.demo) return;
@@ -1101,6 +1338,7 @@
     document.querySelectorAll('.cup').forEach((t) => t.addEventListener('click', () => { sfx.click(); cup = t.dataset.cup; showLadder(); }));
 
     $('play-btn').addEventListener('click', () => { audio(); sfx.click(); showLadder(); });
+    $('trick-btn').addEventListener('click', () => { audio(); sfx.click(); startTrick(); });
     $('t-shop-btn').addEventListener('click', () => { audio(); sfx.click(); showShop('title'); });
     $('l-shop-btn').addEventListener('click', () => { sfx.click(); showShop('ladder'); });
     $('l-back-btn').addEventListener('click', () => { sfx.click(); showTitle(); });
@@ -1108,7 +1346,7 @@
     $('i-back-btn').addEventListener('click', () => { sfx.click(); showLadder(); });
     $('p-resume-btn').addEventListener('click', () => pause(false));
     $('p-restart-btn').addEventListener('click', () => startMatch(run.opp, run.cup));
-    $('p-quit-btn').addEventListener('click', () => { run = null; showLadder(); });
+    $('p-quit-btn').addEventListener('click', () => { const t = run && run.trick; run = null; if (t) showTitle(); else showLadder(); });
     $('r-next-btn').addEventListener('click', () => { sfx.click(); showIntro(Math.min(OPPS.length - 1, run.opp + 1)); });
     $('r-replay-btn').addEventListener('click', () => startMatch(run.opp, run.cup));
     $('r-ladder-btn').addEventListener('click', () => { sfx.click(); showLadder(); });
@@ -1132,7 +1370,10 @@
     const inRect = (p, r) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
     function pointerTo(e) {
       const p = toView(e);
-      pointer.x = p.x; pointer.y = p.y; pointer.active = true;
+      let [tx, ty] = L2T(p.x, p.y);
+      // on a touch screen, keep the mallet a little ahead of your finger so you can see it
+      if (e.pointerType === 'touch') tx += portrait ? 34 : 0;
+      pointer.x = tx; pointer.y = ty; pointer.active = true;
     }
     canvas.addEventListener('pointerdown', (e) => {
       audio();
@@ -1209,11 +1450,36 @@
     // ---- the table (pre-rendered) ----
     let tableCache = null, tableKey = '';
     function currentTable() { return TABLES.find((t) => t.id === save.table) || TABLES[0]; }
+    // the arena around the table: a soft spotlight, light beams and a cheering crowd
+    function drawArena(T) {
+      const x0 = -view.ox / view.s - 2, y0 = -view.oy / view.s - 2, x1 = (W - view.ox) / view.s + 2, y1 = (H - view.oy) / view.s + 2;
+      const cxm = (x0 + x1) / 2, cym = (y0 + y1) / 2;
+      ctx.fillStyle = rad(cxm, cym, 60, Math.max(x1 - x0, y1 - y0) * 0.7, [[0, T.room[0]], [1, T.room[1]]]);
+      ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+      // crowd: rows of happy fans (the table covers the middle)
+      const R = mulberry(7);
+      const hues = T.dark ? [250, 280, 200, 320] : [210, 30, 340, 160, 50];
+      for (let y = y0 + 14, row = 0; y < y1 + 20; y += 30, row++) {
+        for (let x = x0 + (row % 2 ? 16 : 2); x < x1 + 20; x += 32) {
+          const hue = hues[Math.floor(R() * hues.length)], lt = 15 + R() * 12;
+          ctx.fillStyle = `hsla(${hue},45%,${lt}%,0.9)`;
+          ctx.beginPath(); ctx.ellipse(x, y + 14, 13, 9, 0, Math.PI, 0); ctx.fill();
+          ctx.fillStyle = `hsla(30,25%,${lt + 6}%,0.95)`;
+          ctx.beginPath(); ctx.arc(x, y + 1, 7.5, 0, Math.PI * 2); ctx.fill();
+          if (R() < 0.12) { ctx.fillStyle = `hsla(${hue},70%,55%,0.85)`; ctx.fillRect(x - 2, y - 22, 4, 16); ctx.fillRect(x - 9, y - 26, 18, 9); }
+        }
+      }
+      // dim the crowd so the table pops
+      ctx.fillStyle = rad(cxm, cym, 120, Math.max(x1 - x0, y1 - y0) * 0.8, [[0, 'rgba(0,0,0,0.25)'], [1, 'rgba(0,0,0,0.62)']]);
+      ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+      // two spotlight beams from above
+      for (const s of [-1, 1]) {
+        ctx.fillStyle = lin(cxm + s * 300, y0, cxm, cym, [[0, 'rgba(255,255,255,0.12)'], [1, 'rgba(255,255,255,0)']]);
+        ctx.beginPath(); ctx.moveTo(cxm + s * 260, y0); ctx.lineTo(cxm + s * 340, y0); ctx.lineTo(cxm + s * 60, cym + 200); ctx.lineTo(cxm - s * 140, cym + 200); ctx.closePath(); ctx.fill();
+      }
+    }
     function drawTableTo(T) {
       const R = mulberry(42);
-      // room
-      ctx.fillStyle = rad(VW / 2, VH * 0.55, 80, 720, [[0, T.room[0]], [1, T.room[1]]]);
-      ctx.fillRect(-200, -200, VW + 400, VH + 400);
       // table shadow and legs glow
       ctx.fillStyle = 'rgba(0,0,0,0.45)';
       rr(TX0 - 36, TY0 - 24, TX1 - TX0 + 72, TY1 - TY0 + 64, 60); ctx.fill();
@@ -1225,6 +1491,12 @@
       ctx.globalAlpha = 1;
       ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 6;
       rr(TX0 - 4, TY0 - 4, TX1 - TX0 + 8, TY1 - TY0 + 8, CORNER_R + 4); ctx.stroke();
+      // a glowing light strip and shiny bolts on the rail
+      ctx.save(); ctx.strokeStyle = hexA(T.line2, 0.55); ctx.lineWidth = 2.5; ctx.shadowColor = T.line2; ctx.shadowBlur = 8;
+      rr(TX0 - 25, TY0 - 23, TX1 - TX0 + 50, TY1 - TY0 + 46, CORNER_R + 21); ctx.stroke(); ctx.restore();
+      for (const [bx, by] of [[TX0 + 2, TY0 + 3], [TX1 - 2, TY0 + 3], [TX0 + 2, TY1 - 3], [TX1 - 2, TY1 - 3], [CX - 120, TY0 - 12], [CX + 120, TY0 - 12], [CX - 120, TY1 + 12], [CX + 120, TY1 + 12]]) {
+        circle(bx, by, 5, 'rgba(0,0,0,0.35)'); circle(bx - 0.5, by - 0.5, 4, T.railHi); circle(bx - 1.5, by - 1.5, 1.5, '#ffffff');
+      }
       // surface
       ctx.save();
       rr(TX0, TY0, TX1 - TX0, TY1 - TY0, CORNER_R); ctx.clip();
@@ -1278,13 +1550,15 @@
     const rand2 = (R, a, b) => a + R() * (b - a);
     function drawTable() {
       const T = currentTable();
-      const key = T.id + ':' + canvas.width + 'x' + canvas.height + ':' + view.s;
+      const key = T.id + ':' + canvas.width + 'x' + canvas.height + ':' + view.s + ':' + portrait;
       if (key !== tableKey || !tableCache) {
         tableKey = key;
         tableCache = document.createElement('canvas');
         tableCache.width = canvas.width; tableCache.height = canvas.height;
         withCtx(tableCache.getContext('2d'), () => {
           ctx.setTransform(dpr * view.s, 0, 0, dpr * view.s, dpr * view.ox, dpr * view.oy);
+          drawArena(T);
+          tableTransform(ctx);
           drawTableTo(T);
         });
       }
@@ -1381,6 +1655,16 @@
         ctx.restore();
       }
       if (sp > 1500) circle(pk.x, pk.y, pk.r * 1.9, 'rgba(255,230,120,0.18)');
+      // a Super Shot fireball: flames stream out behind the puck
+      if (pk.fire > 0) {
+        const a = Math.atan2(pk.vy, pk.vx), fl = 1 + Math.sin(gtime * 40) * 0.12;
+        ctx.save(); ctx.translate(pk.x, pk.y); ctx.rotate(a);
+        for (const [len, w, col] of [[pk.r * 4.2 * fl, pk.r * 1.25, 'rgba(255,90,31,0.55)'], [pk.r * 3 * fl, pk.r * 0.95, 'rgba(255,170,60,0.75)'], [pk.r * 1.9 * fl, pk.r * 0.6, 'rgba(255,240,150,0.9)']]) {
+          ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(pk.r * 0.4, -w); ctx.quadraticCurveTo(-len * 0.5, -w * 0.9, -len, 0); ctx.quadraticCurveTo(-len * 0.5, w * 0.9, pk.r * 0.4, w); ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+        circle(pk.x, pk.y, pk.r * 1.8, 'rgba(255,140,40,0.3)');
+      }
       ctx.save();
       if (pk.extra && pk.life < 2) ctx.globalAlpha = 0.4 + 0.6 * (Math.floor(pk.life * 8) % 2);
       const sc = pk.spawnT > 0 ? 1 + pk.spawnT * 0.8 : 1;
@@ -1398,6 +1682,7 @@
       const pal = {
         bear: ['#c98a4f', '#8a5528', '#f0d2a8'], fox: ['#ff8a3d', '#b8501a', '#fff4e6'], owl: ['#9a7ad0', '#5a3f8a', '#e8dcff'], rhino: ['#9aa6b8', '#5d6878', '#d8dee8'],
         cat: ['#f4f0ea', '#a89e94', '#ffffff'], penguin: ['#2c3448', '#12182a', '#ffffff'], zebra: ['#f8f8f8', '#22222a', '#ffffff'], dragon: ['#4fc87a', '#20804a', '#c8ffda'],
+        raccoon: ['#a3a9b8', '#5b6070', '#eef0f6'],
       }[kind];
       const [c, d, l] = pal;
       const stroke = hexMix(d, '#000000', 0.35);
@@ -1405,6 +1690,7 @@
       const fillPath = (fill) => { ctx.fillStyle = fill; ctx.fill(); ctx.stroke(); };
       // behind-head bits
       if (kind === 'bear') for (const k of [-1, 1]) { ctx.beginPath(); ctx.arc(k * s * 0.7, -s * 0.72, s * 0.3, 0, Math.PI * 2); fillPath(c); circle(k * s * 0.7, -s * 0.72, s * 0.15, '#f0a8a0'); }
+      if (kind === 'raccoon') for (const k of [-1, 1]) { ctx.beginPath(); ctx.moveTo(k * s * 0.9, -s * 0.3); ctx.quadraticCurveTo(k * s * 0.95, -s * 1.1, k * s * 0.45, -s * 0.85); ctx.closePath(); fillPath(c); ctx.beginPath(); ctx.moveTo(k * s * 0.78, -s * 0.42); ctx.quadraticCurveTo(k * s * 0.82, -s * 0.92, k * s * 0.52, -s * 0.8); ctx.closePath(); ctx.fillStyle = '#3a3e4a'; ctx.fill(); }
       if (kind === 'fox' || kind === 'cat') for (const k of [-1, 1]) {
         ctx.beginPath(); ctx.moveTo(k * s * 0.85, -s * 0.25); ctx.lineTo(k * s * (kind === 'fox' ? 0.75 : 0.7), -s * 1.2); ctx.lineTo(k * s * 0.15, -s * 0.8); ctx.closePath(); fillPath(c);
         ctx.beginPath(); ctx.moveTo(k * s * 0.68, -s * 0.42); ctx.lineTo(k * s * 0.66, -s * 1.0); ctx.lineTo(k * s * 0.32, -s * 0.78); ctx.closePath(); ctx.fillStyle = kind === 'fox' ? '#3a2018' : '#ffb6c8'; ctx.fill();
@@ -1425,6 +1711,12 @@
       if (kind === 'fox') { ctx.beginPath(); ctx.moveTo(-s * 0.9, -s * 0.05); ctx.quadraticCurveTo(-s * 0.3, s * 0.1, 0, s * 0.85); ctx.quadraticCurveTo(s * 0.3, s * 0.1, s * 0.9, -s * 0.05); ctx.quadraticCurveTo(s * 0.5, s * 0.7, 0, s * 0.85); ctx.quadraticCurveTo(-s * 0.5, s * 0.7, -s * 0.9, -s * 0.05); ctx.fillStyle = l; ctx.fill(); }
       if (kind === 'owl') { ellipse(0, s * 0.15, s * 0.7, s * 0.68, l); }
       if (kind === 'dragon') { ctx.fillStyle = 'rgba(255,255,255,0.18)'; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.arc(-s * 0.5 + i * s * 0.33, -s * 0.55, s * 0.12, Math.PI, 0); ctx.fill(); } }
+      if (kind === 'raccoon') {
+        // white cheeks and the famous black eye mask
+        ctx.beginPath(); ctx.moveTo(-s * 0.95, s * 0.05); ctx.quadraticCurveTo(-s * 0.4, -s * 0.05, 0, s * 0.25); ctx.quadraticCurveTo(s * 0.4, -s * 0.05, s * 0.95, s * 0.05); ctx.quadraticCurveTo(s * 0.6, s * 0.85, 0, s * 0.88); ctx.quadraticCurveTo(-s * 0.6, s * 0.85, -s * 0.95, s * 0.05); ctx.fillStyle = l; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-s * 0.85, -s * 0.2); ctx.quadraticCurveTo(-s * 0.4, -s * 0.42, 0, -s * 0.18); ctx.quadraticCurveTo(s * 0.4, -s * 0.42, s * 0.85, -s * 0.2); ctx.quadraticCurveTo(s * 0.62, s * 0.12, s * 0.3, s * 0.06); ctx.quadraticCurveTo(0, -s * 0.02, -s * 0.3, s * 0.06); ctx.quadraticCurveTo(-s * 0.62, s * 0.12, -s * 0.85, -s * 0.2); ctx.fillStyle = '#2e323c'; ctx.fill();
+        ctx.fillStyle = '#5b6070'; ctx.fillRect(-s * 0.05, -s * 0.85, s * 0.1, s * 0.6);
+      }
       // muzzle
       if (kind === 'bear') ellipse(0, s * 0.35, s * 0.42, s * 0.32, l);
       if (kind === 'rhino') { ellipse(0, s * 0.4, s * 0.55, s * 0.36, l); ctx.beginPath(); ctx.moveTo(-s * 0.16, s * 0.05); ctx.quadraticCurveTo(0, -s * 0.75, s * 0.18, -s * 0.62); ctx.quadraticCurveTo(s * 0.1, -s * 0.2, s * 0.16, s * 0.05); ctx.closePath(); ctx.fillStyle = '#fffaf0'; ctx.fill(); ctx.stroke(); }
@@ -1436,10 +1728,11 @@
       for (const k of [-1, 1]) {
         if (kind === 'owl') { circle(k * eyeX, eyeY, s * 0.3, '#ffffff'); ctx.lineWidth = s * 0.06; ctx.strokeStyle = '#3a2a5a'; ctx.beginPath(); ctx.arc(k * eyeX, eyeY, s * 0.3, 0, Math.PI * 2); ctx.stroke(); }
         if (mo === 'grin' || mo === 'happy') {
-          ctx.strokeStyle = '#1d1a17'; ctx.lineWidth = s * 0.08; ctx.lineCap = 'round';
+          ctx.strokeStyle = kind === 'raccoon' ? '#ffffff' : '#1d1a17'; ctx.lineWidth = s * 0.08; ctx.lineCap = 'round';
           ctx.beginPath(); ctx.arc(k * eyeX, eyeY + s * 0.04, s * 0.11, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
         } else {
           const ey = mo === 'sad' ? eyeY + s * 0.03 : eyeY;
+          if (kind === 'raccoon') circle(k * eyeX, ey, s * 0.16, '#ffffff');
           ellipse(k * eyeX, ey, s * 0.11, s * 0.14, kind === 'cat' ? '#4fc85a' : kind === 'dragon' ? '#ffcc33' : '#1d1a17');
           if (kind === 'cat' || kind === 'dragon') ellipse(k * eyeX, ey, s * 0.035, s * 0.11, '#1d1a17');
           circle(k * eyeX + s * 0.04, ey - s * 0.05, s * 0.04, '#ffffff');
@@ -1456,7 +1749,7 @@
       // nose & mouth
       const my = kind === 'zebra' ? s * 0.5 : kind === 'owl' ? s * 0.55 : s * 0.42;
       if (kind === 'penguin') { ctx.beginPath(); ctx.moveTo(-s * 0.18, s * 0.18); ctx.lineTo(s * 0.18, s * 0.18); ctx.lineTo(0, s * 0.42); ctx.closePath(); ctx.fillStyle = '#ff9f2a'; ctx.fill(); }
-      else if (kind === 'bear' || kind === 'cat' || kind === 'fox') ellipse(0, s * (kind === 'bear' ? 0.22 : 0.18), s * (kind === 'bear' ? 0.13 : 0.08), s * 0.07, kind === 'cat' ? '#ff8aa8' : '#2a1a14');
+      else if (kind === 'bear' || kind === 'cat' || kind === 'fox' || kind === 'raccoon') ellipse(0, s * (kind === 'bear' || kind === 'raccoon' ? 0.22 : 0.18), s * (kind === 'bear' || kind === 'raccoon' ? 0.13 : 0.08), s * 0.07, kind === 'cat' ? '#ff8aa8' : '#2a1a14');
       else if (kind === 'zebra') for (const k of [-1, 1]) ellipse(k * s * 0.15, s * 0.42, s * 0.05, s * 0.04, '#111');
       ctx.strokeStyle = '#2a1a14'; ctx.lineWidth = s * 0.06; ctx.lineCap = 'round';
       ctx.beginPath();
@@ -1489,6 +1782,7 @@
       const life = tk.life - tk.t;
       ctx.save();
       ctx.translate(tk.x, tk.y);
+      if (portrait) ctx.rotate(Math.PI / 2);
       if (life < 2) ctx.globalAlpha = 0.4 + 0.6 * (Math.floor(life * 6) % 2);
       const pu = 1 + Math.sin(tk.t * 6) * 0.08;
       const appear = Math.min(1, tk.t * 4);
@@ -1513,15 +1807,37 @@
     // Frame
     // =====================================================================
     let W = 0, H = 0, dpr = 1;
+    // On tall screens (phones held upright) the table turns on its side: you play from the bottom.
+    const P_HUD_TOP = 104, P_HUD_BOT = 118, P_NEED_W = 560, P_NEED_H = 1170;
+    let LW = VW, LH = VH, PCX = 0, PCY = 0;
     function resize() {
       dpr = Math.min(2, window.devicePixelRatio || 1);
       W = window.innerWidth; H = window.innerHeight;
       canvas.width = Math.round(W * dpr);
       canvas.height = Math.round(H * dpr);
-      const s = Math.min(W / VW, H / VH);
-      view = { s, ox: (W - VW * s) / 2, oy: (H - VH * s) / 2 };
+      portrait = H > W * 1.15;
+      if (portrait) {
+        const s = Math.min(W / P_NEED_W, H / P_NEED_H);
+        view = { s, ox: 0, oy: 0 };
+        LW = W / s; LH = H / s;
+        PCX = LW / 2; PCY = P_HUD_TOP + (LH - P_HUD_TOP - P_HUD_BOT) / 2;
+        BTN_PAUSE.x = LW - 58; BTN_PAUSE.y = 14; BTN_PAUSE.w = 44; BTN_PAUSE.h = 40;
+        BTN_MUTE.x = LW - 108; BTN_MUTE.y = 14; BTN_MUTE.w = 44; BTN_MUTE.h = 40;
+      } else {
+        const s = Math.min(W / VW, H / VH);
+        view = { s, ox: (W - VW * s) / 2, oy: (H - VH * s) / 2 };
+        LW = VW; LH = VH;
+        Object.assign(BTN_PAUSE, { x: 532, y: 48, w: 34, h: 28 });
+        Object.assign(BTN_MUTE, { x: 434, y: 48, w: 34, h: 28 });
+      }
       tableCache = null;
     }
+    // table space <-> screen (logical) space
+    function T2L(x, y) { return portrait ? [PCX + (y - CY), PCY - (x - CX)] : [x, y]; }
+    function L2T(x, y) { return portrait ? [CX - (y - PCY), CY + (x - PCX)] : [x, y]; }
+    function tableTransform(c) { if (portrait) { c.translate(PCX, PCY); c.rotate(-Math.PI / 2); c.translate(-CX, -CY); } }
+    // draw something upright (text and icons) at a table position
+    function upright(x, y, fn) { ctx.save(); ctx.translate(x, y); if (portrait) ctx.rotate(Math.PI / 2); fn(); ctx.restore(); }
     window.addEventListener('resize', resize);
     resize();
 
@@ -1537,9 +1853,38 @@
       ctx.translate(sx * dpr * view.s, sy * dpr * view.s);
       drawTable();
       ctx.restore();
-      ctx.setTransform(dpr * view.s, 0, 0, dpr * view.s, dpr * (view.ox + sx * view.s), dpr * (view.oy + sy * view.s));
+      const base = () => ctx.setTransform(dpr * view.s, 0, 0, dpr * view.s, dpr * (view.ox + sx * view.s), dpr * (view.oy + sy * view.s));
+      base();
       if (!r) return;
+      // camera flashes in the crowd now and then
+      if (!r.demo && (!r.nextFlash || gtime > r.nextFlash)) { r.nextFlash = gtime + rand(0.05, 0.6); r.flashes = (r.flashes || []).concat([{ x: Math.random(), y: Math.random(), t0: gtime }]); }
+      if (r.flashes) {
+        for (const f of r.flashes) {
+          f.t = 0.18 - (gtime - f.t0);
+          const x0 = -view.ox / view.s, y0 = -view.oy / view.s, w = W / view.s, h = H / view.s;
+          const fx = x0 + f.x * w, fy = y0 + f.y * h;
+          const [tx, ty] = L2T(fx, fy);
+          if (tx > TX0 - 50 && tx < TX1 + 50 && ty > TY0 - 50 && ty < TY1 + 50) continue; // not on the table
+          ctx.fillStyle = `rgba(255,255,255,${Math.max(0, f.t / 0.18) * 0.8})`;
+          ctx.beginPath(); ctx.arc(fx, fy, 6, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = `rgba(255,255,255,${Math.max(0, f.t / 0.18) * 0.25})`;
+          ctx.beginPath(); ctx.arc(fx, fy, 18, 0, Math.PI * 2); ctx.fill();
+        }
+        r.flashes = r.flashes.filter((f) => gtime - f.t0 < 0.18);
+      }
 
+      // ---------- everything on the table (turned on its side on tall screens) ----------
+      ctx.save();
+      tableTransform(ctx);
+      // air flowing over the table: soft moving light stripes
+      ctx.save();
+      rr(TX0, TY0, TX1 - TX0, TY1 - TY0, CORNER_R); ctx.clip();
+      for (let i = 0; i < 3; i++) {
+        const x = TX0 + ((gtime * 90 + i * 330) % (TX1 - TX0 + 300)) - 150;
+        ctx.fillStyle = lin(x - 80, 0, x + 80, 0, [[0, 'rgba(255,255,255,0)'], [0.5, T.dark ? 'rgba(160,190,255,0.05)' : 'rgba(255,255,255,0.16)'], [1, 'rgba(255,255,255,0)']]);
+        ctx.fillRect(x - 80, TY0, 160, TY1 - TY0);
+      }
+      ctx.restore();
       // goal flash
       if (r.flash) {
         const ex = r.flash.side < 0 ? TX0 : TX1, a = r.flash.t / 0.6;
@@ -1558,15 +1903,25 @@
         if (fx.shield > 0) {
           const [g0, g1] = mouth(r, side);
           const a = fx.shield < 1.5 ? 0.4 + 0.6 * (Math.floor(fx.shield * 8) % 2) : 1;
-          ctx.save(); ctx.globalAlpha = a;
+          ctx.save(); ctx.globalAlpha = a * (r.trick ? 0.6 : 1);
           ctx.strokeStyle = 'rgba(79,227,154,0.3)'; ctx.lineWidth = 18; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(ex, g0 - 6); ctx.lineTo(ex, g1 + 6); ctx.stroke();
           ctx.strokeStyle = '#4fe39a'; ctx.lineWidth = 7; ctx.lineCap = 'round';
           ctx.beginPath(); ctx.moveTo(ex, g0 - 6); ctx.lineTo(ex, g1 + 6); ctx.stroke();
           ctx.restore();
         }
       }
+      // Trick Shots bumpers and targets
+      if (r.bumpers) for (const b of r.bumpers) drawBumper(b);
+      if (r.targets) for (const t of r.targets) drawTarget(t);
       // tokens
       for (const tk of r.tokens) drawToken(tk);
+      // hit rings
+      for (const g of r.rings) {
+        const k = g.t / (g.big ? 0.6 : 0.35);
+        ctx.strokeStyle = g.color; ctx.globalAlpha = (1 - k) * 0.8; ctx.lineWidth = (g.big ? 6 : 3) * (1 - k) + 1;
+        ctx.beginPath(); ctx.arc(g.x, g.y, 10 + k * (g.big ? 90 : 40), 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
       // particles under
       for (const p of r.parts) {
         const a = clamp(p.life / p.max, 0, 1);
@@ -1579,36 +1934,83 @@
       for (const pk of r.pucks) drawPuck(r, pk);
       // mallets
       const freezeRing = (m) => { if (r.fx[m.side].freeze > 0) { ctx.save(); ctx.globalAlpha = 0.7; ctx.strokeStyle = '#bfe8ff'; ctx.lineWidth = 4; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.arc(m.x, m.y, m.r + 8, gtime * 2, gtime * 2 + 6.3); ctx.stroke(); ctx.restore(); circle(m.x, m.y, m.r * 1.05, 'rgba(190,232,255,0.35)'); } };
-      drawMalletSprite(r.p.x, r.p.y, r.p.r, r.demo ? 'blue' : save.mallet, gtime, { glow: r.fx[-1].big > 0 });
+      // a glowing ring around your mallet when the Super Shot is ready
+      if (r.superReady && !r.demo) {
+        const pu = 1 + Math.sin(gtime * 10) * 0.08;
+        ctx.save(); ctx.strokeStyle = '#ff8a2a'; ctx.shadowColor = '#ff5a1f'; ctx.shadowBlur = 16; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(r.p.x, r.p.y, (r.p.r + 9) * pu, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+      }
+      upright(r.p.x, r.p.y, () => drawMalletSprite(0, 0, r.p.r, r.demo ? 'blue' : save.mallet, gtime, { glow: r.fx[-1].big > 0 }));
       freezeRing(r.p);
-      drawMalletSprite(r.a.x, r.a.y, r.a.r, oppMallet(r.prof), gtime, { glow: r.fx[1].big > 0 });
+      upright(r.a.x, r.a.y, () => (r.a.robot ? drawRobotGoalie(r.a) : drawMalletSprite(0, 0, r.a.r, oppMallet(r.prof), gtime, { glow: r.fx[1].big > 0 })));
       freezeRing(r.a);
-      // floaters
-      for (const f of r.floaters) { ctx.globalAlpha = Math.min(1, f.life * 2); outlined(f.text, f.x, f.y, f.size, f.color); }
+      if (r.a2) { upright(r.a2.x, r.a2.y, () => drawMalletSprite(0, 0, r.a2.r, 'donut', gtime, { glow: r.fx[1].big > 0 })); freezeRing(r.a2); }
+      ctx.restore();
+
+      // ---------- screen-space text and HUD ----------
+      for (const f of r.floaters) {
+        const [fx, fy] = T2L(f.x, f.y);
+        ctx.globalAlpha = Math.min(1, f.life * 2);
+        outlined(f.text, fx, fy - (f.rise || 0), f.size, f.color);
+      }
       ctx.globalAlpha = 1;
       // serve hint
-      if (r.state === 'serve' && !r.demo) {
+      if (r.state === 'serve' && !r.demo && !r.trick) {
         const a = Math.min(1, r.stateT * 3);
         ctx.globalAlpha = a;
-        outlined(r.serveSide < 0 ? 'Your puck!' : `${r.prof.name}'s puck`, CX + r.serveSide * 150, CY - 52, 20, r.serveSide < 0 ? '#3fd0ff' : '#ff8a9a');
+        const [hx, hy] = T2L(CX + r.serveSide * 150, CY);
+        outlined(r.serveSide < 0 ? 'Your puck!' : `${r.prof.name}'s puck`, hx, hy - 52, 20, r.serveSide < 0 ? '#3fd0ff' : '#ff8a9a');
         ctx.globalAlpha = 1;
       }
-      if (!r.demo) drawHud(r);
+      if (!r.demo) { if (portrait) drawHudPortrait(r); else drawHud(r); }
       if (r.banner) drawBanner(r.banner);
-      ctx.fillStyle = rad(VW / 2, VH / 2, 360, 760, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.35)']]);
-      ctx.fillRect(-60, -60, VW + 120, VH + 120);
+      const [vx, vy] = T2L(CX, CY);
+      ctx.fillStyle = rad(vx, vy, 360, 800, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.35)']]);
+      ctx.fillRect(-60, -60, LW + 120, LH + 120);
     }
     function oppMallet(prof) {
-      const m = { benny: 'blue', lulu: 'donut', hoot: 'galaxy', rocky: 'star', mia: 'lime', flip: 'blue', zara: 'star', blaze: 'crown' }[prof.id] || 'blue';
+      const m = { benny: 'blue', lulu: 'donut', hoot: 'galaxy', rocky: 'star', mia: 'lime', flip: 'blue', zara: 'star', blaze: 'crown', twins: 'galaxy' }[prof.id] || 'blue';
       return m === save.mallet ? (m === 'blue' ? 'lime' : 'blue') : m;
+    }
+    function drawBumper(b) {
+      const lit = b.hit > 0 ? b.hit / 0.25 : 0;
+      ellipse(b.x + 4, b.y + 6, b.r + 2, b.r, 'rgba(0,0,0,0.3)');
+      circle(b.x, b.y, b.r + 6 + lit * 8, `rgba(255,95,168,${0.18 + lit * 0.35})`);
+      ctx.fillStyle = rad(b.x - b.r * 0.3, b.y - b.r * 0.3, 2, b.r, [[0, '#ffffff'], [0.4, lit ? '#ffd0e8' : '#ff8fc8'], [1, '#c0307a']]);
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.stroke();
+      upright(b.x, b.y, () => { starPath(0, 0, b.r * 0.45, 0.45); ctx.fillStyle = '#fff6c2'; ctx.fill(); });
+    }
+    function drawTarget(t) {
+      const appear = Math.min(1, t.t * 5), left = t.life - t.t;
+      ctx.save();
+      if (left < 1.5) ctx.globalAlpha = 0.4 + 0.6 * (Math.floor(left * 8) % 2);
+      ctx.translate(t.x, t.y); ctx.scale(appear, appear);
+      const c = t.gold ? '#ffd84a' : '#4fe39a', d = t.gold ? '#b08400' : '#1f8f5a';
+      circle(0, 0, t.r + 10, hexA(c, 0.16));
+      for (const [rr2, col] of [[t.r, '#ffffff'], [t.r * 0.72, c], [t.r * 0.45, '#ffffff'], [t.r * 0.2, d]]) circle(0, 0, rr2, col);
+      ctx.strokeStyle = d; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, t.r, 0, Math.PI * 2); ctx.stroke();
+      if (t.gold) { ctx.rotate(gtime * 2); ctx.strokeStyle = 'rgba(255,216,74,0.8)'; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.arc(0, 0, t.r + 6, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); }
+      ctx.restore();
+    }
+    function drawRobotGoalie(m) {
+      ellipse(4, 6, m.r + 2, m.r, 'rgba(0,0,0,0.35)');
+      ctx.fillStyle = lin(0, -m.r, 0, m.r, [[0, '#e8eef6'], [1, '#8a9ab0']]);
+      ctx.beginPath(); ctx.arc(0, 0, m.r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#4a5870'; ctx.lineWidth = 3; ctx.stroke();
+      ctx.fillStyle = '#23364a'; rr(-m.r * 0.6, -m.r * 0.32, m.r * 1.2, m.r * 0.5, 6); ctx.fill();
+      const blink = Math.sin(gtime * 3) > 0.95;
+      for (const s of [-1, 1]) circle(s * m.r * 0.28, -m.r * 0.08, blink ? 1.5 : 4, '#7af0ff');
+      circle(0, -m.r - 4, 3, Math.sin(gtime * 6) > 0 ? '#ff5f6d' : '#ffb0b8');
     }
 
     function drawBanner(b) {
       const a = Math.min(1, b.t * 4, (b.dur - b.t) * 3);
-      const sc = 0.75 + 0.25 * Math.min(1, b.t * 6);
+      const sc = (0.75 + 0.25 * Math.min(1, b.t * 6)) * (portrait ? Math.min(1, (LW - 40) / 500) : 1);
+      const [bx, by] = T2L(CX, CY);
       ctx.save();
       ctx.globalAlpha = Math.max(0, a);
-      ctx.translate(CX, CY);
+      ctx.translate(bx, by);
       ctx.scale(sc, sc);
       ctx.fillStyle = 'rgba(10,14,30,0.82)';
       rr(-250, -54, 500, 100, 24); ctx.fill();
@@ -1618,33 +2020,9 @@
       ctx.restore();
     }
 
-    function drawHud(r) {
-      ctx.fillStyle = lin(0, 0, 0, HUD_H, [[0, 'rgba(24,32,62,0.96)'], [1, 'rgba(12,16,34,0.96)']]);
-      rr(10, 6, VW - 20, HUD_H - 14, 16); ctx.fill();
-      ctx.strokeStyle = 'rgba(63,208,255,0.3)'; ctx.lineWidth = 1.5; ctx.stroke();
-      const cy = 6 + (HUD_H - 14) / 2;
-      // player
-      try { Potato.drawAvatar(ctx, 52, cy + 2, 46, Potato.player, { facing: 1 }); } catch (e) {}
-      label(Potato.player.name || 'You', 88, cy - 12, 17, '#ffffff', 'left', 700, 'Fredoka');
-      drawScorePips(88, cy + 12, r.score[0], '#3fd0ff');
-      ctx.save();
-      circle(380, cy + 2, 34, 'rgba(63,208,255,0.12)');
-      label(String(r.score[0]), 380, cy + 2, 46, '#3fd0ff', 'center', 700, 'Fredoka');
-      ctx.restore();
-      // opponent
-      const ox = VW - 54;
-      drawAnimal(r.prof.animal, ox, cy + 4, 24, r.mood, gtime);
-      label(r.prof.name, ox - 40, cy - 12, 17, '#ffffff', 'right', 700, 'Fredoka');
-      drawScorePips(ox - 40 - 7 * 16 + 8, cy + 12, r.score[1], '#ff6b7d');
-      ctx.save();
-      circle(620, cy + 2, 34, 'rgba(255,107,125,0.12)');
-      label(String(r.score[1]), 620, cy + 2, 46, '#ff6b7d', 'center', 700, 'Fredoka');
-      ctx.restore();
-      // middle
-      label(r.power ? 'POWER CUP' : 'CLASSIC CUP', CX, cy - 14, 13, r.power ? '#ffd84a' : '#9aa8cf', 'center', 900);
-      label(`FIRST TO ${WIN_SCORE}`, CX, cy + 2, 12, '#6a7ab0', 'center', 900);
+    function hudButtons() {
       for (const [b, kind] of [[BTN_MUTE, 'mute'], [BTN_PAUSE, 'pause']]) {
-        ctx.fillStyle = 'rgba(255,255,255,0.08)'; rr(b.x, b.y, b.w, b.h, 9); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.1)'; rr(b.x, b.y, b.w, b.h, 9); ctx.fill();
         const bx = b.x + b.w / 2, by = b.y + b.h / 2;
         ctx.fillStyle = '#e0e8ff'; ctx.strokeStyle = '#e0e8ff'; ctx.lineWidth = 2; ctx.lineCap = 'round';
         if (kind === 'pause') { ctx.fillRect(bx - 5, by - 7, 3.5, 14); ctx.fillRect(bx + 1.5, by - 7, 3.5, 14); }
@@ -1654,43 +2032,148 @@
           else { ctx.beginPath(); ctx.arc(bx + 3, by, 5, -0.9, 0.9); ctx.stroke(); }
         }
       }
-      // active power-up timers
-      let px = 120;
-      for (const side of [-1, 1]) {
-        let k = 0;
-        for (const [key, v] of Object.entries(r.fx[side])) {
-          if (v <= 0) continue;
-          const P = POWERS[key];
-          const x = side < 0 ? TX0 + 40 + k * 120 : TX1 - 40 - k * 120, y = TY1 + 18;
-          ctx.fillStyle = 'rgba(10,14,30,0.8)'; rr(x - 54, y - 11, 108, 22, 11); ctx.fill();
-          ctx.fillStyle = hexA(P.color, 0.85); rr(x - 54, y - 11, 108 * (v / P.dur), 22, 11); ctx.fill();
-          label(`${P.name}${key === 'freeze' || key === 'mega' ? ' on ' + (side < 0 ? 'you' : r.prof.name) : ''}`, x, y + 1, 10, '#ffffff', 'center', 900);
-          k++;
-        }
-        px += 0;
+    }
+    // the Super Shot meter: fills up as you hit and save
+    function superMeter(r, x, y, w, h) {
+      const k = r.superCharge;
+      ctx.fillStyle = 'rgba(255,255,255,0.1)'; rr(x, y, w, h, h / 2); ctx.fill();
+      if (k > 0) {
+        ctx.fillStyle = r.superReady ? lin(x, 0, x + w, 0, [[0, '#ffcc4d'], [0.5, '#ff8a2a'], [1, '#ff4f6d']]) : lin(x, 0, x + w, 0, [[0, '#ffcc4d'], [1, '#ff8a2a']]);
+        rr(x, y, Math.max(h, w * k), h, h / 2); ctx.fill();
       }
-      // speech bubble
-      if (r.bubble) {
-        const a = Math.min(1, r.bubble.t * 3);
-        ctx.save();
-        ctx.globalAlpha = a;
-        ctx.font = '800 14px Nunito, sans-serif';
-        const w = Math.min(330, ctx.measureText(r.bubble.text).width + 28);
-        const bx = VW - 30 - w, by = HUD_H + 4;
-        ctx.fillStyle = '#ffffff';
-        rr(bx, by, w, 30, 14); ctx.fill();
-        ctx.beginPath(); ctx.moveTo(VW - 70, by); ctx.lineTo(VW - 56, by - 10); ctx.lineTo(VW - 52, by); ctx.closePath(); ctx.fill();
-        label(r.bubble.text, bx + w / 2, by + 15, 14, '#1a2040', 'center', 800);
-        ctx.restore();
+      if (r.superReady) { ctx.strokeStyle = `rgba(255,220,120,${0.5 + Math.sin(gtime * 10) * 0.5})`; ctx.lineWidth = 2; rr(x - 2, y - 2, w + 4, h + 4, h / 2 + 2); ctx.stroke(); }
+      label(r.superReady ? 'SUPER READY!' : 'SUPER', x + w + 6, y + h / 2 + 0.5, 10, r.superReady ? '#ffb347' : '#9aa8cf', 'left', 900);
+    }
+    function powerPills(r, side, x, y, dir, w = 108) {
+      let k = 0;
+      for (const [key, v] of Object.entries(r.fx[side])) {
+        if (v <= 0 || v === Infinity) continue;
+        const P = POWERS[key];
+        const px = x + dir * k * (w + 8);
+        ctx.fillStyle = 'rgba(10,14,30,0.85)'; rr(px - w / 2, y - 11, w, 22, 11); ctx.fill();
+        ctx.fillStyle = hexA(P.color, 0.85); rr(px - w / 2, y - 11, Math.max(22, w * (v / P.dur)), 22, 11); ctx.fill();
+        label(`${P.name}${key === 'freeze' || key === 'mega' ? (side < 0 ? ' (you)' : ' (them)') : ''}`, px, y + 1, 10, '#ffffff', 'center', 900);
+        k++;
       }
+    }
+    function speech(r, x, y, maxW, tailX) {
+      if (!r.bubble) return;
+      const a = Math.min(1, r.bubble.t * 3);
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.font = '800 14px Nunito, sans-serif';
+      const w = Math.min(maxW, ctx.measureText(r.bubble.text).width + 28);
+      const bx = Math.max(10, x - w);
+      ctx.fillStyle = '#ffffff';
+      rr(bx, y, w, 30, 14); ctx.fill();
+      tailX = clamp(tailX, bx + 16, bx + w - 16);
+      ctx.beginPath(); ctx.moveTo(tailX - 8, y); ctx.lineTo(tailX + 4, y - 10); ctx.lineTo(tailX + 8, y); ctx.closePath(); ctx.fill();
+      let txt = r.bubble.text;
+      while (ctx.measureText(txt).width > w - 20 && txt.length > 4) txt = txt.slice(0, -2);
+      label(txt === r.bubble.text ? txt : txt + '…', bx + w / 2, y + 15, 14, '#1a2040', 'center', 800);
+      ctx.restore();
+    }
+    function trickHud(r, cx, cy, big) {
+      const secs = Math.ceil(r.timeLeft);
+      const dx = big ? 190 : 100;
+      label('TIME', cx - dx, cy - 16, 11, '#9aa8cf', 'center', 900);
+      label(String(secs), cx - dx, cy + 8, 34, secs <= 10 ? '#ff6b7d' : '#ffffff', 'center', 700, 'Fredoka');
+      label('POINTS', cx + dx, cy - 16, 11, '#9aa8cf', 'center', 900);
+      label(String(r.points), cx + dx, cy + 8, 34, '#ffd84a', 'center', 700, 'Fredoka');
+      const next = TRICK_STARS.find((t) => r.points < t);
+      const mult = Math.min(3, 1 + Math.floor(r.combo / 3));
+      // (in the wide layout the mute and pause buttons sit in the middle, so the text stays above them)
+      label(mult > 1 ? `COMBO x${mult}` : 'TRICK SHOTS', cx, big ? cy - 16 : cy - 8, big ? 13 : 14, mult > 1 ? '#4fe39a' : '#ffd84a', 'center', 900);
+      label(next ? `next ★ at ${next}` : '★★★ !', cx, big ? cy - 2 : cy + 12, 11, '#6a7ab0', 'center', 900);
+    }
+
+    function drawHud(r) {
+      ctx.fillStyle = lin(0, 0, 0, HUD_H, [[0, 'rgba(24,32,62,0.96)'], [1, 'rgba(12,16,34,0.96)']]);
+      rr(10, 6, VW - 20, HUD_H - 14, 16); ctx.fill();
+      ctx.strokeStyle = 'rgba(63,208,255,0.3)'; ctx.lineWidth = 1.5; ctx.stroke();
+      const cy = 6 + (HUD_H - 14) / 2;
+      // player
+      try { Potato.drawAvatar(ctx, 52, cy + 2, 46, Potato.player, { facing: 1 }); } catch (e) {}
+      label(Potato.player.name || 'You', 88, cy - 16, 17, '#ffffff', 'left', 700, 'Fredoka');
+      if (r.trick) {
+        superMeter(r, 88, cy + 2, 110, 9);
+        trickHud(r, CX, cy, true);
+        hudButtons();
+        if (r.time < 6) hint('Hit the targets with the puck! Bounce it off a wall first for double points.', TY1 + 40);
+        return;
+      }
+      drawScorePips(88, cy + 4, r.score[0], '#3fd0ff');
+      superMeter(r, 82, cy + 17, 112, 8);
+      ctx.save();
+      circle(380, cy + 2, 34, 'rgba(63,208,255,0.12)');
+      label(String(r.score[0]), 380, cy + 2, 46, '#3fd0ff', 'center', 700, 'Fredoka');
+      ctx.restore();
+      // opponent (the twins show up together)
+      const ox = VW - 54;
+      if (r.prof.boss) { drawAnimal('raccoon', ox - 12, cy + 6, 19, r.mood, gtime); drawAnimal('raccoon', ox + 14, cy + 2, 19, r.mood, gtime + 1); }
+      else drawAnimal(r.prof.animal, ox, cy + 4, 24, r.mood, gtime);
+      label(r.prof.name, ox - 40, cy - 12, 17, '#ffffff', 'right', 700, 'Fredoka');
+      drawScorePips(ox - 40 - 7 * 16 + 8, cy + 12, r.score[1], '#ff6b7d');
+      ctx.save();
+      circle(620, cy + 2, 34, 'rgba(255,107,125,0.12)');
+      label(String(r.score[1]), 620, cy + 2, 46, '#ff6b7d', 'center', 700, 'Fredoka');
+      ctx.restore();
+      // middle
+      label(r.prof.boss ? 'BOSS MATCH' : r.power ? 'POWER CUP' : 'CLASSIC CUP', CX, cy - 14, 13, r.prof.boss ? '#ff8a2a' : r.power ? '#ffd84a' : '#9aa8cf', 'center', 900);
+      label(`FIRST TO ${WIN_SCORE}`, CX, cy + 2, 12, '#6a7ab0', 'center', 900);
+      hudButtons();
+      // active power-up timers (below the table)
+      powerPills(r, -1, TX0 + 70, TY1 + 42, 1);
+      powerPills(r, 1, TX1 - 70, TY1 + 42, -1);
+      speech(r, VW - 30, HUD_H + 4, 330, VW - 62);
       // first-match hint
-      if (r.opp === 0 && r.cup === 'classic' && r.score[0] === 0 && r.time < 12 && r.state !== 'goal') {
-        const txt = 'Move your mouse or finger to slide the mallet. Shoot into the RIGHT goal!';
-        ctx.font = '800 15px Nunito, sans-serif';
-        const w = ctx.measureText(txt).width + 30;
-        ctx.fillStyle = 'rgba(10,14,30,0.85)'; rr(CX - w / 2, TY1 + 6, w, 26, 13); ctx.fill();
-        label(txt, CX, TY1 + 19, 15, '#ffffff');
+      if (r.opp === 0 && r.cup === 'classic' && r.score[0] === 0 && r.time < 12 && r.state !== 'goal') hint('Move your mouse or finger to slide the mallet. Shoot into the RIGHT goal!', TY1 + 40);
+    }
+    function hint(txt, y) {
+      let fs = 15;
+      ctx.font = `800 ${fs}px Nunito, sans-serif`;
+      while (fs > 11 && ctx.measureText(txt).width + 30 > LW - 20) { fs--; ctx.font = `800 ${fs}px Nunito, sans-serif`; }
+      const w = ctx.measureText(txt).width + 30;
+      ctx.fillStyle = 'rgba(10,14,30,0.88)'; rr(LW / 2 - w / 2, y - 13, w, 26, 13); ctx.fill();
+      label(txt, LW / 2, y, fs, '#ffffff');
+    }
+    // tall screens: the opponent sits at the top, you sit at the bottom
+    function drawHudPortrait(r) {
+      const w = LW - 20;
+      // top panel (opponent, or the trick-shot clock)
+      ctx.fillStyle = lin(0, 6, 0, P_HUD_TOP - 8, [[0, 'rgba(24,32,62,0.96)'], [1, 'rgba(12,16,34,0.96)']]);
+      rr(10, 6, w, P_HUD_TOP - 14, 16); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,107,125,0.35)'; ctx.lineWidth = 1.5; ctx.stroke();
+      const ty = 6 + (P_HUD_TOP - 14) / 2;
+      if (r.trick) {
+        trickHud(r, (LW - 110) / 2, ty, false);
+      } else {
+        if (r.prof.boss) { drawAnimal('raccoon', 40, ty + 4, 18, r.mood, gtime); drawAnimal('raccoon', 64, ty, 18, r.mood, gtime + 1); }
+        else drawAnimal(r.prof.animal, 48, ty + 2, 26, r.mood, gtime);
+        label(r.prof.name, 86, ty - 14, 18, '#ffffff', 'left', 700, 'Fredoka');
+        drawScorePips(92, ty + 10, r.score[1], '#ff6b7d');
+        label(String(r.score[1]), LW - 160, ty + 2, 44, '#ff6b7d', 'center', 700, 'Fredoka');
+        powerPills(r, 1, LW - 80, P_HUD_TOP + 6, -1, 120);
+        speech(r, LW - 20, P_HUD_TOP + 22, LW - 40, 60);
       }
+      hudButtons();
+      // bottom panel (you)
+      const by = LH - P_HUD_BOT + 8;
+      ctx.fillStyle = lin(0, by, 0, LH - 6, [[0, 'rgba(24,32,62,0.96)'], [1, 'rgba(12,16,34,0.96)']]);
+      rr(10, by, w, P_HUD_BOT - 14, 16); ctx.fill();
+      ctx.strokeStyle = 'rgba(63,208,255,0.35)'; ctx.lineWidth = 1.5; ctx.stroke();
+      const cy = by + (P_HUD_BOT - 14) / 2;
+      try { Potato.drawAvatar(ctx, 48, cy, 50, Potato.player, { facing: 1 }); } catch (e) {}
+      label(Potato.player.name || 'You', 86, cy - 22, 18, '#ffffff', 'left', 700, 'Fredoka');
+      if (!r.trick) {
+        drawScorePips(92, cy - 1, r.score[0], '#3fd0ff');
+        label(String(r.score[0]), LW - 70, cy, 46, '#3fd0ff', 'center', 700, 'Fredoka');
+        label(r.prof.boss ? 'BOSS MATCH' : r.power ? 'POWER CUP' : 'CLASSIC CUP', LW - 70, cy + 30, 10, r.prof.boss ? '#ff8a2a' : r.power ? '#ffd84a' : '#9aa8cf', 'center', 900);
+        powerPills(r, -1, LW - 80, by - 18, -1, 120);
+      }
+      superMeter(r, 86, cy + 16, Math.min(170, LW - 260), 10);
+      if (r.trick && r.time < 6) hint('Hit the targets! Bank off a wall for double points.', by - 22);
+      else if (!r.trick && r.opp === 0 && r.cup === 'classic' && r.score[0] === 0 && r.time < 12 && r.state !== 'goal') hint('Slide your finger to move. Shoot into the TOP goal!', by - 22);
     }
     function drawScorePips(x, y, n, color) {
       for (let i = 0; i < WIN_SCORE; i++) {
@@ -1717,6 +2200,9 @@
       shoot(vx, vy) { if (run) { const pk = run.pucks[0]; pk.vx = vx; pk.vy = vy; run.state = 'play'; } },
       addCoins(n) { save.coins += n; persist(); setPills(); },
       power(type, side = -1) { if (run) activatePower(run, type, side, run.pucks[0]); },
+      trick() { startTrick(); return run; },
+      charge() { if (run) { run.superCharge = 1; run.superReady = true; } },
+      unlockAll() { save.beat.classic = OPPS.length; save.beat.power = OPPS.length; persist(); },
       sdkLog, OPPS, showShop, showLadder, showTitle, showIntro,
       // play a computer-vs-computer match and report how it went
       diag(botProf, opp, secs = 300, cupId = 'classic') {
@@ -1807,6 +2293,11 @@
       if (qs.has('bot')) botPlayer = newBrain(Object.assign({}, OPPS[Number(qs.get('bot')) || 0]));
       for (let i = 0; i < (Number(qs.get('steps')) || 0); i++) update(1 / 60);
       if (qs.has('powers')) { activatePower(run, 'shield', -1, run.pucks[0]); activatePower(run, 'big', 1, run.pucks[0]); activatePower(run, 'multi', -1, run.pucks[0]); run.tokens.push({ x: CX + 60, y: CY + 120, type: 'freeze', t: 1, life: 9 }); }
+    }
+    if (qs.has('trick')) {
+      startTrick();
+      if (qs.has('bot')) botPlayer = newBrain(Object.assign({}, OPPS[Number(qs.get('bot')) || 0]));
+      for (let i = 0; i < (Number(qs.get('steps')) || 0); i++) update(1 / 60);
     }
     if (qs.has('shop')) showShop('title');
     if (qs.has('ladder')) showLadder();

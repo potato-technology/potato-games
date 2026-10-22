@@ -31,6 +31,10 @@
     canvas { display: block; width: 100%; height: 100%; touch-action: none; }
     .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(10, 8, 16, 0.76); backdrop-filter: blur(3px); z-index: 10; }
     .overlay[hidden] { display: none; }
+    #title { background: radial-gradient(ellipse at center, rgba(10,8,16,0.35), rgba(10,8,16,0.8)); backdrop-filter: none; }
+    #title .card { background: linear-gradient(180deg, rgba(44,38,64,0.97), rgba(33,29,46,0.97)); animation: rise 0.5s ease-out; }
+    @keyframes rise { from { transform: translateY(18px) scale(0.97); } to { transform: none; } }
+    .card { animation: rise 0.35s ease-out; }
     .card { width: min(580px, 100%); max-height: 100%; overflow-y: auto; padding: 24px 26px; border-radius: 22px; background: linear-gradient(180deg, #2c2640, #211d2e); border: 2px solid var(--accent); text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
     .card.wide { width: min(760px, 100%); }
     .logo { margin: 0; font: 700 58px var(--display); color: var(--accent); text-shadow: 0 4px 0 #3e2580; letter-spacing: 1px; line-height: 1; }
@@ -102,10 +106,11 @@
       <div class="pills"><span class="pill gem" id="t-gems">0 gems</span><span class="pill best" id="t-best">Best: floor 0</span></div>
       <ul class="how">
         <li><b>Move</b> with <kbd>WASD</kbd> or <kbd>arrows</kbd>. <b>Swing your sword</b> with <kbd>J</kbd>, <kbd>Space</kbd> or a left click.</li>
+        <li><b>Hold</b> the sword button, then let go for a big <b>spin attack</b>!</li>
         <li><b>Dash</b> with <kbd>K</kbd>, <kbd>Shift</kbd> or a right click. You can't get hurt while dashing!</li>
-        <li>Poof every monster to open the doors. Find the <b>key</b> to unlock the treasure room and grab a <b>relic</b> power-up.</li>
-        <li>Find the <b>stairs</b> to go deeper. Every 3rd floor has a <b>boss</b>!</li>
-        <li><b>Gems</b> are yours to keep. Spend them at camp on upgrades for your next run.</li>
+        <li>Drop a <b>bomb</b> with <kbd>L</kbd> or <kbd>E</kbd>. Bombs crumble rocks, and some rocks hide gems!</li>
+        <li>Poof every monster to open the doors. Find the <b>key</b> to unlock the treasure room and grab a <b>relic</b>. Spend <b>coins</b> at the frog's shop.</li>
+        <li>Find the <b>stairs</b> to go deeper. Every 3rd floor has a <b>boss</b>! <b>Gems</b> are yours to keep for camp upgrades.</li>
       </ul>
       <div class="row">
         <button class="btn" id="play-btn">Delve!</button>
@@ -139,6 +144,7 @@
       </div>
       <div class="relics" id="r-relics"></div>
       <div class="note good" id="r-note"></div>
+      <p id="r-extra" style="margin:2px 0 8px;font-weight:800;font-size:14px"></p>
       <div class="spuds" id="r-spuds"></div>
       <div class="row">
         <button class="btn" id="r-again-btn">Delve again</button>
@@ -216,7 +222,21 @@
       { id: 'thorns', name: 'Thorny Armor', desc: 'Monsters that bump you get hurt.', color: '#c0a070' },
       { id: 'comet', name: 'Comet Dash', desc: 'Dashing through monsters hurts them.', color: '#ffb0f0' },
       { id: 'quick', name: 'Quick Hands', desc: 'Swing your sword faster.', color: '#ffd8a8' },
+      { id: 'boom', name: 'Big Boom', desc: 'Bigger bombs, and +2 bombs right now.', color: '#ff8a5a' },
+      { id: 'piggy', name: 'Piggy Bank', desc: 'Monsters drop extra coins.', color: '#ffb3c7' },
+      { id: 'whirl', name: 'Whirlwind', desc: 'Spin attacks charge twice as fast.', color: '#9ff0ff' },
     ];
+    const CHARGE_T = 0.6;     // hold the sword this long for a spin attack
+    const SPIN_T = 0.34;
+    const FUSE_T = 1.5;
+    // things the frog merchant can sell (coins are only for this run)
+    const WARES = {
+      heart: { name: 'Heart snack', price: 6, desc: 'Heals 1 heart' },
+      bombs: { name: '2 bombs', price: 5, desc: 'Boom!' },
+      key: { name: 'Key', price: 9, desc: 'Opens treasure' },
+      container: { name: 'Heart jar', price: 18, desc: '+1 max heart' },
+      relic: { name: 'Mystery relic', price: 24, desc: 'A random relic' },
+    };
     const UPGRADES = [
       { id: 'heart', name: 'Extra Heart', desc: 'Start every run with one more heart.', costs: [30, 90] },
       { id: 'sword', name: 'Sharper Sword', desc: 'Your sword hits 25% harder.', costs: [25, 60, 120] },
@@ -225,6 +245,8 @@
       { id: 'finder', name: 'Gem Finder', desc: 'Find 25% more gems.', costs: [40, 100] },
       { id: 'relic', name: 'Lucky Start', desc: 'Start every run with a random relic.', costs: [150] },
       { id: 'wind', name: 'Second Wind', desc: 'Once per run, bounce back with 2 hearts instead of losing.', costs: [200] },
+      { id: 'bombs', name: 'Bomb Bag', desc: 'Start every run with 2 more bombs.', costs: [35, 80] },
+      { id: 'purse', name: 'Coin Purse', desc: 'Start every run with 8 coins for the frog shop.', costs: [30, 70] },
     ];
     const ARMORS = [
       { id: 'ruby', name: 'Ruby Knight', plume: '#ff5e5e', metal: '#c9d2de', trim: '#ffd43b', cost: 0 },
@@ -280,7 +302,8 @@
     let save = Potato.load('save', null);
     if (!save || typeof save !== 'object') save = {};
     save.gems = Number(save.gems) || 0;
-    save.up = Object.assign({ heart: 0, sword: 0, dash: 0, key: 0, finder: 0, relic: 0, wind: 0 }, save.up || {});
+    save.up = Object.assign({ heart: 0, sword: 0, dash: 0, key: 0, finder: 0, relic: 0, wind: 0, bombs: 0, purse: 0 }, save.up || {});
+    for (const k of Object.keys(save.up)) save.up[k] = Math.max(0, Number(save.up[k]) || 0);
     save.armors = Array.isArray(save.armors) ? save.armors : ['ruby'];
     if (!save.armors.includes('ruby')) save.armors.unshift('ruby');
     save.armor = save.armors.includes(save.armor) ? save.armor : 'ruby';
@@ -367,6 +390,14 @@
       click: () => tone(520, 0.05, 'triangle', 0.04),
       buy: () => [880, 1100, 1320].forEach((f, i) => tone(f, 0.12, 'triangle', 0.07, i * 0.06)),
       bubble: () => { tone(900, 0.12, 'sine', 0.06, 0, 600); noise(0.08, 0.04, 3000); },
+      boom: () => { tone(90, 0.45, 'sine', 0.16, 0, -50); noise(0.5, 0.14, 380); noise(0.25, 0.08, 1400, 0.03); },
+      fuse: () => noise(0.05, 0.03, 4200),
+      coin: () => { tone(1319, 0.06, 'square', 0.025); tone(1976, 0.12, 'square', 0.025, 0.05); },
+      spin: () => { noise(0.3, 0.07, 2000); [523, 784, 1047].forEach((f, i) => tone(f, 0.14, 'triangle', 0.05, i * 0.05)); },
+      charged: () => tone(1568, 0.1, 'sine', 0.05, 0, 400),
+      spike: () => { tone(500, 0.06, 'square', 0.025, 0, 300); },
+      chomp: () => { tone(160, 0.12, 'square', 0.06, 0, -60); tone(120, 0.12, 'square', 0.05, 0.12, -40); },
+      combo: (n) => tone(660 + Math.min(n, 10) * 90, 0.12, 'triangle', 0.05),
     };
 
     // =====================================================================
@@ -433,6 +464,27 @@
       ctx.beginPath(); ctx.moveTo(x, y - s); ctx.lineTo(x + s * 0.8, y - s * 0.25); ctx.lineTo(x + s * 0.5, y + s * 0.8); ctx.lineTo(x - s * 0.5, y + s * 0.8); ctx.lineTo(x - s * 0.8, y - s * 0.25); ctx.closePath();
       S('rgba(0,0,0,0.35)', Math.max(1, s * 0.14));
     }
+    function coinShape(x, y, s, spin = 1) {
+      const w = Math.max(0.15, Math.abs(spin));
+      E(x, y, s * w, s, '#c98a0a');
+      E(x - s * 0.08 * w, y - s * 0.06, s * 0.86 * w, s * 0.86, '#ffd43b');
+      E(x - s * 0.08 * w, y - s * 0.06, s * 0.55 * w, s * 0.55, '#ffe680');
+      if (w > 0.5) { ctx.fillStyle = '#c98a0a'; ctx.fillRect(x - s * 0.12 * w, y - s * 0.4, s * 0.2 * w, s * 0.7); }
+      E(x - s * 0.35 * w, y - s * 0.4, s * 0.18 * w, s * 0.12, 'rgba(255,255,255,0.85)', -0.5);
+    }
+    function bombShape(x, y, s, t = 0, lit = false) {
+      E(x, y + s * 0.85, s * 0.9, s * 0.28, 'rgba(0,0,0,0.3)');
+      C(x, y, s, rad(x, y, s * 0.1, s * 1.1, [[0, '#5a5470'], [1, '#1d1a28']], x - s * 0.35, y - s * 0.4));
+      ctx.beginPath(); ctx.arc(x, y, s, 0, TAU); S('rgba(0,0,0,0.5)', Math.max(1, s * 0.1));
+      E(x - s * 0.35, y - s * 0.4, s * 0.28, s * 0.18, 'rgba(255,255,255,0.45)', -0.6);
+      rr(x - s * 0.3, y - s * 1.15, s * 0.6, s * 0.3, 2); ctx.fillStyle = '#8a8aa0'; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x, y - s * 1.1); ctx.quadraticCurveTo(x + s * 0.3, y - s * 1.6, x + s * 0.6, y - s * 1.45); S('#c8a070', Math.max(1.5, s * 0.14));
+      if (lit) {
+        const fl = 0.7 + Math.sin(t * 40) * 0.3;
+        C(x + s * 0.6, y - s * 1.45, s * 0.4 * fl, '#ff9f1c');
+        C(x + s * 0.6, y - s * 1.45, s * 0.2 * fl, '#fff3a0');
+      }
+    }
     function keyShape(x, y, s, col = '#ffd43b') {
       ctx.save(); ctx.translate(x, y); ctx.rotate(-0.6);
       ctx.beginPath(); ctx.arc(-s * 0.55, 0, s * 0.42, 0, TAU); ctx.moveTo(-s * 0.15, 0); ctx.lineTo(s * 0.9, 0); ctx.moveTo(s * 0.6, 0); ctx.lineTo(s * 0.6, s * 0.35); ctx.moveTo(s * 0.85, 0); ctx.lineTo(s * 0.85, s * 0.3);
@@ -473,6 +525,9 @@
       far.type = boss ? 'boss' : 'exit';
       const tre = ends.find((r) => r !== far && r.type === 'normal');
       if (tre) { tre.type = 'treasure'; tre.locked = true; }
+      // the frog merchant sets up shop in another dead end (from floor 2, or floor 1 on bigger maps)
+      const shop = ends.find((r) => r !== far && r !== tre && r.type === 'normal' && r.dist >= 1);
+      if (shop && (f >= 2 || rooms.length >= 7)) shop.type = 'shop';
       const normals = rooms.filter((r) => r.type === 'normal');
       if (normals.length) pick(normals).key = true;
       for (const r of rooms) buildRoom(r, f);
@@ -500,13 +555,30 @@
         for (let y = 1; y < ROWS - 1; y++) if (tiles[y][7] === 2) tiles[y][7] = 0;
         fillPockets(tiles);
       }
+      // spike traps from floor 4 on: a small cluster that pops up and down
+      if (f >= 4 && (r.type === 'normal' || r.type === 'exit') && Math.random() < Math.min(0.65, 0.3 + f * 0.03)) {
+        const lane = (x, y) => (x === 7 && (y <= 2 || y >= 6)) || (y === 4 && (x <= 2 || x >= 12));
+        const cands = [];
+        for (let y = 2; y < ROWS - 2; y++) for (let x = 2; x < COLS - 2; x++) if (tiles[y][x] === 0 && !lane(x, y)) cands.push([x, y]);
+        if (cands.length) {
+          const [cx, cy] = pick(cands);
+          const shape = pick([[[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]], [[0, 0], [1, 0], [2, 0], [-1, 0], [-2, 0]], [[0, 0], [0, 1], [0, -1], [1, 1], [-1, -1]], [[0, 0], [1, 0], [0, 1], [1, 1]]]);
+          for (const [dx, dy] of shape) { const x = cx + dx, y = cy + dy; if (tiles[y] && tiles[y][x] === 0 && !lane(x, y) && x > 0 && y > 0 && x < COLS - 1 && y < ROWS - 1) tiles[y][x] = 6; }
+        }
+      }
       r.tiles = tiles;
+      r.hasSpikes = tiles.some((row) => row.includes(6));
       r.deco = [];
       for (let i = 0; i < 16; i++) r.deco.push({ x: randi(1, COLS - 2), y: randi(1, ROWS - 2), k: Math.random(), s: rand(0.6, 1.2) });
       r.floorSeed = Math.random() * 1000;
       if (r.type === 'treasure') r.objs.push({ type: 'relic', x: RW / 2, y: RH / 2, relic: null, taken: false, bob: 0 });
+      if (r.type === 'shop') {
+        r.objs.push({ type: 'merchant', x: RW / 2, y: T * 2.3, bob: 0 });
+        const extra = pick(f >= 3 ? ['key', 'relic', 'container', 'relic'] : ['key', 'container', 'key']);
+        ['heart', 'bombs', extra].forEach((w, i) => r.objs.push({ type: 'ware', ware: w, x: RW / 2 + (i - 1) * 150, y: RH / 2 + 40, price: Math.round(WARES[w].price * (1 + Math.max(0, f - 3) * 0.06)), sold: false, bob: i }));
+      }
       if (r.type === 'start' && f === 1) r.cleared = true;
-      if (r.type === 'start' || r.type === 'treasure') r.cleared = true;
+      if (r.type === 'start' || r.type === 'treasure' || r.type === 'shop') r.cleared = true;
     }
     function walkableCode(c) { return c === 0 || c === 4 || c === 5; }
     function connected(tiles) {
@@ -520,7 +592,7 @@
         for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
           const nx = x + dx, ny = y + dy, k = ny * COLS + nx;
           if (nx < 1 || ny < 1 || nx >= COLS - 1 || ny >= ROWS - 1 || seen.has(k)) continue;
-          if (tiles[ny][nx] === 0 || tiles[ny][nx] === 3) { seen.add(k); q.push([nx, ny]); }
+          if (tiles[ny][nx] === 0 || tiles[ny][nx] === 3 || tiles[ny][nx] === 6) { seen.add(k); q.push([nx, ny]); }
         }
       }
       let reached = 0;
@@ -564,9 +636,11 @@
       const maxHp = 6 + save.up.heart * 2;
       run = {
         floor: sf, startFloor: sf, map: null, room: null,
-        p: { x: RW / 2, y: RH / 2, vx: 0, vy: 0, r: 15, face: 0, dir: 1, walk: 0, inv: 0, swing: 0, swingCd: 0, swingHit: new Set(), dashT: 0, dashCd: 0, dashVx: 0, dashVy: 0, squash: 0, hitFlash: 0 },
+        p: { x: RW / 2, y: RH / 2, vx: 0, vy: 0, r: 15, face: 0, dir: 1, walk: 0, inv: 0, swing: 0, swingCd: 0, swingHit: new Set(), dashT: 0, dashCd: 0, dashVx: 0, dashVy: 0, squash: 0, hitFlash: 0, charge: 0, spin: 0, spinHit: new Set() },
         hp: maxHp, maxHp,
         gems: 0, gemFrac: 0, keys: save.up.key ? 1 : 0, relics: [], kills: 0, bosses: 0, rooms: 0,
+        coins: save.up.purse * 8, bombs: 1 + save.up.bombs * 2, bombsLive: [], combo: 0, comboT: 0, bestCombo: 0, spins: 0,
+        bossBestBefore: save.bossBest,
         wind: !!save.up.wind,
         enemies: [], shots: [], parts: [], floaters: [], banner: null,
         trans: null, fade: 0, fadeDir: 0, shake: 0, freeze: 0, deadT: 0,
@@ -586,7 +660,7 @@
       run.map = genFloor(f);
       for (const r of run.map.rooms) for (const o of r.objs) if (o.type === 'relic' && !o.relic) o.relic = randomRelic(o) || 'clover';
       run.room = run.map.start;
-      run.enemies = []; run.shots = [];
+      run.enemies = []; run.shots = []; run.bombsLive = [];
       run.p.x = RW / 2; run.p.y = RH / 2 + 40; run.p.vx = run.p.vy = 0;
       enterRoom(run.room, null);
       run.fade = 1; run.fadeDir = -1;
@@ -608,6 +682,7 @@
       if (run.relics.includes(id)) { if (!silent && run.room) { for (let i = 0; i < 8; i++) drop("gem", run.p.x, run.p.y - 20, true); floater("Already have it: gems!", run.p.x, run.p.y - 50, "#6ee7ff", 18); } return; }
       run.relics.push(id);
       if (id === 'locket') { run.maxHp += 2; run.hp = run.maxHp; }
+      if (id === 'boom') run.bombs += 2;
       if (!silent) {
         const r = RELICS.find((x) => x.id === id);
         showBanner(r.name, r.desc, r.color, 2.8, id);
@@ -711,8 +786,22 @@
         bat: { hp: 1, r: 13, col: '#a070e0', fly: true },
         skeleton: { hp: 3, r: 15, col: '#f4efe8' },
         archer: { hp: 3, r: 15, col: '#f4efe8' },
+        spiky: { hp: 3, r: 16, col: '#ff9f43' },
+        mimic: { hp: 5, r: 20, col: '#c8843e' },
       }[kind];
-      return { kind, x, y, vx: 0, vy: 0, r: D.r, hp: D.hp * m, maxHp: D.hp * m, col: D.col, fly: !!D.fly, t: rand(0, 1), state: 'spawn', st: 0.6, flash: 0, squash: 0, face: 1, ph: rand(0, TAU), throwT: rand(1.5, 3), boss: false, kb: 0 };
+      const e = { kind, x, y, vx: 0, vy: 0, r: D.r, hp: D.hp * m, maxHp: D.hp * m, col: D.col, fly: !!D.fly, t: rand(0, 1), state: 'spawn', st: 0.6, flash: 0, squash: 0, face: 1, ph: rand(0, TAU), throwT: rand(1.5, 3), boss: false, kb: 0 };
+      if (kind === 'spiky') { const a = pick([0.785, 2.356, 3.927, 5.498]) + rand(-0.2, 0.2); e.dvx = Math.cos(a); e.dvy = Math.sin(a); e.spin = 0; }
+      return e;
+    }
+    // does a circle at (x, y) overlap a solid tile? (used by the bouncing spiky ball)
+    function overlapsSolid(room, x, y, r) {
+      const c0 = Math.floor((x - r) / T), c1 = Math.floor((x + r) / T), r0 = Math.floor((y - r) / T), r1 = Math.floor((y + r) / T);
+      for (let ty = r0; ty <= r1; ty++) for (let tx = c0; tx <= c1; tx++) {
+        if (!solid(room, tx, ty, false)) continue;
+        const nx = clamp(x, tx * T, tx * T + T), ny = clamp(y, ty * T, ty * T + T);
+        if (Math.hypot(x - nx, y - ny) < r) return true;
+      }
+      return false;
     }
     function spawnFor(room) {
       const f = run.floor;
@@ -728,6 +817,7 @@
       if (f >= 2) pool.push(['skeleton', f >= 3 ? 2 : 1]);
       if (f >= 4) pool.push(['archer', 2]);
       if (f >= 5) pool.push(['bigslime', 1.5]);
+      if (f >= 3) pool.push(['spiky', f >= 5 ? 1.6 : 1]);
       const tot = pool.reduce((s, [, w]) => s + w, 0);
       let bats = 0;
       for (let i = 0; i < n; i++) {
@@ -782,17 +872,30 @@
         if (e.boss) { updateBoss(e, dt); continue; }
         const dx = p.x - e.x, dy = p.y - e.y, d = Math.hypot(dx, dy) || 1;
         e.face = dx >= 0 ? 1 : -1;
-        if (e.kind === 'slime' || e.kind === 'bigslime') {
+        if (e.kind === 'spiky') {
+          // rolls in straight diagonal lines and bounces off walls and rocks
+          const sp = 125 + run.floor * 5;
+          e.spin += dt * sp / e.r * (e.dvx >= 0 ? 1 : -1);
+          const nx = e.x + e.dvx * sp * dt;
+          if (overlapsSolid(room, nx, e.y, e.r)) { e.dvx = -e.dvx; e.squash = 0.3; if (Math.abs(e.x - p.x) < 600) sfx.spike(); } else e.x = nx;
+          const ny = e.y + e.dvy * sp * dt;
+          if (overlapsSolid(room, e.x, ny, e.r)) { e.dvy = -e.dvy; e.squash = 0.3; } else e.y = ny;
+          e.vx = e.dvx * sp; e.vy = e.dvy * sp;
+          collide(e, room, false);
+          continue;
+        }
+        if (e.kind === 'slime' || e.kind === 'bigslime' || e.kind === 'mimic') {
           // hop, rest, hop
           e.st -= dt;
           if (e.state === 'go' && e.st <= 0) {
             const [fx, fy] = flowDir(e);
             const l = Math.hypot(fx, fy) || 1;
-            const sp = (e.kind === 'bigslime' ? 120 : 140) * (1 + run.floor * 0.03);
+            const sp = (e.kind === 'bigslime' ? 120 : e.kind === 'mimic' ? 175 : 140) * (1 + run.floor * 0.03);
             e.vx = (fx / l) * sp + rand(-20, 20); e.vy = (fy / l) * sp + rand(-20, 20);
             e.state = 'hop'; e.st = 0.42; e.squash = -0.35;
+            if (e.kind === 'mimic') sfx.chomp();
           } else if (e.state === 'hop' && e.st <= 0) {
-            e.state = 'go'; e.st = rand(0.55, 1.1) * (run.floor === 1 ? 1.4 : 1); e.vx = e.vy = 0; e.squash = 0.4;
+            e.state = 'go'; e.st = rand(0.55, 1.1) * (run.floor === 1 ? 1.4 : 1) * (e.kind === 'mimic' ? 0.7 : 1); e.vx = e.vy = 0; e.squash = 0.4;
           }
         } else if (e.kind === 'bat') {
           const sp = 105 + run.floor * 6;
@@ -955,6 +1058,27 @@
       sfx.poof();
       if (e.kind === 'bigslime') for (let i = 0; i < 2; i++) { const s = makeEnemy('slime', e.x + (i ? 16 : -16), e.y); s.st = 0.3; run.enemies.push(s); }
       const luck = hasRelic('clover') ? 1.5 : 1;
+      // combos: poof monsters quickly one after another
+      run.combo = run.comboT > 0 ? run.combo + 1 : 1;
+      run.comboT = 2.4;
+      run.bestCombo = Math.max(run.bestCombo, run.combo);
+      if (run.combo >= 3) {
+        floater(`Combo x${run.combo}!`, e.x, e.y - e.r - 34, run.combo >= 6 ? '#ff8cc6' : '#ffe066', 18 + Math.min(10, run.combo));
+        sfx.combo(run.combo);
+        drop('coin', e.x, e.y, true);
+        if (run.combo % 5 === 0) drop('biggem', e.x, e.y, true);
+      }
+      if (e.kind === 'mimic') {
+        for (let i = 0; i < 6; i++) drop(Math.random() < 0.2 ? 'biggem' : 'gem', e.x, e.y, true);
+        for (let i = 0; i < 4; i++) drop('coin', e.x, e.y, true);
+        if (Math.random() < 0.35) drop('key', e.x, e.y, true); else drop('bomb', e.x, e.y, true);
+        floater('Mimic poofed!', e.x, e.y - 40, '#ffd43b', 20);
+      }
+      if (!e.boss) {
+        if (Math.random() < 0.55 * luck) drop('coin', e.x, e.y, true);
+        if (hasRelic('piggy')) drop('coin', e.x, e.y, true);
+        if (Math.random() < 0.04 * luck) drop('bomb', e.x, e.y, true);
+      }
       if (e.boss) {
         run.bosses++;
         run.shake = 0.6;
@@ -962,6 +1086,8 @@
         for (const o of run.enemies) if (!o.dead) { o.dead = true; poof(o.x, o.y, o.r, false); }
         const gems = 15 + e.loop * 8;
         for (let i = 0; i < gems; i++) drop('gem', e.x + rand(-30, 30), e.y + rand(-30, 30), true);
+        for (let i = 0; i < 8; i++) drop('coin', e.x + rand(-30, 30), e.y + rand(-30, 30), true);
+        run.bombsLive = [];
         drop('container', e.x, e.y + 10, true);
         const rl = randomRelic();
         if (rl) run.room.objs.push({ type: 'relic', x: RW / 2 + 90, y: RH / 2, relic: rl, taken: false, bob: 0 });
@@ -1004,15 +1130,57 @@
       for (const o of room.objs) {
         o.bob = (o.bob || 0) + dt;
         const d = Math.hypot(o.x - p.x, o.y - p.y);
+        if (o.type === 'chest' && o.mimic && !o.open && d < 66) {
+          // surprise! the chest was a mimic
+          o.gone = true;
+          const m = makeEnemy('mimic', o.x, o.y);
+          m.st = 0.35; m.squash = -0.6;
+          run.enemies.push(m);
+          floater('Surprise!', o.x, o.y - 44, '#ff8a5a', 22);
+          sfx.chomp(); run.shake = 0.2;
+          for (let i = 0; i < 8; i++) puff(o.x, o.y, '#ffffff');
+          continue;
+        }
         if (o.type === 'chest' && !o.open && d < 40) openChest(o);
+        if (o.type === 'ware' && !o.sold && d < 30) buyWare(o);
+        if (o.type === 'merchant') { o.happy = Math.max(0, (o.happy || 0) - dt); o.near = d < 270; }
+        if (o.type === 'merchant' && d < 44) {
+          // the merchant is a solid little frog: push the player out
+          const k = (44 - d) / (d || 1);
+          p.x += (p.x - o.x) * k; p.y += (p.y - o.y) * k;
+        }
         if (o.type === 'relic' && !o.taken && d < 36) { o.taken = true; gainRelic(o.relic); for (let i = 0; i < 20; i++) spark(o.x, o.y - 30, RELICS.find((r) => r.id === o.relic).color); }
         if (o.type === 'stairs' && d < 30 && !run.trans && run.fadeDir === 0 && run.hp > 0) descend();
       }
+      room.objs = room.objs.filter((o) => !o.gone);
+    }
+    function buyWare(o) {
+      if (run.coins < o.price) {
+        if (!o.msgT || now - o.msgT > 2) { o.msgT = now; floater(`Need ${o.price} coins`, o.x, o.y - 50, '#ffd43b', 18); tone(220, 0.12, 'square', 0.03); }
+        return;
+      }
+      if (o.ware === 'heart' && run.hp >= run.maxHp) {
+        if (!o.msgT || now - o.msgT > 2) { o.msgT = now; floater('Hearts are full!', o.x, o.y - 50, '#ff8ca8', 18); }
+        return;
+      }
+      run.coins -= o.price;
+      o.sold = true;
+      sfx.buy();
+      for (let i = 0; i < 14; i++) spark(o.x, o.y - 20, '#ffd43b');
+      const merchant = run.room.objs.find((m) => m.type === 'merchant');
+      if (merchant) { merchant.happy = 1.6; merchant.say = pick(['Thank you!', 'Ribbit! Great pick!', 'Come again!', 'Hop hop hooray!']); }
+      if (o.ware === 'heart') { run.hp = Math.min(run.maxHp, run.hp + 2); floater('+♥', o.x, o.y - 30, '#ff6b8a', 22); }
+      else if (o.ware === 'bombs') { run.bombs += 2; floater('+2 bombs', o.x, o.y - 30, '#ff8a5a', 20); }
+      else if (o.ware === 'key') { run.keys++; floater('+key', o.x, o.y - 30, '#ffd43b', 20); }
+      else if (o.ware === 'container') { run.maxHp += 2; run.hp = Math.min(run.maxHp, run.hp + 2); floater('+1 heart!', o.x, o.y - 30, '#ff6b8a', 22); }
+      else if (o.ware === 'relic') { const rl = randomRelic(); if (rl) gainRelic(rl); else { run.bombs += 3; floater('+3 bombs', o.x, o.y - 30, '#ff8a5a', 20); } }
     }
     function collect(k) {
       if (k.type === 'heart') { if (run.hp >= run.maxHp) return; run.hp = Math.min(run.maxHp, run.hp + 2); sfx.heart(); floater('+♥', k.x, k.y - 20, '#ff6b8a', 20); }
       else if (k.type === 'container') { run.maxHp += 2; run.hp = run.maxHp; sfx.relic(); floater('+1 heart!', k.x, k.y - 24, '#ff6b8a', 22); }
       else if (k.type === 'key') { run.keys++; sfx.key(); floater('+key', k.x, k.y - 20, '#ffd43b', 20); }
+      else if (k.type === 'coin') { run.coins++; sfx.coin(); }
+      else if (k.type === 'bomb') { run.bombs++; sfx.key(); floater('+bomb', k.x, k.y - 20, '#ff8a5a', 18); }
       else {
         const v = (k.type === 'biggem' ? 5 : 1) * (1 + save.up.finder * 0.25);
         run.gemFrac += v;
@@ -1024,15 +1192,17 @@
         if (whole > 0) floater(`+${whole}`, k.x, k.y - 18, '#6ee7ff', 16);
       }
       k.got = true;
-      for (let i = 0; i < 4; i++) spark(k.x, k.y, k.type === 'heart' ? '#ff6b8a' : k.type === 'key' ? '#ffd43b' : '#6ee7ff');
+      for (let i = 0; i < 4; i++) spark(k.x, k.y, k.type === 'heart' ? '#ff6b8a' : k.type === 'key' || k.type === 'coin' ? '#ffd43b' : k.type === 'bomb' ? '#ff8a5a' : '#6ee7ff');
     }
     function openChest(o) {
       o.open = true;
       sfx.chest();
       const n = randi(3, 6) + (hasRelic('clover') ? 2 : 0);
       for (let i = 0; i < n; i++) drop(Math.random() < 0.15 ? 'biggem' : 'gem', o.x, o.y - 6, true);
+      for (let i = 0, c = randi(2, 4); i < c; i++) drop('coin', o.x, o.y - 6, true);
       if (Math.random() < 0.4 || run.hp <= 2) drop('heart', o.x, o.y - 6, true);
       if (Math.random() < 0.12) drop('key', o.x, o.y - 6, true);
+      else if (Math.random() < 0.3) drop('bomb', o.x, o.y - 6, true);
       for (let i = 0; i < 14; i++) spark(o.x, o.y - 10, '#ffd43b');
     }
 
@@ -1046,7 +1216,7 @@
         if (room.key) drop('key', RW / 2, RH / 2, true);
         else if (room.type === 'normal' && Math.random() < (hasRelic('clover') ? 0.5 : 0.33)) {
           const spot = freeSpot(room);
-          room.objs.push({ type: 'chest', x: spot.x, y: spot.y, open: false });
+          room.objs.push({ type: 'chest', x: spot.x, y: spot.y, open: false, mimic: run.floor >= 2 && Math.random() < 0.22 });
           for (let i = 0; i < 10; i++) puff(spot.x, spot.y, '#ffffff');
         }
       }
@@ -1069,7 +1239,7 @@
       if (!room.visited) { room.visited = true; run.rooms++; }
       for (const n of Object.values(room.nbs)) n.seen = true;
       room.seen = true;
-      run.enemies = []; run.shots = [];
+      run.enemies = []; run.shots = []; run.bombsLive = [];
       run.bubble = hasRelic('bubble');
       if (!room.cleared && !room.spawned) {
         room.spawned = true;
@@ -1077,9 +1247,9 @@
         if (room.type === 'boss' && run.hp < run.maxHp) { const [ddx, ddy] = fromDir ? DIRV[fromDir] : [0, 0]; drop('heart', run.p.x + ddx * 50, run.p.y + ddy * 50, false); }
         if (room.type === 'boss') { sfx.boss(); showBanner(run.bossBar.name, run.bossBar.sub, '#ff8a5a', 2.4); run.shake = 0.3; }
         if (run.enemies.length) sfx.door();
-        else room.cleared = true;
+        else roomCleared(); // nothing could spawn: still drop the key / open the stairs
       } else if (!room.cleared) {
-        room.cleared = true; // a safety net: never trap the player in an empty room
+        roomCleared(); // a safety net: never trap the player in an empty room (and never lose its key)
       }
       flow = null; flowT = 0;
     }
@@ -1090,21 +1260,36 @@
     const keys = {};
     const input = { x: 0, y: 0, attack: false, dash: false, aim: null, any: false };
     const touch = { on: false, stick: null, stickId: null, btn: {} };
-    let view = { s: 1, ox: 0, oy: 0 };
+    let view = { s: 1, ox: 0, oy: 0 }, hud = view;
     const mouse = { x: 0, y: 0, used: 0 };
     const toView = (e) => { const r = canvas.getBoundingClientRect(); return { x: (e.clientX - r.left - view.ox) / view.s, y: (e.clientY - r.top - view.oy) / view.s }; };
+    const toHud = (e) => { const r = canvas.getBoundingClientRect(); return { x: (e.clientX - r.left - hud.ox) / hud.s, y: (e.clientY - r.top - hud.oy) / hud.s }; };
     function readInput() {
       let x = 0, y = 0;
       if (keys.ArrowLeft || keys.KeyA) x -= 1;
       if (keys.ArrowRight || keys.KeyD) x += 1;
       if (keys.ArrowUp || keys.KeyW) y -= 1;
       if (keys.ArrowDown || keys.KeyS) y += 1;
-      if (touch.stick) { const s = touch.stick, dx = s.x - s.ox, dy = s.y - s.oy, d = Math.hypot(dx, dy); if (d > 8) { x = dx / Math.max(d, 46); y = dy / Math.max(d, 46); } }
+      if (touch.stick) { const s = touch.stick, dx = s.x - s.ox, dy = s.y - s.oy, d = Math.hypot(dx, dy); const SR = portrait ? 100 : 46; if (d > 8) { x = dx / Math.max(d, SR); y = dy / Math.max(d, SR); } }
       const d = Math.hypot(x, y);
       if (d > 1) { x /= d; y /= d; }
       input.x = x; input.y = y;
     }
-    const TBTN = { attack: { x: 900, y: 560, r: 52, label: 'SWORD', col: '#ff8a5a' }, dash: { x: 790, y: 592, r: 38, label: 'DASH', col: '#7af0ff' } };
+    const TBTN = { attack: { x: 900, y: 560, r: 52, label: 'SWORD', col: '#ff8a5a' }, dash: { x: 790, y: 592, r: 38, label: 'DASH', col: '#7af0ff' }, bomb: { x: 800, y: 480, r: 32, label: 'BOMB', col: '#ffd43b' } };
+    let portrait = false;
+    function layoutTouch() {
+      // landscape: buttons sit on the bottom-right of the room; portrait phones get big buttons under the room
+      if (portrait) {
+        const right = (W - view.ox) / view.s, bottom = Math.max(VH + 420, (H - view.oy) / view.s);
+        Object.assign(TBTN.attack, { x: right - 150, y: bottom - 280, r: 110 });
+        Object.assign(TBTN.dash, { x: right - 400, y: bottom - 160, r: 82 });
+        Object.assign(TBTN.bomb, { x: right - 380, y: bottom - 410, r: 66 });
+      } else {
+        Object.assign(TBTN.attack, { x: 900, y: 560, r: 52 });
+        Object.assign(TBTN.dash, { x: 790, y: 592, r: 38 });
+        Object.assign(TBTN.bomb, { x: 808, y: 492, r: 32 });
+      }
+    }
     const PAUSE_BTN = { x: 948, y: 12, w: 42, h: 42 }, MUTE_BTN = { x: 900, y: 12, w: 42, h: 42 };
     const inRect = (p, r) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
     window.addEventListener('keydown', (e) => {
@@ -1118,9 +1303,13 @@
       if (e.repeat) return;
       if (['KeyJ', 'Space', 'KeyZ'].includes(e.code)) { input.attack = true; input.aim = null; }
       if (['KeyK', 'ShiftLeft', 'ShiftRight', 'KeyX'].includes(e.code)) { input.dash = true; input.aim = null; }
+      if (['KeyL', 'KeyE', 'KeyB', 'KeyC'].includes(e.code)) input.bomb = true;
     });
     window.addEventListener('keyup', (e) => { keys[e.code] = false; });
-    window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+    const releaseAll = () => { for (const k in keys) keys[k] = false; mouse.down = false; touch.btn = {}; touch.stick = null; touch.stickId = null; };
+    window.addEventListener('blur', releaseAll);
+    window.addEventListener('pointerup', (e) => { if (e.pointerType === 'mouse') mouse.down = false; });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { releaseAll(); if (mode === 'play') pause(true); } });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     canvas.addEventListener('pointermove', (e) => {
       const p = toView(e);
@@ -1131,24 +1320,29 @@
       audio();
       if (mode !== 'play') return;
       const p = toView(e);
-      if (inRect(p, PAUSE_BTN)) { pause(true); return; }
-      if (inRect(p, MUTE_BTN)) { toggleMute(); return; }
+      const hp = toHud(e);
+      if (inRect(hp, PAUSE_BTN)) { pause(true); return; }
+      if (inRect(hp, MUTE_BTN)) { toggleMute(); return; }
       input.any = true;
       if (e.pointerType === 'mouse') {
         mouse.x = p.x; mouse.y = p.y; mouse.used = now;
         const aim = Math.atan2(p.y - RY - run.p.y, p.x - RX - run.p.x);
-        if (e.button === 2) { input.dash = true; input.aim = aim; } else { input.attack = true; input.aim = aim; }
+        if (e.button === 2) { input.dash = true; input.aim = aim; }
+        else if (e.button === 1) { e.preventDefault(); input.bomb = true; }
+        else { input.attack = true; input.aim = aim; mouse.down = true; }
         return;
       }
       touch.on = true;
       for (const [id, b] of Object.entries(TBTN)) {
         if (Math.hypot(p.x - b.x, p.y - b.y) < b.r + 14) {
           touch.btn[id] = e.pointerId;
-          if (id === 'attack') { input.attack = true; input.aim = null; } else { input.dash = true; input.aim = null; }
+          if (id === 'attack') { input.attack = true; input.aim = null; }
+          else if (id === 'bomb') input.bomb = true;
+          else { input.dash = true; input.aim = null; }
           return;
         }
       }
-      if (p.x < VW * 0.6) { touch.stick = { ox: p.x, oy: p.y, x: p.x, y: p.y }; touch.stickId = e.pointerId; try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } }
+      if (p.x < VW * 0.6 || (portrait && p.y > VH)) { touch.stick = { ox: p.x, oy: p.y, x: p.x, y: p.y }; touch.stickId = e.pointerId; try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } }
     });
     const endTouch = (e) => {
       if (e.pointerId === touch.stickId) { touch.stick = null; touch.stickId = null; }
@@ -1185,14 +1379,34 @@
         p.dashHit = new Set();
         sfx.dash();
       }
-      input.attack = false; input.dash = false;
+      // hold the sword button to charge a spin attack, let go to spin
+      const held = keys.KeyJ || keys.Space || keys.KeyZ || mouse.down || touch.btn.attack != null || (bot && bot.hold);
+      const need = CHARGE_T * (hasRelic('whirl') ? 0.5 : 1);
+      if (held && p.dashT <= 0 && p.spin <= 0) {
+        const before = p.charge;
+        if (p.swing <= 0) p.charge += dt;
+        if (before < need && p.charge >= need) { sfx.charged(); for (let i = 0; i < 10; i++) spark(p.x, p.y - 6, '#9ff0ff'); }
+      } else if (!held) {
+        if (p.charge >= need && p.dashT <= 0) startSpin();
+        p.charge = 0;
+      }
+      if (p.dashT > 0) p.charge = 0;
+      // bombs
+      if (input.bomb) {
+        if (run.bombs > 0 && run.bombsLive.length < 3) {
+          run.bombs--;
+          run.bombsLive.push({ x: p.x, y: p.y + 6, t: FUSE_T, big: hasRelic('boom') });
+          tone(300, 0.08, 'triangle', 0.04);
+        } else if (run.bombs <= 0 && (!run.bombMsgT || now - run.bombMsgT > 1.5)) { run.bombMsgT = now; floater('No bombs!', p.x, p.y - 44, '#ff8a5a', 18); }
+      }
+      input.attack = false; input.dash = false; input.bomb = false;
       if (p.dashT > 0) {
         p.dashT -= dt;
         p.vx = p.dashVx; p.vy = p.dashVy;
         if (Math.random() < 0.8) run.parts.push({ kind: 'ghost', x: p.x, y: p.y, life: 0.25, max: 0.25, dir: p.dir });
         if (hasRelic('comet')) for (const e of run.enemies) if (!e.dead && !p.dashHit.has(e) && dist(e, p) < e.r + p.r + 6) { p.dashHit.add(e); hurtEnemy(e, pDamage(), p.x, p.y); }
       } else {
-        const sp = pSpeed() * (p.swing > 0 ? 0.55 : 1);
+        const sp = pSpeed() * (p.swing > 0 ? 0.55 : p.spin > 0 ? 0.75 : p.charge > 0.15 ? 0.7 : 1);
         const k = Math.min(1, dt * 18);
         p.vx += (ix * sp - p.vx) * k; p.vy += (iy * sp - p.vy) * k;
       }
@@ -1220,6 +1434,23 @@
         }
         // knock bones out of the air
         for (const s of run.shots) if (s.enemy && Math.hypot(s.x - p.x, s.y - p.y) < rng + 6 && Math.abs(angDiff(Math.atan2(s.y - p.y, s.x - p.x), p.swingFace)) < 1.2) { s.dead = true; for (let i = 0; i < 4; i++) spark(s.x, s.y, '#ffffff'); }
+      }
+      // spin attack: hits everything around you once
+      if (p.spin > 0) {
+        p.spin -= dt;
+        const rng = pRange() * 1.3;
+        for (const e of run.enemies) {
+          if (e.dead || p.spinHit.has(e) || (e.z || 0) > 40) continue;
+          if (dist(e, p) < rng + e.r) { p.spinHit.add(e); hurtEnemy(e, pDamage() * 2, p.x, p.y, 380); }
+        }
+        for (const s of run.shots) if (s.enemy && Math.hypot(s.x - p.x, s.y - p.y) < rng + 6) { s.dead = true; for (let i = 0; i < 4; i++) spark(s.x, s.y, '#ffffff'); }
+        const [pc, pr] = tileOf(p.x, p.y);
+        for (let ty = pr - 1; ty <= pr + 1; ty++) for (let tx = pc - 1; tx <= pc + 1; tx++) if (tileAt(room, tx, ty) === 3 && Math.hypot((tx + 0.5) * T - p.x, (ty + 0.5) * T - p.y) < rng + 20) breakPot(room, tx, ty);
+      }
+      // spike traps
+      if (p.dashT <= 0) {
+        const [sc, sr] = tileOf(p.x, p.y + 8);
+        if (tileAt(room, sc, sr) === 6 && spikeState(sc, sr) === 'up') hurtPlayer(1, (sc + 0.5) * T, (sr + 0.5) * T);
       }
       // touching monsters
       for (const e of run.enemies) {
@@ -1257,6 +1488,74 @@
       if (Math.random() < 0.35 * luck) drop('gem', x, y, true);
       else if (Math.random() < 0.1 * luck) drop('heart', x, y, true);
       flow = null; flowT = 0;
+    }
+    function startSpin() {
+      const p = run.p;
+      p.spin = SPIN_T; p.spinHit = new Set(); p.swing = 0; p.charge = 0; p.squash = -0.3; p.spinA0 = p.face;
+      p.swingCd = Math.max(p.swingCd, 0.2);
+      run.spins++;
+      sfx.spin();
+      run.parts.push({ kind: 'ring', x: p.x, y: p.y - 4, life: 0.35, max: 0.35, r: pRange() * 0.8 });
+    }
+    // spike traps cycle: down, a warning wiggle, then up (neighbouring tiles take turns)
+    const SPIKE_CYCLE = 2.6;
+    function spikeState(c, r) {
+      const k = ((run.time + ((c + r) % 2) * 1.3) % SPIKE_CYCLE);
+      return k < 1.35 ? 'down' : k < 1.8 ? 'warn' : 'up';
+    }
+    function updateSpikes(dt) {
+      const room = run.room;
+      let rising = false;
+      for (const e of run.enemies) {
+        e.spikeT = Math.max(0, (e.spikeT || 0) - dt);
+        if (e.fly || e.boss || e.dead || e.state === 'spawn' || e.spikeT > 0) continue;
+        const [c, r] = tileOf(e.x, e.y + e.r * 0.4);
+        if (tileAt(room, c, r) === 6 && spikeState(c, r) === 'up') { e.spikeT = 0.9; hurtEnemy(e, 1, (c + 0.5) * T, (r + 0.5) * T, 200); }
+      }
+      // a soft click when spikes pop up
+      const prev = run.spikePrev || 0, cur = (run.time % 1.3);
+      if (cur < prev) rising = true;
+      run.spikePrev = cur;
+      if (rising && room.hasSpikes) sfx.spike();
+    }
+    function explode(b) {
+      const room = run.room;
+      const R = b.big ? 128 : 96;
+      sfx.boom();
+      run.shake = Math.max(run.shake, 0.4);
+      run.freeze = Math.max(run.freeze, 0.04);
+      run.parts.push({ kind: 'blast', x: b.x, y: b.y, life: 0.45, max: 0.45, r: R });
+      for (let i = 0; i < 26; i++) { const a = rand(0, TAU), s = rand(80, 300); run.parts.push({ kind: 'puff', x: b.x, y: b.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 30, life: rand(0.4, 0.8), max: 0.8, col: pick(['#ffd43b', '#ff9f43', '#ffffff', '#ffb070']), r: rand(8, 16) }); }
+      for (let i = 0; i < 14; i++) spark(b.x, b.y, '#ffe066');
+      const dmg = (3 + run.floor * 0.25) * (1 + save.up.sword * 0.15);
+      for (const e of run.enemies) if (!e.dead && dist(e, b) < R + e.r && !((e.z || 0) > 60)) hurtEnemy(e, dmg, b.x, b.y, 420);
+      for (const s of run.shots) if (s.enemy && dist(s, b) < R) s.dead = true;
+      // rocks crumble (sometimes hiding goodies) and pots break
+      const [bc, br] = tileOf(b.x, b.y);
+      let changed = false;
+      for (let ty = br - 2; ty <= br + 2; ty++) for (let tx = bc - 2; tx <= bc + 2; tx++) {
+        if (tx < 1 || ty < 1 || tx >= COLS - 1 || ty >= ROWS - 1) continue;
+        const cx = (tx + 0.5) * T, cy = (ty + 0.5) * T;
+        if (Math.hypot(cx - b.x, cy - b.y) > R + 18) continue;
+        const tl = room.tiles[ty][tx];
+        if (tl === 3) breakPot(room, tx, ty);
+        else if (tl === 2 && room.type !== 'boss') {
+          room.tiles[ty][tx] = 0; changed = true;
+          for (let i = 0; i < 12; i++) run.parts.push({ kind: 'shard', x: cx, y: cy, vx: rand(-200, 200), vy: rand(-260, -40), life: rand(0.5, 0.8), max: 0.8, col: pick(['#8a8f9a', '#6f7480', '#a8adb8']), rot: rand(0, TAU), g: 700 });
+          const roll = Math.random();
+          if (roll < 0.2) drop('gem', cx, cy, true); else if (roll < 0.3) drop('coin', cx, cy, true); else if (roll < 0.34) drop('biggem', cx, cy, true);
+        }
+      }
+      if (changed) { roomCache.delete(room); flow = null; flowT = 0; }
+    }
+    function updateBombs(dt) {
+      for (const b of run.bombsLive) {
+        b.t -= dt;
+        const tick = Math.floor(b.t * (b.t < 0.5 ? 12 : 5));
+        if (tick !== b.tick) { b.tick = tick; sfx.fuse(); }
+        if (b.t <= 0) { b.done = true; explode(b); }
+      }
+      run.bombsLive = run.bombsLive.filter((b) => !b.done);
     }
     function hurtPlayer(dmg, fx, fy) {
       const p = run.p;
@@ -1371,7 +1670,9 @@
       $('r-gems').textContent = r.gems;
       $('r-rooms').textContent = r.rooms;
       relicRow($('r-relics'), r.relics);
-      $('r-note').textContent = `+${r.gems} gems saved for camp (you have ${save.gems}).` + (r.bosses && deepest >= 4 ? ' New shortcut unlocked!' : '');
+      const newShortcut = save.bossBest > r.bossBestBefore && save.bossBest >= 3 && r.bossBestBefore < 9;
+      $('r-note').textContent = `+${r.gems} gems saved for camp (you have ${save.gems}).` + (newShortcut ? ' New shortcut unlocked!' : '');
+      $('r-extra').textContent = `Best combo: x${Math.max(1, r.bestCombo)}  ·  Spin attacks: ${r.spins}  ·  Coins left: ${r.coins}`;
       $('r-spuds').textContent = Potato.inHub && spuds > 0 ? `+${spuds} Spuds` : '';
       showOverlay('results');
       if (stars >= 1) confetti();
@@ -1403,11 +1704,17 @@
     function updateFx(dt) {
       for (const p of run.parts) {
         p.life -= dt;
-        if (p.vx != null) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= Math.pow(0.08, dt); p.vy *= Math.pow(0.08, dt); }
+        if (p.vx != null) { p.x += p.vx * dt; p.y += p.vy * dt; if (p.kind !== "mote") { p.vx *= Math.pow(0.08, dt); p.vy *= Math.pow(0.08, dt); } }
         if (p.g) p.vy += p.g * dt;
         if (p.rot != null) p.rot += dt * 6;
       }
       run.parts = run.parts.filter((p) => p.life > 0);
+      // ambient motes drifting through the room (fireflies, crystal glints, embers, stars)
+      if (run.room && run.parts.length < 400 && Math.random() < dt * 7) {
+        const th = themeFor(run.floor);
+        const col = { moss: '#c8ff8a', crystal: '#9ff0ff', bones: '#ffb070', stars: '#fff0a0' }[th.deco] || '#ffffff';
+        run.parts.push({ kind: 'mote', x: rand(T, RW - T), y: rand(T, RH - T), vx: rand(-12, 12), vy: rand(-22, -6), life: rand(2.5, 4.5), max: 4.5, col, size: rand(1.2, 2.6) });
+      }
       for (const f of run.floaters) { f.life -= dt; f.y -= dt * 40; }
       run.floaters = run.floaters.filter((f) => f.life > 0);
       if (run.banner) { run.banner.t += dt; if (run.banner.t > run.banner.life) run.banner = null; }
@@ -1446,7 +1753,11 @@
       if (bot) botThink(dt);
       updatePlayer(dt);
       updateEnemies(dt);
+      updateSpikes(dt);
+      updateBombs(dt);
       updateShots(dt);
+      run.comboT = Math.max(0, run.comboT - dt);
+      if (run.comboT <= 0) run.combo = 0;
       const before = run.enemies.length;
       run.enemies = run.enemies.filter((e) => !e.dead);
       if (before > 0 && run.enemies.length === 0 && !run.room.cleared) roomCleared();
@@ -1576,6 +1887,8 @@
         else if (id === 'heart') heart(26, 27, 18, '#ff6b8a');
         else if (id === 'wind') { heart(26, 27, 16, '#8ef0a0'); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(26, 26, 22, -0.5, 1.6); ctx.stroke(); }
         else if (id === 'finder') { gemShape(26, 26, 16, '#6ee7ff'); }
+        else if (id === 'bombs') { bombShape(20, 30, 11, 0, true); bombShape(33, 33, 9, 0); }
+        else if (id === 'purse') { coinShape(19, 30, 11); coinShape(31, 24, 11); coinShape(27, 36, 10); }
         else drawRelicIcon(map[id] || 'spark', 26, 26, 1.3, 0.5);
       } catch (e) { /* icon only */ }
       ctx = keep;
@@ -1635,50 +1948,94 @@
     function paintRoom(room) {
       const th = themeFor(run.floor);
       const R = srand(Math.floor(room.floorSeed * 1000) + 7);
-      // floor tiles
+      // floor tiles: beveled stones with a little colour variety
       for (let y = 1; y < ROWS - 1; y++) for (let x = 1; x < COLS - 1; x++) {
         const px = x * T, py = y * T;
-        ctx.fillStyle = (x + y) % 2 ? th.a : th.b;
+        const base = (x + y) % 2 ? th.a : th.b;
+        ctx.fillStyle = shade(base, -18);
         ctx.fillRect(px, py, T, T);
-        // little stone bricks inside each tile
-        ctx.fillStyle = 'rgba(255,255,255,0.05)';
-        ctx.fillRect(px + 2, py + 2, T - 4, 3);
-        ctx.fillStyle = 'rgba(0,0,0,0.12)';
-        ctx.fillRect(px, py + T - 2, T, 2); ctx.fillRect(px + T - 2, py, 2, T);
-        if (R() < 0.25) { ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 1.5; ctx.beginPath(); const sx = px + R() * T, sy = py + R() * T; ctx.moveTo(sx, sy); ctx.lineTo(sx + R() * 14 - 7, sy + R() * 14); ctx.lineTo(sx + R() * 18 - 9, sy + R() * 20); ctx.stroke(); }
+        const j = Math.round(R() * 14 - 7);
+        rr(px + 2, py + 2, T - 4, T - 4, 6);
+        ctx.fillStyle = lin(px, py, px + T, py + T, [[0, shade(base, 10 + j)], [1, shade(base, -6 + j)]]);
+        ctx.fill();
+        // bevel: light top-left lip, dark bottom-right lip
+        ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fillRect(px + 5, py + 3, T - 10, 2.5);
+        ctx.fillStyle = 'rgba(0,0,0,0.13)'; ctx.fillRect(px + 5, py + T - 5, T - 10, 2.5);
+        if (R() < 0.22) { ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 1.5; ctx.beginPath(); const sx = px + 8 + R() * (T - 16), sy = py + 8 + R() * (T - 16); ctx.moveTo(sx, sy); ctx.lineTo(sx + R() * 14 - 7, sy + R() * 12); ctx.lineTo(sx + R() * 18 - 9, sy + R() * 18); ctx.stroke(); }
+        if (R() < 0.12) { C(px + 10 + R() * (T - 20), py + 10 + R() * (T - 20), 2 + R() * 2, 'rgba(0,0,0,0.12)'); }
+      }
+      // the frog shop gets a cosy round rug and some crates
+      if (room.type === 'shop') {
+        E(RW / 2, RH / 2 + 10, 250, 120, '#7a3a4a');
+        E(RW / 2, RH / 2 + 10, 236, 108, '#b8505e');
+        ctx.strokeStyle = '#ffd43b'; ctx.lineWidth = 4; ctx.setLineDash([10, 8]); ctx.beginPath(); ctx.ellipse(RW / 2, RH / 2 + 10, 214, 94, 0, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+        E(RW / 2, RH / 2 + 10, 150, 56, 'rgba(255,212,59,0.18)');
+        for (const [cx, cy] of [[T * 2.1, T * 1.9], [RW - T * 2.1, T * 1.9]]) {
+          E(cx, cy + 24, 26, 7, 'rgba(0,0,0,0.3)');
+          rr(cx - 24, cy - 18, 48, 40, 4); ctx.fillStyle = lin(0, cy - 18, 0, cy + 22, [[0, '#c8843e'], [1, '#8a5420']]); ctx.fill(); S('#4a2a10', 2);
+          ctx.beginPath(); ctx.moveTo(cx - 24, cy - 18); ctx.lineTo(cx + 24, cy + 22); ctx.moveTo(cx + 24, cy - 18); ctx.lineTo(cx - 24, cy + 22); S('rgba(74,42,16,0.6)', 3);
+        }
       }
       // decorations
       for (const d of room.deco) {
         if (room.tiles[d.y][d.x] !== 0) continue;
+        if (room.type === 'shop' && Math.abs(d.y - 4.5) < 2.5) continue;
         const px = (d.x + 0.2 + d.k * 0.6) * T, py = (d.y + 0.3 + ((d.k * 7) % 1) * 0.5) * T;
-        if (th.deco === 'moss') { E(px, py, 10 * d.s, 5 * d.s, 'rgba(110,190,90,0.35)'); E(px + 6, py - 2, 6 * d.s, 3 * d.s, 'rgba(140,220,110,0.35)'); }
-        else if (th.deco === 'crystal') { P([[px - 4 * d.s, py + 4], [px, py - 10 * d.s], [px + 4 * d.s, py + 4]], 'rgba(122,240,255,0.45)'); P([[px + 4, py + 4], [px + 8, py - 5 * d.s], [px + 11, py + 4]], 'rgba(180,140,255,0.45)'); }
-        else if (th.deco === 'bones') { ctx.strokeStyle = 'rgba(255,245,225,0.45)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(px - 8, py); ctx.lineTo(px + 8, py + 3); ctx.stroke(); C(px - 9, py - 1, 2.5, 'rgba(255,245,225,0.45)'); C(px + 9, py + 4, 2.5, 'rgba(255,245,225,0.45)'); }
-        else { twinkle(px, py, 4 * d.s, 'rgba(255,230,120,0.4)'); }
+        if (th.deco === 'moss') { E(px, py, 11 * d.s, 5.5 * d.s, 'rgba(90,170,70,0.45)'); E(px + 6, py - 2, 7 * d.s, 3.5 * d.s, 'rgba(140,220,110,0.5)'); C(px - 5, py - 2, 1.8, 'rgba(255,240,120,0.6)'); }
+        else if (th.deco === 'crystal') { P([[px - 4 * d.s, py + 4], [px, py - 12 * d.s], [px + 4 * d.s, py + 4]], 'rgba(122,240,255,0.6)'); P([[px, py - 12 * d.s], [px + 4 * d.s, py + 4], [px + 1, py + 4]], 'rgba(255,255,255,0.35)'); P([[px + 4, py + 4], [px + 8, py - 6 * d.s], [px + 11, py + 4]], 'rgba(180,140,255,0.6)'); }
+        else if (th.deco === 'bones') { ctx.strokeStyle = 'rgba(255,245,225,0.5)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(px - 8, py); ctx.lineTo(px + 8, py + 3); ctx.stroke(); C(px - 9, py - 1, 2.5, 'rgba(255,245,225,0.5)'); C(px + 9, py + 4, 2.5, 'rgba(255,245,225,0.5)'); }
+        else { twinkle(px, py, 5 * d.s, 'rgba(255,230,120,0.5)'); C(px + 9, py + 5, 1.5, 'rgba(255,255,255,0.5)'); }
       }
-      // soft shadow along the top wall
-      ctx.fillStyle = lin(0, T, 0, T + 26, [[0, 'rgba(0,0,0,0.35)'], [1, 'rgba(0,0,0,0)']]);
-      ctx.fillRect(T, T, RW - T * 2, 26);
-      // walls
+      // spike plates (the spikes themselves pop up live)
+      for (let y = 1; y < ROWS - 1; y++) for (let x = 1; x < COLS - 1; x++) {
+        if (room.tiles[y][x] !== 6) continue;
+        const px = x * T, py = y * T;
+        rr(px + 4, py + 4, T - 8, T - 8, 6); ctx.fillStyle = lin(px, py, px + T, py + T, [[0, '#7a808c'], [1, '#4a4f5a']]); ctx.fill(); S('rgba(0,0,0,0.45)', 2);
+        for (const [hx, hy] of [[0.3, 0.3], [0.7, 0.3], [0.3, 0.7], [0.7, 0.7], [0.5, 0.5]]) { E(px + hx * T, py + hy * T, 4.5, 3.5, '#22252c'); }
+        for (const [hx, hy] of [[8, 8], [T - 8, 8], [8, T - 8], [T - 8, T - 8]]) C(px + hx, py + hy, 1.6, '#a0a6b0');
+      }
+      // walls: bricks with a little colour variety
       for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
         const t = room.tiles[y][x];
         if (t !== 1 && t !== 4) continue;
         const px = x * T, py = y * T;
-        ctx.fillStyle = th.wall;
+        ctx.fillStyle = shade(th.wall, -12);
         ctx.fillRect(px, py, T, T);
-        // bricks
-        ctx.fillStyle = th.wallTop;
-        for (let by = 0; by < 4; by++) for (let bx = 0; bx < 2; bx++) {
+        ctx.save(); ctx.beginPath(); ctx.rect(px, py, T, T); ctx.clip();
+        for (let by = 0; by < 4; by++) for (let bx = -1; bx < 2; bx++) {
           const ox = (by % 2) * (T / 4);
-          rr(px + bx * (T / 2) + ox - (by % 2 ? T / 4 : 0) + 2, py + by * (T / 4) + 2, T / 2 - 4, T / 4 - 4, 3);
-          ctx.fill();
+          const bxp = px + bx * (T / 2) + ox + 2, byp = py + by * (T / 4) + 2;
+          if (bxp + T / 2 - 4 <= px || bxp >= px + T) continue;
+          const j = Math.round(R() * 18 - 9);
+          rr(bxp, byp, T / 2 - 4, T / 4 - 4, 3);
+          ctx.fillStyle = shade(th.wallTop, j - 6); ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(bxp + 2, byp, T / 2 - 8, 2);
         }
-        ctx.fillStyle = 'rgba(0,0,0,0.18)';
-        ctx.fillRect(px, py + T - 3, T, 3);
+        ctx.restore();
       }
-      // inner wall edge highlight
-      ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 3;
-      ctx.strokeRect(T - 1.5, T - 1.5, RW - T * 2 + 3, RH - T * 2 + 3);
+      // the top wall has a front face (we look at it from the south), which gives the room depth
+      const faceY = T * 0.42, fx0 = T * 0.75, fw = RW - T * 1.5;
+      ctx.save(); ctx.beginPath(); ctx.rect(fx0, faceY, fw, T - faceY); ctx.clip();
+      ctx.fillStyle = lin(0, faceY, 0, T, [[0, shade(th.wall, 8)], [1, shade(th.wall, -30)]]);
+      ctx.fillRect(fx0, faceY, fw, T - faceY);
+      for (let row = 0; row < 2; row++) for (let i = -1; i < 30; i++) {
+        const bx = fx0 + i * 34 - (row % 2) * 17, by = faceY + 3 + row * 15;
+        rr(bx, by, 30, 12, 2.5); ctx.fillStyle = shade(th.wallTop, -18 - row * 10 + Math.round(R() * 10)); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(bx + 2, by, 26, 1.5);
+      }
+      ctx.restore();
+      ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fillRect(fx0, faceY - 2, fw, 3);
+      // side walls get a thin inner face too, and the bottom wall a lit lip
+      ctx.fillStyle = lin(T - 10, 0, T, 0, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.35)']]); ctx.fillRect(T - 10, T, 10, RH - T * 2);
+      ctx.fillStyle = lin(RW - T, 0, RW - T + 10, 0, [[0, 'rgba(0,0,0,0.35)'], [1, 'rgba(0,0,0,0)']]); ctx.fillRect(RW - T, T, 10, RH - T * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fillRect(fx0, RH - T, fw, 3);
+      // shadows cast onto the floor
+      ctx.fillStyle = lin(0, T, 0, T + 34, [[0, 'rgba(0,0,0,0.45)'], [1, 'rgba(0,0,0,0)']]);
+      ctx.fillRect(T, T, RW - T * 2, 34);
+      ctx.fillStyle = lin(T, 0, T + 22, 0, [[0, 'rgba(0,0,0,0.3)'], [1, 'rgba(0,0,0,0)']]); ctx.fillRect(T, T, 22, RH - T * 2);
+      ctx.fillStyle = lin(RW - T, 0, RW - T - 22, 0, [[0, 'rgba(0,0,0,0.3)'], [1, 'rgba(0,0,0,0)']]); ctx.fillRect(RW - T - 22, T, 22, RH - T * 2);
+      // outer rim
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 4; ctx.strokeRect(2, 2, RW - 4, RH - 4);
       // rocks and pots
       for (let y = 1; y < ROWS - 1; y++) for (let x = 1; x < COLS - 1; x++) {
         const t = room.tiles[y][x];
@@ -1725,7 +2082,24 @@
       const nb = room.nbs[d];
       if (nb.type === 'boss') { C(0, -30, 7, '#ff6b6b'); C(-3, -31, 1.5, '#fff'); C(3, -31, 1.5, '#fff'); }
       if (nb.type === 'treasure') star(0, -31, 7, '#ffd43b');
+      if (nb.type === 'shop') coinShape(0, -31, 7);
       ctx.restore();
+    }
+    function drawSpikesLive(room) {
+      if (!room.hasSpikes) return;
+      for (let y = 1; y < ROWS - 1; y++) for (let x = 1; x < COLS - 1; x++) {
+        if (room.tiles[y][x] !== 6) continue;
+        const st = spikeState(x, y);
+        if (st === 'down') continue;
+        const px = x * T, py = y * T;
+        const h = st === 'warn' ? 5 + Math.sin(now * 40) * 2 : 18;
+        for (const [hx, hy] of [[0.3, 0.3], [0.7, 0.3], [0.3, 0.7], [0.7, 0.7], [0.5, 0.5]]) {
+          const sx = px + hx * T, sy = py + hy * T + 2;
+          P([[sx - 5, sy], [sx, sy - h], [sx + 5, sy]], '#dfe4ea');
+          P([[sx, sy - h], [sx + 5, sy], [sx + 1, sy]], '#9aa2ae');
+        }
+        if (st === 'up') { ctx.fillStyle = 'rgba(255,90,90,0.12)'; rr(px + 4, py + 4, T - 8, T - 8, 6); ctx.fill(); }
+      }
     }
     function drawDoorsLive(room, t) {
       for (const [d, [x, y]] of Object.entries(DOORS)) {
@@ -1782,8 +2156,10 @@
           P([[x, y + 34 + Math.sin(t * 4) * 3], [x - 8, y + 24 + Math.sin(t * 4) * 3], [x + 8, y + 24 + Math.sin(t * 4) * 3]], '#ffe066');
           label('DOWN', x, y - 34, 12, '#ffe066', 'center', 900);
         } else if (o.type === 'chest') {
-          const x = o.x, y = o.y;
-          E(x, y + 16, 22, 6, 'rgba(0,0,0,0.3)');
+          // a mimic gives itself away with a tiny wiggle now and then
+          const wig = o.mimic && !o.open && ((t + o.x * 0.01) % 3.2) < 0.45 ? Math.sin(t * 50) * 2.2 : 0;
+          const x = o.x + wig, y = o.y;
+          E(o.x, y + 16, 22, 6, 'rgba(0,0,0,0.3)');
           rr(x - 20, y - 6, 40, 22, 4); ctx.fillStyle = lin(0, y - 6, 0, y + 16, [[0, '#c8843e'], [1, '#8a5420']]); ctx.fill(); S('#4a2a10', 2);
           if (o.open) {
             rr(x - 20, y - 22, 40, 12, 4); ctx.fillStyle = '#a86a30'; ctx.fill(); S('#4a2a10', 2);
@@ -1794,6 +2170,25 @@
             if (tw) twinkle(x + 14, y - 14, 5, '#fff');
           }
           ctx.fillStyle = '#ffd43b'; ctx.fillRect(x - 3, y - 8, 6, 9); ctx.fillRect(x - 20, y - 2, 40, 3);
+        } else if (o.type === 'merchant') {
+          drawMerchant(o, t);
+        } else if (o.type === 'ware' && !o.sold) {
+          const x = o.x, y = o.y, by = y - 26 + Math.sin(t * 2.5 + o.bob) * 4;
+          // little stone pedestal
+          E(x, y + 14, 26, 8, 'rgba(0,0,0,0.3)');
+          rr(x - 20, y - 4, 40, 20, 5); ctx.fillStyle = lin(0, y - 4, 0, y + 16, [[0, '#b8b0c8'], [1, '#7a7290']]); ctx.fill(); S('rgba(0,0,0,0.4)', 2);
+          rr(x - 24, y - 10, 48, 8, 4); ctx.fillStyle = '#cfc8dc'; ctx.fill(); S('rgba(0,0,0,0.4)', 2);
+          ctx.save(); ctx.globalCompositeOperation = 'lighter'; C(x, by, 28, rad(x, by, 2, 28, [[0, 'rgba(255,220,140,0.35)'], [1, 'rgba(0,0,0,0)']])); ctx.restore();
+          if (o.ware === 'heart') heart(x, by, 13, '#ff5e7e');
+          else if (o.ware === 'bombs') { bombShape(x - 8, by + 2, 9, t); bombShape(x + 9, by + 4, 9, t); }
+          else if (o.ware === 'key') keyShape(x, by, 14);
+          else if (o.ware === 'container') heart(x, by, 16, '#ff5e7e', '#ffd43b');
+          else if (o.ware === 'relic') { C(x, by, 15, 'rgba(20,16,30,0.8)'); ctx.beginPath(); ctx.arc(x, by, 15, 0, TAU); S('#b48cff', 2.5); outlined('?', x, by + 1, 22, '#ffe066', 'rgba(0,0,0,0.6)', 4); }
+          // price tag
+          const can = run.coins >= o.price;
+          rr(x - 26, y + 22, 52, 22, 11); ctx.fillStyle = can ? 'rgba(20,16,30,0.85)' : 'rgba(60,20,30,0.85)'; ctx.fill();
+          coinShape(x - 12, y + 33, 7);
+          outlined(String(o.price), x + 7, y + 34, 16, can ? '#ffe066' : '#ff9a9a', 'rgba(0,0,0,0.6)', 3);
         } else if (o.type === 'relic' && !o.taken) {
           const x = o.x, y = o.y;
           E(x, y + 18, 26, 8, 'rgba(0,0,0,0.3)');
@@ -1808,6 +2203,63 @@
       }
     }
 
+    function drawMerchant(o, t) {
+      const x = o.x, y = o.y;
+      const hop = o.happy > 0 ? Math.abs(Math.sin(o.happy * 9)) * 10 : 0;
+      const breathe = Math.sin(t * 2.2) * 0.04;
+      E(x, y + 26, 34, 9, 'rgba(0,0,0,0.3)');
+      ctx.save();
+      ctx.translate(x, y + 24 - hop);
+      ctx.scale(1 + breathe, 1 - breathe);
+      // backpack full of goodies
+      rr(-30, -46, 26, 34, 6); ctx.fillStyle = '#8a5420'; ctx.fill(); S('#4a2a10', 2);
+      C(-24, -48, 6, '#ffd43b'); C(-14, -50, 5, '#6ee7ff');
+      // body
+      ctx.beginPath(); ctx.ellipse(0, -18, 26, 22, 0, 0, TAU);
+      ctx.fillStyle = rad(0, -18, 3, 30, [[0, '#9be86a'], [1, '#3f9a3a']], -8, -26); ctx.fill(); S('rgba(0,0,0,0.4)', 2);
+      E(0, -10, 16, 12, '#e8f7c0');
+      // feet
+      E(-14, 0, 9, 4, '#3f9a3a'); E(14, 0, 9, 4, '#3f9a3a');
+      // head with big eyes
+      ctx.beginPath(); ctx.ellipse(0, -42, 24, 16, 0, 0, TAU); ctx.fillStyle = rad(0, -42, 3, 26, [[0, '#a8f070'], [1, '#4aa840']], -6, -50); ctx.fill(); S('rgba(0,0,0,0.4)', 2);
+      for (const s of [-1, 1]) {
+        C(s * 12, -54, 9, '#a8f070'); ctx.beginPath(); ctx.arc(s * 12, -54, 9, 0, TAU); S('rgba(0,0,0,0.4)', 1.5);
+        const blink = (t % 4.2) < 0.13;
+        if (blink) { ctx.beginPath(); ctx.moveTo(s * 12 - 5, -54); ctx.lineTo(s * 12 + 5, -54); S('#1d1a24', 2); }
+        else { C(s * 12, -54, 6, '#fff'); C(s * 12 + 1, -53, 3.5, '#1d1a24'); C(s * 12 + 2, -55, 1.3, '#fff'); }
+      }
+      // smile + cheeks
+      ctx.beginPath(); ctx.arc(0, -42, 11, 0.2, Math.PI - 0.2); S('#1d1a24', 2);
+      E(-16, -38, 4, 2.5, 'rgba(255,120,140,0.6)'); E(16, -38, 4, 2.5, 'rgba(255,120,140,0.6)');
+      // a little traveller's hat
+      E(0, -64, 20, 5, '#5a3a8a');
+      rr(-11, -78, 22, 15, 4); ctx.fillStyle = '#7a4ab8'; ctx.fill(); S('rgba(0,0,0,0.4)', 1.5);
+      ctx.fillStyle = '#ffd43b'; ctx.fillRect(-11, -68, 22, 3);
+      ctx.restore();
+      // speech bubble
+      const msg = o.happy > 0 ? o.say : o.near ? 'Step on a goodie to buy it!' : null;
+      if (msg) {
+        ctx.font = '800 15px Nunito, sans-serif';
+        const w = ctx.measureText(msg).width + 24;
+        const bx = clamp(x + 40, 70, RW - 70 - w), by = y - 74;
+        rr(bx, by - 15, w, 30, 15); ctx.fillStyle = '#ffffff'; ctx.fill(); S('rgba(0,0,0,0.35)', 2);
+        P([[bx + 12, by + 13], [bx + 2, by + 26], [bx + 26, by + 13]], '#ffffff');
+        label(msg, bx + w / 2, by + 1, 15, '#2a2040');
+      }
+    }
+    function drawBombsLive(t) {
+      for (const b of run.bombsLive) {
+        const k = b.t / FUSE_T;
+        const pulse = 1 + (1 - k) * 0.25 * Math.abs(Math.sin(t * (k < 0.35 ? 30 : 12)));
+        ctx.save(); ctx.translate(b.x, b.y); ctx.scale(pulse, pulse);
+        bombShape(0, 0, b.big ? 15 : 12, t, true);
+        if (k < 0.35 && Math.floor(t * 16) % 2 === 0) { ctx.globalCompositeOperation = 'lighter'; C(0, 0, b.big ? 15 : 12, 'rgba(255,90,60,0.55)'); }
+        ctx.restore();
+        // the blast range, so kids can see what will be hit
+        ctx.strokeStyle = `rgba(255,160,80,${0.15 + (1 - k) * 0.3})`; ctx.lineWidth = 2; ctx.setLineDash([8, 8]);
+        ctx.beginPath(); ctx.ellipse(b.x, b.y, b.big ? 128 : 96, (b.big ? 128 : 96) * 0.9, 0, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+      }
+    }
     function drawRelicIcon(id, x, y, s, t) {
       const r = RELICS.find((q) => q.id === id) || RELICS[0];
       ctx.save();
@@ -1828,6 +2280,9 @@
         case 'thorns': for (let i = 0; i < 8; i++) { const a = (i * TAU) / 8; P([[Math.cos(a) * 5, Math.sin(a) * 5], [Math.cos(a + 0.2) * 12, Math.sin(a + 0.2) * 12], [Math.cos(a + 0.4) * 5, Math.sin(a + 0.4) * 5]], '#c0a070'); } C(0, 0, 6, '#8a6a40'); break;
         case 'comet': ctx.beginPath(); ctx.moveTo(-10, 8); ctx.lineTo(3, -3); S('rgba(255,176,240,0.7)', 5); C(5, -5, 5, '#ffb0f0'); C(4, -6, 2, '#fff'); break;
         case 'quick': P([[-6, -9], [6, -9], [0, 0]], '#ffd8a8'); P([[-6, 9], [6, 9], [0, 0]], '#ffd8a8'); ctx.beginPath(); ctx.moveTo(-6, -9); ctx.lineTo(6, -9); ctx.lineTo(-6, 9); ctx.lineTo(6, 9); ctx.closePath(); S('#8a6a40', 1.5); break;
+        case 'boom': bombShape(-1, 2, 7.5, 0, true); break;
+        case 'piggy': E(0, 2, 10, 8, '#ffb3c7'); C(7, 0, 4, '#ff8cb0'); C(6, -0.5, 0.9, '#a04060'); C(8.5, -0.5, 0.9, '#a04060'); C(-3, -2, 1.3, '#1d1a24'); P([[-6, -5], [-3, -10], [-1, -5]], '#ff8cb0'); ctx.fillStyle = '#a04060'; ctx.fillRect(-3, -7, 5, 1.6); ctx.fillStyle = '#ff8cb0'; ctx.fillRect(-7, 8, 3, 4); ctx.fillRect(3, 8, 3, 4); break;
+        case 'whirl': for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(0, 0, 4 + i * 3.5, i * 2.1, i * 2.1 + 3.6); S(i === 1 ? '#ffffff' : '#9ff0ff', 2); } break;
         default: break;
       }
       ctx.restore();
@@ -1886,8 +2341,20 @@
       ctx.translate(x, y - bob);
       ctx.scale(sc, sc);
       let a;
-      if (p.swing > 0) { const k = 1 - p.swing / 0.17; a = p.swingFace - 1.2 + k * 2.4; }
+      const charge = p.charge || 0, need = CHARGE_T * (hasRelic('whirl') ? 0.5 : 1);
+      if ((p.spin || 0) > 0) a = (p.spinA0 || 0) + (1 - p.spin / SPIN_T) * TAU * 1.15;
+      else if (p.swing > 0) { const k = 1 - p.swing / 0.17; a = p.swingFace - 1.2 + k * 2.4; }
+      else if (charge > 0.15) a = dir > 0 ? -1.9 : Math.PI + 1.9;
       else a = dir > 0 ? -0.9 : Math.PI + 0.9;
+      if (charge > 0.15) {
+        const full = charge >= need;
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        const rr2 = 16 + Math.min(1, charge / need) * 14;
+        C(0, -4, rr2, rad(0, -4, 2, rr2, [[0, full ? 'rgba(160,240,255,0.55)' : 'rgba(160,240,255,0.25)'], [1, 'rgba(160,240,255,0)']]));
+        ctx.restore();
+        ctx.strokeStyle = full ? (Math.floor(now * 12) % 2 ? '#ffffff' : '#9ff0ff') : 'rgba(159,240,255,0.8)'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(0, -4, 26, -Math.PI / 2, -Math.PI / 2 + TAU * Math.min(1, charge / need)); ctx.stroke();
+      }
       ctx.rotate(a);
       ctx.translate(12, 0);
       const len = 22 * (hasRelic('blade') ? 1.3 : 1);
@@ -1900,6 +2367,17 @@
     }
 
     function drawSwingArc(p) {
+      if (p.spin > 0) {
+        const k = 1 - p.spin / SPIN_T, rng = pRange() * 1.3;
+        const a1 = p.spinA0 + k * TAU * 1.15, a0 = a1 - Math.min(TAU * 0.95, k * TAU * 1.15);
+        ctx.save(); ctx.translate(p.x, p.y - 4);
+        ctx.beginPath(); ctx.arc(0, 0, rng, a0, a1); ctx.arc(0, 0, rng * 0.35, a1, a0, true); ctx.closePath();
+        ctx.fillStyle = `rgba(160,240,255,${0.45 * (1 - k * 0.6)})`; ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(0, 0, rng, a1 - 0.9, a1); ctx.stroke();
+        ctx.restore();
+        return;
+      }
       if (p.swing <= 0) return;
       const k = 1 - p.swing / 0.17;
       const rng = pRange();
@@ -1938,7 +2416,9 @@
       ctx.translate(0, -z);
       const flash = e.flash > 0;
       const sq = e.squash || 0;
-      if (e.kind === 'slime' || e.kind === 'bigslime' || e.kind === 'king') drawSlime(e, t, sq, flash);
+      if (e.kind === 'spiky') drawSpiky(e, t, sq, flash);
+      else if (e.kind === 'mimic') drawMimic(e, t, sq, flash);
+      else if (e.kind === 'slime' || e.kind === 'bigslime' || e.kind === 'king') drawSlime(e, t, sq, flash);
       else if (e.kind === 'bat' || e.kind === 'queen') drawBat(e, t, flash);
       else drawSkeleton(e, t, flash);
       ctx.restore();
@@ -1979,6 +2459,49 @@
         ctx.beginPath(); ctx.moveTo(-r * 0.45, cy + 6); ctx.lineTo(-r * 0.5, cy - 16); ctx.lineTo(-r * 0.22, cy - 4); ctx.lineTo(0, cy - 22); ctx.lineTo(r * 0.22, cy - 4); ctx.lineTo(r * 0.5, cy - 16); ctx.lineTo(r * 0.45, cy + 6); ctx.closePath(); S('#a8740a', 2);
         C(0, cy - 4, 4, '#ff4d6d');
       }
+    }
+    function drawSpiky(e, t, sq, flash) {
+      const r = e.r;
+      ctx.translate(0, -r * 0.35);
+      ctx.scale(1 + sq * 0.3, 1 - sq * 0.3);
+      // spikes spin with the roll, the face stays upright
+      ctx.save(); ctx.rotate(e.spin || 0);
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * TAU;
+        P([[Math.cos(a - 0.22) * r * 0.85, Math.sin(a - 0.22) * r * 0.85], [Math.cos(a) * r * 1.45, Math.sin(a) * r * 1.45], [Math.cos(a + 0.22) * r * 0.85, Math.sin(a + 0.22) * r * 0.85]], flash ? '#fff' : '#ffe0b0');
+      }
+      ctx.restore();
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU);
+      ctx.fillStyle = flash ? '#fff' : rad(0, 0, 2, r * 1.2, [[0, '#ffc078'], [0.7, '#ff8a3a'], [1, '#c8541a']], -r * 0.3, -r * 0.4); ctx.fill();
+      S('rgba(0,0,0,0.4)', 2);
+      E(-r * 0.35, -r * 0.45, r * 0.25, r * 0.15, 'rgba(255,255,255,0.6)', -0.5);
+      const ex = (e.dvx || 0) * r * 0.15, ey = (e.dvy || 0) * r * 0.1;
+      // determined little eyebrows
+      ctx.beginPath(); ctx.moveTo(ex - r * 0.55, ey - r * 0.38); ctx.lineTo(ex - r * 0.15, ey - r * 0.25); ctx.moveTo(ex + r * 0.55, ey - r * 0.38); ctx.lineTo(ex + r * 0.15, ey - r * 0.25); S('#5a2a10', 2);
+      C(ex - r * 0.32, ey - r * 0.05, r * 0.15, '#1d1a24'); C(ex + r * 0.32, ey - r * 0.05, r * 0.15, '#1d1a24');
+      C(ex - r * 0.28, ey - r * 0.1, r * 0.06, '#fff'); C(ex + r * 0.36, ey - r * 0.1, r * 0.06, '#fff');
+      ctx.beginPath(); ctx.arc(ex, ey + r * 0.3, r * 0.15, Math.PI * 1.15, Math.PI * 1.85); S('#5a2a10', 2);
+    }
+    function drawMimic(e, t, sq, flash) {
+      const hop = e.state === 'hop' ? Math.sin((1 - e.st / 0.42) * Math.PI) * 16 : 0;
+      ctx.translate(0, -hop);
+      ctx.scale(1 + sq * 0.35, 1 - sq * 0.35);
+      const open = e.state === 'hop' ? 0.9 : 0.35 + Math.sin(t * 6) * 0.15;
+      // box
+      rr(-22, -6, 44, 24, 5); ctx.fillStyle = flash ? '#fff' : lin(0, -6, 0, 18, [[0, '#c8843e'], [1, '#8a5420']]); ctx.fill(); S('#4a2a10', 2);
+      // mouth inside
+      ctx.fillStyle = '#5a1a2a'; rr(-19, -8 - open * 12, 38, open * 12 + 4, 4); ctx.fill();
+      E(0, -4 - open * 2, 9, 4 * open + 1, '#ff6b8a');
+      // teeth
+      for (let i = 0; i < 5; i++) { const tx = -16 + i * 8; P([[tx, -6], [tx + 4, -12], [tx + 8, -6]], '#ffffff'); }
+      // lid tilts open with eyes
+      ctx.save(); ctx.translate(0, -8); ctx.rotate(-open * 0.35 * e.face);
+      ctx.translate(0, -open * 12);
+      ctx.beginPath(); ctx.moveTo(-22, 0); ctx.quadraticCurveTo(0, -20, 22, 0); ctx.closePath(); ctx.fillStyle = flash ? '#fff' : '#b8783e'; ctx.fill(); S('#4a2a10', 2);
+      for (let i = 0; i < 5; i++) { const tx = -16 + i * 8; P([[tx, 0], [tx + 4, 6], [tx + 8, 0]], '#ffffff'); }
+      C(-8, -8, 5, '#fff'); C(8, -8, 5, '#fff'); C(-8 + e.face * 1.5, -7, 2.5, '#1d1a24'); C(8 + e.face * 1.5, -7, 2.5, '#1d1a24');
+      ctx.restore();
+      ctx.fillStyle = '#ffd43b'; ctx.fillRect(-22, 4, 44, 3);
     }
     function drawBat(e, t, flash) {
       const r = e.r;
@@ -2065,6 +2588,8 @@
       else if (k.type === 'heart') heart(k.x, y, 9, '#ff5e7e');
       else if (k.type === 'container') { ctx.save(); ctx.globalCompositeOperation = 'lighter'; C(k.x, y, 24, rad(k.x, y, 2, 24, [[0, 'rgba(255,100,140,0.5)'], [1, 'rgba(255,100,140,0)']])); ctx.restore(); heart(k.x, y, 14, '#ff5e7e', '#ffd43b'); }
       else if (k.type === 'key') { keyShape(k.x, y, 11); if (Math.sin(t * 5) > 0.7) twinkle(k.x + 8, y - 8, 4, '#fff'); }
+      else if (k.type === 'coin') coinShape(k.x, y, 7, Math.cos(t * 5 + k.x * 0.1));
+      else if (k.type === 'bomb') bombShape(k.x, y + 2, 9, t);
     }
 
     function drawShot(s) {
@@ -2100,6 +2625,15 @@
         else if (p.kind === 'puff') C(p.x, p.y, p.r * (1.4 - k * 0.5), p.col);
         else if (p.kind === 'shard') { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.col; ctx.fillRect(-3, -2, 6, 4); ctx.restore(); }
         else if (p.kind === 'ring') { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4 * k; ctx.beginPath(); ctx.arc(p.x, p.y, p.r + (1 - k) * 40, 0, TAU); ctx.stroke(); }
+        else if (p.kind === 'blast') {
+          const e2 = 1 - k;
+          ctx.globalAlpha = k;
+          ctx.save(); ctx.globalCompositeOperation = 'lighter';
+          C(p.x, p.y, p.r * (0.4 + e2 * 0.7), rad(p.x, p.y, 2, p.r * (0.4 + e2 * 0.7), [[0, 'rgba(255,250,200,0.9)'], [0.5, 'rgba(255,170,60,0.6)'], [1, 'rgba(255,90,40,0)']]));
+          ctx.restore();
+          ctx.strokeStyle = '#fff3c0'; ctx.lineWidth = 6 * k; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (0.5 + e2 * 0.6), 0, TAU); ctx.stroke();
+        }
+        else if (p.kind === 'mote') { ctx.globalAlpha = Math.min(1, k * 2, (1 - k) * 3) * 0.7; C(p.x, p.y, p.size, p.col); }
         else if (p.kind === 'ghost') { ctx.globalAlpha = k * 0.35; ctx.fillStyle = armor().plume; ctx.beginPath(); ctx.ellipse(p.x, p.y - 4, 12, 16, 0, 0, TAU); ctx.fill(); }
       }
       ctx.globalAlpha = 1;
@@ -2124,14 +2658,26 @@
         if (v > 0) E(x - 4, y - 4, 3, 2, 'rgba(255,255,255,0.6)', -0.5);
       }
       if (r.bubble) { C(30 + n * 30 + 4, 28, 10, 'rgba(122,240,255,0.35)'); ctx.beginPath(); ctx.arc(30 + n * 30 + 4, 28, 10, 0, TAU); S('#7af0ff', 2); }
-      // gems + keys
+      // gems, keys, coins, bombs
       gemShape(30, 62, 9, '#6ee7ff');
       outlined(String(r.gems), 46, 63, 20, '#ffffff', 'rgba(0,0,0,0.6)', 4, 'left');
       keyShape(110, 63, 11);
       outlined(String(r.keys), 128, 63, 20, '#ffffff', 'rgba(0,0,0,0.6)', 4, 'left');
-      // relics
-      r.relics.slice(0, 8).forEach((id, i) => drawRelicIcon(id, 176 + i * 32, 62, 0.9, t));
-      if (r.relics.length > 8) label('+' + (r.relics.length - 8), 176 + 8 * 32, 62, 14, '#ffffff', 'left', 900);
+      coinShape(172, 63, 9);
+      outlined(String(r.coins), 188, 63, 20, '#ffe066', 'rgba(0,0,0,0.6)', 4, 'left');
+      bombShape(246, 65, 9, t);
+      outlined(String(r.bombs), 262, 63, 20, '#ffffff', 'rgba(0,0,0,0.6)', 4, 'left');
+      // combo meter
+      if (r.combo >= 2 && r.comboT > 0) {
+        const cx = 330, cy = 60;
+        const pop = 1 + Math.max(0, r.comboT - 2.1) * 1.5;
+        ctx.save(); ctx.translate(cx, cy); ctx.scale(pop, pop);
+        outlined(`x${r.combo}`, 0, 0, 24, r.combo >= 6 ? '#ff8cc6' : '#ffe066', 'rgba(0,0,0,0.7)', 5, 'left');
+        ctx.restore();
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(cx, cy + 15, 54, 5, 2.5); ctx.fill();
+        ctx.fillStyle = '#ffe066'; rr(cx, cy + 15, 54 * clamp(r.comboT / 2.4, 0, 1), 5, 2.5); ctx.fill();
+        label('COMBO', cx + 27, cy - 18, 10, '#ffe066', 'center', 900);
+      }
       // floor name
       const th = themeFor(r.floor);
       outlined(`Floor ${r.floor}`, VW / 2, 26, 28, '#ffffff', 'rgba(0,0,0,0.6)', 5);
@@ -2147,6 +2693,14 @@
         ctx.fillStyle = 'rgba(255,255,255,0.08)'; rr(rc.x, rc.y, rc.w, rc.h, 12); ctx.fill();
         label(ic, rc.x + rc.w / 2, rc.y + rc.h / 2 + 1, 18, '#fff');
       }
+    }
+    // HUD bits that belong to the room (drawn in room space, which differs from HUD space on phones)
+    function drawHudRoom(t) {
+      const r = run;
+      // relics live in a strip under the room (bottom right)
+      const shown = r.relics.slice(portrait ? -10 : -12);
+      const rx = portrait ? RX + RW - 16 : VW - 26;
+      shown.forEach((id, i) => drawRelicIcon(id, rx - (shown.length - 1 - i) * 32, VH - 21, 0.9, t));
       // boss bar
       if (r.bossBar && r.bossBar.e && !r.bossBar.e.dead) {
         const b = r.bossBar.e, w = 420, x = VW / 2 - w / 2, y = RY + 30;
@@ -2157,9 +2711,9 @@
       // first-run help
       if (r.help > 0 && r.floor === r.startFloor) {
         ctx.globalAlpha = Math.min(1, r.help);
-        const msg = touch.on ? 'Left side: move  ·  SWORD to swing  ·  DASH to zoom past monsters' : 'WASD/arrows move  ·  J/Space/click swing your sword  ·  K/Shift/right-click dash';
-        ctx.fillStyle = 'rgba(10,8,16,0.8)'; rr(VW / 2 - 320, VH - 36, 640, 28, 14); ctx.fill();
-        label(msg, VW / 2, VH - 22, 13, '#ffffff');
+        const msg = touch.on ? 'Drag to move  ·  SWORD to swing (hold it to spin!)  ·  DASH  ·  BOMB' : 'WASD move  ·  J/Space/click swing (hold to spin!)  ·  K/Shift dash  ·  L/E bomb';
+        ctx.fillStyle = 'rgba(10,8,16,0.85)'; rr(VW / 2 - 330, VH - 36, 660, 28, 14); ctx.fill();
+        label(msg, VW / 2, VH - 22, 14, '#ffffff');
         ctx.globalAlpha = 1;
       }
     }
@@ -2179,6 +2733,7 @@
         if (cur) { ctx.strokeStyle = `rgba(255,255,255,${0.5 + 0.5 * Math.sin(t * 6)})`; ctx.lineWidth = 2; rr(x - 2, y - 2, cs + 4, cs + 4, 4); ctx.stroke(); }
         if (r.type === 'boss') C(x + cs / 2, y + cs / 2, 3, '#ff6b6b');
         else if (r.type === 'treasure') star(x + cs / 2, y + cs / 2, 4, r.locked ? '#ffd43b' : '#ffe9a0');
+        else if (r.type === 'shop') coinShape(x + cs / 2, y + cs / 2, 3.5);
         else if (r.type === 'exit' && r.visited) P([[x + 2, y + 3], [x + cs - 2, y + 3], [x + cs / 2, y + cs - 2]], '#ffe066');
         if (r.key && !r.cleared && r.visited) keyShape(x + cs / 2, y + cs / 2, 4);
       }
@@ -2212,16 +2767,21 @@
       ctx.save();
       ctx.globalAlpha = 0.85;
       for (const [id, b] of Object.entries(TBTN)) {
-        C(b.x, b.y, b.r, touch.btn[id] != null ? b.col : 'rgba(0,0,0,0.35)');
-        ctx.strokeStyle = b.col; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.stroke();
-        label(b.label, b.x, b.y, b.r * 0.36, '#fff', 'center', 900, 'Fredoka');
+        const on = touch.btn[id] != null;
+        C(b.x, b.y + 4, b.r, 'rgba(0,0,0,0.35)');
+        C(b.x, b.y, b.r, on ? b.col : rad(b.x, b.y, 2, b.r, [[0, 'rgba(60,50,80,0.75)'], [1, 'rgba(20,16,30,0.75)']], b.x - b.r * 0.3, b.y - b.r * 0.4));
+        ctx.strokeStyle = b.col; ctx.lineWidth = portrait ? 6 : 3; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.stroke();
+        label(b.label, b.x, b.y - (id === 'bomb' ? b.r * 0.15 : 0), b.r * 0.34, '#fff', 'center', 900, 'Fredoka');
+        if (id === 'bomb' && run) label(`x${run.bombs}`, b.x, b.y + b.r * 0.32, b.r * 0.3, '#ffe066', 'center', 900, 'Fredoka');
+        if (id === 'attack' && run && run.p.charge > 0.15) { ctx.strokeStyle = '#9ff0ff'; ctx.lineWidth = portrait ? 8 : 4; ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 6, -Math.PI / 2, -Math.PI / 2 + TAU * Math.min(1, run.p.charge / (CHARGE_T * (hasRelic('whirl') ? 0.5 : 1)))); ctx.stroke(); }
       }
       if (touch.stick) {
         const s = touch.stick;
-        C(s.ox, s.oy, 50, 'rgba(0,0,0,0.25)');
-        ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s.ox, s.oy, 50, 0, TAU); ctx.stroke();
-        const dx = s.x - s.ox, dy = s.y - s.oy, d = Math.hypot(dx, dy), k = Math.min(1, 46 / (d || 1));
-        C(s.ox + dx * k, s.oy + dy * k, 22, 'rgba(255,255,255,0.6)');
+        const SR = portrait ? 100 : 46;
+        C(s.ox, s.oy, SR + 4, "rgba(0,0,0,0.25)");
+        ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = portrait ? 4 : 2; ctx.beginPath(); ctx.arc(s.ox, s.oy, SR + 4, 0, TAU); ctx.stroke();
+        const dx = s.x - s.ox, dy = s.y - s.oy, d = Math.hypot(dx, dy), k = Math.min(1, SR / (d || 1));
+        C(s.ox + dx * k, s.oy + dy * k, SR * 0.48, 'rgba(255,255,255,0.6)');
       }
       ctx.restore();
     }
@@ -2229,14 +2789,27 @@
     // =====================================================================
     // Frame
     // =====================================================================
-    let W = 0, H = 0, dpr = 1;
+    let W = 0, H = 0, dpr = 1, backdrop = null;
     function resize() {
       dpr = Math.min(2, window.devicePixelRatio || 1);
       W = window.innerWidth || 800; H = window.innerHeight || 600;
       canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
       const s = Math.min(W / VW, H / VH);
-      view = { s, ox: (W - VW * s) / 2, oy: (H - VH * s) / 2 };
+      portrait = H > W * 1.15;
+      if (portrait) {
+        // phones held upright: the HUD bar fills the top, the room is zoomed to the full width under it,
+        // and the touch buttons get all the space underneath
+        const sh = W / VW;
+        hud = { s: sh, ox: 0, oy: Math.max(6, H * 0.06) };
+        const sr = W / (RW + 16);
+        view = { s: sr, ox: 8 - RX * sr, oy: hud.oy + 90 * sh - RY * sr + 4 };
+      } else {
+        view = { s, ox: (W - VW * s) / 2, oy: (H - VH * s) / 2 };
+        hud = view;
+      }
       roomCache.clear();
+      backdrop = null;
+      layoutTouch();
     }
     window.addEventListener('resize', resize);
     resize();
@@ -2245,11 +2818,13 @@
       ctx.save();
       ctx.translate(RX + ox, RY + oy);
       drawRoomBase(room);
+      drawSpikesLive(room);
       drawDoorsLive(room, t);
       drawObjects(room, t);
       if (live) {
         const p = run.p;
         for (const k of room.pickups) drawPickup(k, t);
+        drawBombsLive(t);
         const ents = run.enemies.slice();
         const list = ents.map((e) => ({ y: e.y, f: () => drawEnemy(e, t) }));
         if (run.hp > 0 || run.deadT <= 0) list.push({ y: p.y, f: () => { if (run.hp > 0) drawKnight(p.x, p.y, armor(), p, 1.3); } });
@@ -2268,15 +2843,35 @@
       ctx.restore();
     }
 
+    // the area around the play field: dark dungeon stone, painted once per resize
+    function paintBackdrop() {
+      backdrop = document.createElement('canvas');
+      backdrop.width = Math.max(1, Math.round(W * dpr)); backdrop.height = Math.max(1, Math.round(H * dpr));
+      const keep = ctx;
+      ctx = backdrop.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      try {
+        ctx.fillStyle = '#100d16'; ctx.fillRect(0, 0, W, H);
+        const R = srand(42);
+        const bw = 64, bh = 30;
+        for (let y = 0, row = 0; y < H + bh; y += bh, row++) for (let x = -bw; x < W + bw; x += bw) {
+          const bx = x + (row % 2) * (bw / 2);
+          rr(bx + 2, y + 2, bw - 4, bh - 4, 4);
+          ctx.fillStyle = `rgba(${60 + R() * 20},${50 + R() * 16},${80 + R() * 20},${0.22 + R() * 0.12})`; ctx.fill();
+        }
+        const cx = view.ox + VW * view.s / 2, cy = view.oy + VH * view.s / 2;
+        ctx.fillStyle = rad(cx, cy, 10, Math.max(W, H) * 0.75, [[0, 'rgba(70,50,110,0.25)'], [0.6, 'rgba(10,8,16,0.4)'], [1, 'rgba(5,4,8,0.92)']]);
+        ctx.fillRect(0, 0, W, H);
+      } catch (e) { /* backdrop is optional */ }
+      ctx = keep;
+    }
     function frame(t) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.fillStyle = '#0f0d14';
-      ctx.fillRect(0, 0, W, H);
+      if (!backdrop) paintBackdrop();
+      ctx.drawImage(backdrop, 0, 0, W, H);
       ctx.setTransform(dpr * view.s, 0, 0, dpr * view.s, dpr * view.ox, dpr * view.oy);
       ctx.save();
       ctx.beginPath(); ctx.rect(0, 0, VW, VH); ctx.clip();
-      ctx.fillStyle = lin(0, 0, 0, VH, [[0, '#1a1426'], [1, '#0f0c18']]);
-      ctx.fillRect(0, 0, VW, VH);
       if (!run) { drawTitleScene(t); ctx.restore(); return; }
       ctx.save();
       if (run.shake > 0) ctx.translate(rand(-1, 1) * run.shake * 16, rand(-1, 1) * run.shake * 16);
@@ -2288,11 +2883,15 @@
         drawRoomScene(run.trans.to, dx * RW * (1 - e), dy * RH * (1 - e), t, false);
       } else drawRoomScene(run.room, 0, 0, t, true);
       ctx.restore();
-      drawHud(t);
+      drawHudRoom(t);
       drawBanner(t);
-      drawTouch();
-      if (run.fade > 0) { ctx.fillStyle = `rgba(10,8,16,${run.fade})`; ctx.fillRect(0, 0, VW, VH); }
       ctx.restore();
+      // the top HUD bar has its own space (the same as the room in landscape)
+      ctx.setTransform(dpr * hud.s, 0, 0, dpr * hud.s, dpr * hud.ox, dpr * hud.oy);
+      drawHud(t);
+      ctx.setTransform(dpr * view.s, 0, 0, dpr * view.s, dpr * view.ox, dpr * view.oy);
+      drawTouch(); // outside the clip: on phones the buttons sit under the room
+      if (run.fade > 0) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = `rgba(10,8,16,${run.fade})`; ctx.fillRect(0, 0, W, H); }
     }
 
     // menu background: a cozy dungeon corner with a knight and some slimes
@@ -2324,11 +2923,12 @@
     }
 
     let last = performance.now();
+    let FREEZE = false; // test screenshots only
     function loop(ts) {
       requestAnimationFrame(loop);
       const dt = Math.min(0.05, Math.max(0, (ts - last) / 1000));
       last = ts;
-      update(dt);
+      if (!FREEZE) update(dt);
       frame(now);
     }
 
@@ -2373,7 +2973,11 @@
         if (d < target.r + p.r + 10 && p.dashCd <= 0 && (run.hp <= 2 || target.boss)) { input.dash = true; input.aim = Math.atan2(-my, -mx) + 0.7; }
         for (const s of run.shots) if (s.enemy && dist(s, p) < 70 && p.dashCd <= 0) { input.dash = true; input.aim = Math.atan2(s.vy, s.vx) + Math.PI / 2; }
         if (target.boss && target.kind === 'king' && target.state !== 'go') { mx = p.x - (target.tx || target.x); my = p.y - (target.ty || target.y); }
+        // crowds get a spin attack, bosses get bombs
+        if (!bot.holdT && live.filter((e) => dist(e, p) < 140).length >= 2) bot.holdT = 1.0;
+        if (target.boss && run.bombs > 0 && d < 90 && run.bombsLive.length === 0 && Math.random() < 0.02) input.bomb = true;
       }
+      if (bot.holdT) { bot.holdT = Math.max(0, bot.holdT - dt); bot.hold = bot.holdT > 0; }
       // path around rocks
       const step = botPath(p, target);
       if (step) { mx = step.x - p.x; my = step.y - p.y; }
@@ -2521,6 +3125,45 @@
       else { for (let i = 0; i < 200; i++) update(1 / 60); }
       bot = null;
     } else if (scene === 'camp') showCamp('title');
+    else if (scene === 'shop' || scene === 'busy' || scene === 'results') {
+      const f = Number(params.get('f') || 4);
+      newRun(f);
+      run.help = 0; run.banner = null; run.fade = 0; run.fadeDir = 0;
+      if (scene === 'shop') {
+        let shop = run.map.rooms.find((r) => r.type === 'shop');
+        for (let i = 0; i < 30 && !shop; i++) { startFloorGen(f); shop = run.map.rooms.find((r) => r.type === 'shop'); }
+        run.coins = 14;
+        run.room.cleared = true;
+        enterRoom(shop, null);
+        run.p.x = RW / 2 - 60; run.p.y = RH / 2 + 130;
+        for (let i = 0; i < 40; i++) update(1 / 60);
+        run.banner = null;
+      } else if (scene === 'busy') {
+        // a lively fight: spiky balls, a mimic, a bomb about to go off and a charged spin
+        let room = run.map.rooms.find((r) => r.type === 'normal' && r.hasSpikes) || run.map.rooms.find((r) => r.type === 'normal');
+        room.spawned = true; room.cleared = true;
+        enterRoom(room, null);
+        room.cleared = false;
+        run.p.x = 6.5 * T; run.p.y = 5.2 * T;
+        const spots = [[3.5, 2.5, 'spiky'], [11.5, 6.5, 'spiky'], [9.5, 3.5, 'mimic'], [4.5, 6.5, 'skeleton'], [10.5, 2.5, 'bat'], [12.5, 4.5, 'slime']];
+        run.enemies = spots.map(([x, y, k]) => { const e = makeEnemy(k, x * T, y * T); e.state = 'go'; e.st = 0.5; return e; });
+        run.bombs = 3; run.coins = 12; run.combo = 4; run.comboT = 2; run.bestCombo = 4;
+        gainRelic('boom', true); gainRelic('piggy', true); gainRelic('spark', true);
+        for (let i = 0; i < 24; i++) update(1 / 60);
+        run.bombsLive.push({ x: 9 * T, y: 3.6 * T, t: 0.4, big: true });
+        run.p.charge = 1; run.p.dir = 1;
+        for (let i = 0; i < 10; i++) update(1 / 60);
+        for (let i = 0; i < 6; i++) drop(i % 2 ? 'coin' : 'gem', run.p.x + rand(-80, 80), run.p.y + rand(-60, 60), false);
+        floater('Combo x4!', 9 * T, 2.4 * T, '#ffe066', 22);
+        run.p.charge = 1;
+      } else {
+        run.kills = 23; run.gems = 31; run.rooms = 18; run.bosses = 1; run.bestCombo = 7; run.spins = 9; run.coins = 4;
+        gainRelic('twin', true); gainRelic('boom', true); gainRelic('magnet', true);
+        endRun(false);
+      }
+    }
+    if (params.get('touch') === '1' || (window.matchMedia && matchMedia('(pointer: coarse)').matches)) touch.on = true;
+    if (params.has('freeze')) FREEZE = true;
     requestAnimationFrame(loop);
   })();
   </script>

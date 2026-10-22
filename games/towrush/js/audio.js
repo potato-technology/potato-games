@@ -4,6 +4,7 @@ const Sound = (() => {
   let muted = false;
 
   function init() {
+    if (window.__noAudio) return; // automated tests run without sound
     if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
     try {
       ac = new (window.AudioContext || window.webkitAudioContext)();
@@ -123,5 +124,15 @@ const Sound = (() => {
     alarm() { tone(600, 0.35, { type: 'sawtooth', vol: 0.07, slide: 300 }); tone(600, 0.35, { type: 'sawtooth', vol: 0.07, slide: 300, delay: 0.35 }); },
     honk() { tone(370, 0.22, { vol: 0.05 }); tone(466, 0.22, { vol: 0.05 }); },
     tick() { tone(1400, 0.04, { vol: 0.05 }); },
+    pickup(kind) {
+      if (kind === 'cash') { tone(988, 0.08, { type: 'square', vol: 0.08 }); tone(1319, 0.16, { type: 'square', vol: 0.08, delay: 0.07 }); }
+      else if (kind === 'nitro') { noise(0.25, 0.25, 3000); tone(300, 0.25, { type: 'sawtooth', vol: 0.05, slide: 600 }); }
+      else if (kind === 'shield') { tone(520, 0.2, { type: 'triangle', vol: 0.14, slide: 400 }); tone(1040, 0.25, { type: 'sine', vol: 0.08, delay: 0.08 }); }
+      else if (kind === 'jammer') { [1200, 900, 1200, 900].forEach((f, i) => tone(f, 0.08, { type: 'square', vol: 0.05, delay: i * 0.07 })); }
+      else { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.1, { type: 'triangle', vol: 0.12, delay: i * 0.05 })); }
+    },
+    shieldPop() { tone(880, 0.15, { type: 'triangle', vol: 0.15, slide: -500 }); noise(0.15, 0.25, 4000); },
+    contract() { [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.18, { type: 'triangle', vol: 0.16, delay: i * 0.09 })); },
+    rush() { [440, 554, 659, 880].forEach((f, i) => tone(f, 0.16, { type: 'sawtooth', vol: 0.06, delay: i * 0.1 })); },
   };
 })();

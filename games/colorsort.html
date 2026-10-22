@@ -1,0 +1,1990 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Color Sort – Pour &amp; Sort Puzzle | Potato Games</title>
+  <meta name="description" content="Pour colourful liquids between glass tubes until every tube holds just one colour! 200 puzzles that are always solvable, mystery layers, a daily puzzle, a speedy Rush mode and tube and background skins. A free puzzle game on Potato.">
+  <link rel="icon" href="colorsort-icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #12102a; --panel: #1f1b3d; --panel-2: #2a2552; --line: #3d3670; --text: #f5f2ff; --muted: #b3abd9;
+      --accent: #ff5fa2; --accent-d: #b8336d; --teal: #3ee0c8; --gold: #ffd43b; --good: #49e39a;
+      --display: 'Fredoka', 'Trebuchet MS', system-ui, sans-serif; --body: 'Nunito', system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body { background: var(--bg); color: var(--text); font-family: var(--body); overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+    canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; }
+    button { font-family: var(--display); }
+    /* HUD */
+    .hud { position: fixed; left: 0; right: 0; display: flex; align-items: center; gap: 8px; padding: 8px 10px; pointer-events: none; z-index: 5; transition: opacity .25s, transform .25s; }
+    .hud.top { top: 0; justify-content: space-between; }
+    .hud.bot { bottom: 0; justify-content: center; gap: 10px; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+    .hud.off { opacity: 0; pointer-events: none !important; }
+    .hud.off * { pointer-events: none !important; }
+    .hud.top.off { transform: translateY(-20px); }
+    .hud.bot.off { transform: translateY(20px); }
+    .hbtn { pointer-events: auto; border: 0; cursor: pointer; border-radius: 14px; background: rgba(40, 34, 82, 0.86); color: var(--text); box-shadow: 0 3px 0 rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12); font: 700 15px var(--display); padding: 8px 12px; display: flex; align-items: center; gap: 6px; backdrop-filter: blur(4px); }
+    .hbtn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.35); }
+    .hbtn:disabled { opacity: 0.45; cursor: default; }
+    .hbtn .ic { font-size: 18px; line-height: 1; }
+    .hbtn .cnt { background: var(--accent); color: #fff; border-radius: 999px; padding: 1px 7px; font-size: 13px; }
+    .hbtn.big { flex-direction: column; gap: 2px; min-width: 74px; padding: 7px 10px 6px; font-size: 13px; }
+    .hbtn.big .ic { font-size: 22px; }
+    .hbtn.big .cnt { position: absolute; margin: -6px 0 0 34px; }
+    .hbtn.big { position: relative; }
+    .hinfo { pointer-events: none; text-align: center; background: rgba(25, 21, 56, 0.78); border-radius: 14px; padding: 5px 14px 6px; backdrop-filter: blur(4px); min-width: 0; }
+    .hinfo b { display: block; font: 700 18px var(--display); line-height: 1.15; white-space: nowrap; }
+    .hinfo span { font-size: 12.5px; color: var(--muted); font-weight: 800; white-space: nowrap; }
+    .hinfo span i { font-style: normal; color: var(--gold); }
+    .coins { pointer-events: none; background: rgba(25, 21, 56, 0.78); border-radius: 999px; padding: 6px 12px; font: 700 16px var(--display); color: var(--gold); white-space: nowrap; }
+    .toast { position: fixed; left: 50%; top: 70px; transform: translate(-50%, -10px); opacity: 0; background: rgba(20, 16, 44, 0.92); border: 2px solid var(--teal); color: var(--text); padding: 8px 16px; border-radius: 14px; font: 700 16px var(--display); z-index: 6; transition: opacity .25s, transform .25s; pointer-events: none; text-align: center; max-width: 90vw; }
+    .toast.on { opacity: 1; transform: translate(-50%, 0); }
+    /* overlays */
+    .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 14px; background: rgba(12, 9, 30, 0.55); backdrop-filter: blur(2px); z-index: 10; animation: fade .25s; }
+    .overlay[hidden] { display: none; }
+    @keyframes fade { from { opacity: 0; } }
+    .card { width: min(560px, 100%); max-height: 100%; overflow-y: auto; padding: 22px 22px; border-radius: 24px; background: linear-gradient(180deg, rgba(46, 39, 92, 0.97), rgba(30, 25, 62, 0.97)); border: 2px solid rgba(255,255,255,0.14); text-align: center; box-shadow: 0 24px 70px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.12); animation: pop .3s cubic-bezier(.2,1.4,.4,1); }
+    .card.wide { width: min(760px, 100%); }
+    @keyframes pop { from { transform: scale(.9) translateY(10px); opacity: 0; } }
+    .logo { margin: 0 0 4px; font: 700 64px/1 var(--display); letter-spacing: 1px; }
+    .logo span { display: inline-block; text-shadow: 0 5px 0 rgba(0,0,0,0.3); animation: bob 2.4s ease-in-out infinite; }
+    @keyframes bob { 50% { transform: translateY(-5px); } }
+    .tag { color: var(--muted); font-weight: 800; margin: 2px 0 14px; }
+    h2 { margin: 0 0 8px; font: 700 34px var(--display); color: var(--teal); }
+    p { color: var(--muted); margin: 8px 0 14px; line-height: 1.45; }
+    .btn { padding: 12px 26px; border: 0; border-radius: 16px; background: linear-gradient(180deg, #ff7cb5, var(--accent)); color: #fff; font: 700 20px var(--display); cursor: pointer; box-shadow: 0 5px 0 var(--accent-d); text-shadow: 0 2px 0 rgba(0,0,0,0.2); }
+    .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--accent-d); }
+    .btn.teal { background: linear-gradient(180deg, #6ff0dc, #22bfa8); color: #08372f; box-shadow: 0 5px 0 #138a78; text-shadow: none; }
+    .btn.ghost { background: var(--panel-2); color: var(--text); box-shadow: 0 5px 0 #15112f; text-shadow: none; }
+    .btn.small { padding: 8px 16px; font-size: 16px; }
+    .btn:disabled { opacity: .45; cursor: default; }
+    .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .menu { display: grid; gap: 10px; max-width: 340px; margin: 0 auto 12px; }
+    .menu .btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .menu .btn small { font: 800 13px var(--body); opacity: .85; }
+    .pills { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 0 0 14px; }
+    .pill { padding: 5px 13px; border-radius: 999px; background: var(--panel-2); font: 700 16px var(--display); }
+    .pill.gold { color: var(--gold); } .pill.teal { color: var(--teal); }
+    .toggles { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 6px; }
+    .tog { border: 2px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 12px; padding: 6px 12px; font: 700 14px var(--display); cursor: pointer; }
+    .tog.on { border-color: var(--teal); color: var(--text); }
+    /* level select */
+    .pages { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-bottom: 10px; }
+    .page { border: 2px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 12px; padding: 5px 11px; font: 700 14px var(--display); cursor: pointer; }
+    .page.on { border-color: var(--accent); color: var(--text); background: var(--panel-2); }
+    .chap { font: 700 18px var(--display); color: var(--gold); margin: 2px 0 10px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 8px; margin-bottom: 14px; }
+    .lv { position: relative; height: 64px; border-radius: 14px; border: 2px solid var(--line); background: linear-gradient(180deg, #342d66, #26214d); color: var(--text); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; font: 700 21px var(--display); padding: 2px; }
+    .lv .st { font-size: 12px; letter-spacing: 1px; color: #4d4682; margin-top: 1px; }
+    .lv .st i { font-style: normal; color: var(--gold); }
+    .lv .badge { position: absolute; top: 3px; right: 5px; font: 800 11px var(--body); color: var(--teal); }
+    .lv.next { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255, 95, 162, 0.3); animation: glow 1.4s ease-in-out infinite; }
+    @keyframes glow { 50% { box-shadow: 0 0 0 6px rgba(255, 95, 162, 0.12); } }
+    .lv.locked { opacity: .38; cursor: default; }
+    /* results */
+    .bigstars { font-size: 60px; letter-spacing: 6px; color: #463f78; margin: 0 0 4px; }
+    .bigstars span { display: inline-block; }
+    .bigstars span.on { color: var(--gold); text-shadow: 0 4px 0 #a07c00; animation: spop .5s backwards; }
+    .bigstars span:nth-child(2).on { animation-delay: .25s; } .bigstars span:nth-child(3).on { animation-delay: .5s; }
+    @keyframes spop { 0% { transform: scale(0) rotate(-40deg); } 70% { transform: scale(1.35); } 100% { transform: scale(1); } }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0 12px; }
+    .stats div { background: var(--panel-2); border-radius: 12px; padding: 8px; }
+    .stats span { display: block; font-size: 12px; color: var(--muted); font-weight: 800; }
+    .stats b { font: 700 21px var(--display); }
+    .reward { color: var(--gold); font: 700 18px var(--display); min-height: 24px; margin-bottom: 12px; }
+    /* shop */
+    .tabs { display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; flex-wrap: wrap; }
+    .tab { border: 2px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 12px; padding: 7px 16px; font: 700 16px var(--display); cursor: pointer; }
+    .tab.on { border-color: var(--accent); color: var(--text); }
+    .shop { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .item { background: var(--panel-2); border: 2px solid var(--line); border-radius: 16px; padding: 8px 8px 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .item.eq { border-color: var(--teal); }
+    .item canvas { position: static; width: 100%; height: 96px; border-radius: 10px; }
+    .item b { font: 700 16px var(--display); }
+    .item small { color: var(--muted); font-weight: 700; font-size: 12.5px; text-align: center; min-height: 32px; }
+    .item .btn { padding: 6px 14px; font-size: 15px; box-shadow: 0 3px 0 var(--accent-d); }
+    .item .btn.teal { box-shadow: 0 3px 0 #138a78; }
+    .confetti { position: fixed; top: -14px; width: 10px; height: 14px; border-radius: 2px; pointer-events: none; z-index: 30; animation: fall linear forwards; }
+    @keyframes fall { to { transform: translateY(110vh) rotate(760deg); } }
+    @media (max-width: 520px) {
+      .logo { font-size: 48px; }
+      .grid { grid-template-columns: repeat(5, 1fr); gap: 6px; }
+      .lv { height: 56px; }
+      .lv { font-size: 17px; border-radius: 11px; }
+      .hbtn.big { min-width: 64px; padding: 6px 6px 5px; font-size: 12px; }
+      .hinfo b { font-size: 16px; }
+      .hbtn { padding: 7px 10px; font-size: 14px; }
+      .card { padding: 18px 14px; }
+      .bigstars { font-size: 48px; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div class="hud top off" id="hud-top">
+    <button class="hbtn" id="b-menu" title="Pause (P)"><span class="ic">☰</span></button>
+    <div class="hinfo"><b id="h-title">Level 1</b><span id="h-sub">Moves 0</span></div>
+    <div class="coins" id="h-coins">0</div>
+  </div>
+  <div class="hud bot off" id="hud-bot">
+    <button class="hbtn big" id="b-undo" title="Undo (Z)"><span class="ic">↶</span>Undo</button>
+    <button class="hbtn big" id="b-restart" title="Restart (R)"><span class="ic">⟳</span>Restart</button>
+    <button class="hbtn big" id="b-hint" title="Hint (H)"><span class="ic">💡</span>Hint<span class="cnt" id="c-hint">3</span></button>
+    <button class="hbtn big" id="b-tube" title="Extra tube (T)"><span class="ic">🧪</span>+Tube<span class="cnt" id="c-tube">2</span></button>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <div class="overlay" id="title">
+    <div class="card">
+      <h1 class="logo" id="logo"></h1>
+      <div class="tag">Pour the colours until every tube holds just one!</div>
+      <div class="pills"><span class="pill gold" id="t-coins">0 coins</span><span class="pill teal" id="t-stars">0 ★</span></div>
+      <div class="menu">
+        <button class="btn" id="t-play">▶ Play <small id="t-lv">Level 1</small></button>
+        <button class="btn teal" id="t-levels">Levels</button>
+        <div class="row" style="flex-wrap:nowrap">
+          <button class="btn ghost" id="t-daily" style="flex:1">📅 Daily</button>
+          <button class="btn ghost" id="t-rush" style="flex:1">⏱ Rush</button>
+        </div>
+        <button class="btn ghost" id="t-shop">🛍 Shop</button>
+      </div>
+      <div class="toggles">
+        <button class="tog" id="tg-sound">🔊 Sound</button>
+        <button class="tog" id="tg-sym">◆ Colour symbols</button>
+        <button class="tog" id="tg-fast">⚡ Fast pour</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="levels" hidden>
+    <div class="card wide">
+      <h2>Pick a level</h2>
+      <div class="pills"><span class="pill teal" id="l-stars">0 ★</span><span class="pill gold" id="l-coins">0</span></div>
+      <div class="pages" id="pages"></div>
+      <div class="chap" id="chap"></div>
+      <div class="grid" id="grid"></div>
+      <p style="margin:-4px 0 12px;font-size:13px"><b style="color:var(--teal)">?</b> = mystery layers &nbsp; <b style="color:var(--teal)">↑</b> = tall tubes</p>
+      <div class="row"><button class="btn ghost" id="l-back">Back</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="results" hidden>
+    <div class="card">
+      <h2 id="r-title">Level Complete!</h2>
+      <div class="bigstars" id="r-stars"><span>★</span><span>★</span><span>★</span></div>
+      <div id="r-note" style="font-weight:800;min-height:20px;color:var(--muted)"></div>
+      <div class="stats" id="r-stats"></div>
+      <div class="reward" id="r-reward"></div>
+      <div class="row">
+        <button class="btn" id="r-next">Next level</button>
+        <button class="btn ghost" id="r-replay">Replay</button>
+        <button class="btn ghost" id="r-menu">Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="shop" hidden>
+    <div class="card wide">
+      <h2>Shop</h2>
+      <div class="pills"><span class="pill gold" id="s-coins">0 coins</span></div>
+      <div class="tabs">
+        <button class="tab on" data-tab="tubes">Tubes</button>
+        <button class="tab" data-tab="bgs">Backgrounds</button>
+        <button class="tab" data-tab="help">Helpers</button>
+      </div>
+      <div class="shop" id="shop-list"></div>
+      <div class="row"><button class="btn ghost" id="s-back">Back</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="pause" hidden>
+    <div class="card">
+      <h2>Paused</h2>
+      <p>Take a breather. Your tubes will wait!</p>
+      <div class="menu">
+        <button class="btn" id="p-resume">Resume</button>
+        <button class="btn ghost" id="p-restart">Restart puzzle</button>
+        <button class="btn ghost" id="p-quit">Quit to menu</button>
+      </div>
+      <div class="toggles"><button class="tog" id="p-sound">🔊 Sound</button><button class="tog" id="p-sym">◆ Symbols</button></div>
+      <p style="margin:12px 0 0;font-size:13px">Click a tube, then another to pour. Keys: <b>1–9</b> or <b>←</b><b>→</b> + <b>Space</b> pick tubes · <b>Z</b> undo · <b>R</b> restart · <b>H</b> hint · <b>T</b> extra tube · <b>P</b> pause · <b>M</b> mute</p>
+    </div>
+  </div>
+
+  <script src="potato-sdk.js"></script>
+  <script>
+  (() => {
+    'use strict';
+    const $ = (id) => document.getElementById(id);
+    const canvas = $('c');
+    const ctx = canvas.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    // screenshot helper: ?still=1 turns off CSS animations so a test capture shows the finished screen
+    if (params.get("still")) { const st = document.createElement("style"); st.textContent = "*,*::before,*::after{animation:none!important;transition:none!important}"; document.head.appendChild(st); }
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const ease = (t) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    const easeOutBack = (t) => { const c = 1.7; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
+
+    function mulberry32(a) {
+      return function () {
+        a |= 0; a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    function shuffle(a, rng) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+    // =====================================================================
+    // Colours (each has a symbol for the colour-symbols option)
+    // =====================================================================
+    const COLORS = [
+      { n: 'Red', c: '#ff4757', d: '#b81d33', l: '#ff9aa5', sym: 'circle' },
+      { n: 'Orange', c: '#ff9f1c', d: '#c76a00', l: '#ffd08a', sym: 'square' },
+      { n: 'Yellow', c: '#ffe14d', d: '#c9a800', l: '#fff3a8', sym: 'tri' },
+      { n: 'Lime', c: '#a3e635', d: '#5f9a0f', l: '#d9f99d', sym: 'diamond' },
+      { n: 'Green', c: '#22c55e', d: '#127a3a', l: '#86efac', sym: 'plus' },
+      { n: 'Teal', c: '#14d4c4', d: '#0a8a80', l: '#99f6e4', sym: 'ring' },
+      { n: 'Sky', c: '#38bdf8', d: '#0b7ab0', l: '#bae6fd', sym: 'star' },
+      { n: 'Blue', c: '#3b5bfd', d: '#1f2fa8', l: '#a5b4fc', sym: 'heart' },
+      { n: 'Purple', c: '#a855f7', d: '#6b21a8', l: '#d8b4fe', sym: 'moon' },
+      { n: 'Pink', c: '#ff6fcf', d: '#c02a8f', l: '#ffc2ec', sym: 'x' },
+      { n: 'Brown', c: '#a8693a', d: '#6b3d1c', l: '#deb08a', sym: 'drop' },
+      { n: 'White', c: '#eef0f6', d: '#a8aec2', l: '#ffffff', sym: 'bar' },
+      { n: 'Black', c: '#3b3a48', d: '#17161e', l: '#8d8ba0', sym: 'hex' },
+    ];
+    const HIDDEN_COL = { c: '#6a5aa8', d: '#3a2f70', l: '#a596e0' };
+
+    // =====================================================================
+    // Solver: depth-first search with a seen-set. Used to make sure every
+    // level can be solved, to pick the star target, and for hints.
+    // =====================================================================
+    function isDone(t, cap) {
+      if (!t.length) return true;
+      if (t.length !== cap) return false;
+      for (let i = 1; i < t.length; i++) if (t[i] !== t[0]) return false;
+      return true;
+    }
+    function genMoves(st, cap) {
+      const out = [];
+      let firstEmpty = -1;
+      for (let j = 0; j < st.length; j++) if (!st[j].length) { firstEmpty = j; break; }
+      for (let i = 0; i < st.length; i++) {
+        const s = st[i];
+        if (!s.length) continue;
+        const c = s[s.length - 1];
+        let run = 1;
+        while (run < s.length && s[s.length - 1 - run] === c) run++;
+        const uniform = run === s.length;
+        if (uniform && s.length === cap) continue;
+        for (let j = 0; j < st.length; j++) {
+          if (j === i) continue;
+          const d = st[j];
+          if (d.length >= cap) continue;
+          if (!d.length) {
+            if (uniform || j !== firstEmpty) continue;
+            out.push({ from: i, to: j, n: run, score: 0 });
+            continue;
+          }
+          if (d[d.length - 1] !== c) continue;
+          const n = Math.min(run, cap - d.length);
+          let dRun = 1;
+          while (dRun < d.length && d[d.length - 1 - dRun] === c) dRun++;
+          const dUni = dRun === d.length;
+          let score = 2 + (dUni ? 3 : 0) + (n === run ? 2 : 0) + (dUni && n + d.length === cap ? 4 : 0) + (n === run && run === s.length ? 1 : 0);
+          if (dUni && uniform && d.length < s.length) score -= 2; // pour the smaller pile onto the bigger one
+          out.push({ from: i, to: j, n, score });
+        }
+      }
+      out.sort((a, b) => b.score - a.score);
+      return out;
+    }
+    function solve(tubes, cap, budget) {
+      const st = tubes.map((t) => t.slice());
+      const seen = new Set();
+      const path = [];
+      let nodes = 0, aborted = false;
+      const solved = () => st.every((t) => isDone(t, cap));
+      const key = () => st.map((t) => t.join('.')).sort().join('|');
+      function dfs() {
+        if (solved()) return true;
+        if (++nodes > budget) { aborted = true; return false; }
+        const k = key();
+        if (seen.has(k)) return false;
+        seen.add(k);
+        const moves = genMoves(st, cap);
+        for (const m of moves) {
+          const s = st[m.from], d = st[m.to];
+          for (let i = 0; i < m.n; i++) d.push(s.pop());
+          path.push([m.from, m.to]);
+          if (dfs()) return true;
+          path.pop();
+          for (let i = 0; i < m.n; i++) s.push(d.pop());
+          if (aborted) return false;
+        }
+        return false;
+      }
+      const ok = dfs();
+      return { ok, path: ok ? path.slice() : null, aborted, nodes };
+    }
+
+    // =====================================================================
+    // Levels
+    // =====================================================================
+    const LEVELS = 200;
+    const CHAPTERS = ['Bubbly Beginnings', 'Fizzy Lab', 'Rainbow Row', 'Potion Class', 'Mystery Mixes', 'Tall Tales', 'Color Storm', 'Grand Alchemist'];
+    function levelParams(n) {
+      let colors = n === 1 ? 2 : n <= 3 ? 3 : n <= 7 ? 4 : n <= 14 ? 5 : n <= 24 ? 6 : n <= 38 ? 7 : n <= 55 ? 8 : n <= 75 ? 9 : n <= 100 ? 10 : n <= 130 ? 11 : 12;
+      let cap = 4;
+      const tall = n >= 30 && n % 6 === 3;
+      if (tall) { cap = 5; colors = Math.max(4, colors - 2); }
+      const hidden = n >= 10 && ((n < 50 && n % 4 === 2) || (n >= 50 && n < 100 && n % 3 === 1) || (n >= 100 && n % 2 === 0));
+      return { colors, cap, hidden, tall, empties: 2 };
+    }
+    const levelCache = new Map();
+    function buildPuzzle(seed, P) {
+      for (let attempt = 0; attempt < 60; attempt++) {
+        const rng = mulberry32(seed * 9973 + attempt * 7919 + 1013);
+        const pool = [];
+        for (let c = 0; c < P.colors; c++) for (let k = 0; k < P.cap; k++) pool.push(c);
+        shuffle(pool, rng);
+        const tubes = [];
+        for (let t = 0; t < P.colors; t++) tubes.push(pool.slice(t * P.cap, (t + 1) * P.cap));
+        for (let e = 0; e < P.empties; e++) tubes.push([]);
+        if (tubes.some((t) => t.length && t.every((x) => x === t[0]))) continue;
+        // not too easy: limit how many layers already sit on a same-coloured layer
+        let pairs = 0;
+        for (const t of tubes) for (let i = 1; i < t.length; i++) if (t[i] === t[i - 1]) pairs++;
+        if (pairs > Math.max(1, Math.floor(P.colors * 0.5))) continue;
+        const r = solve(tubes, P.cap, 90000);
+        if (!r.ok) continue;
+        const palette = shuffle(COLORS.map((_, i) => i), mulberry32(seed * 31 + 7)).slice(0, P.colors);
+        return Object.assign({}, P, { tubes, par: r.path.length, palette, seed });
+      }
+      return null;
+    }
+    function getLevel(n) {
+      if (levelCache.has(n)) return levelCache.get(n);
+      let L = buildPuzzle(n, levelParams(n));
+      if (!L) { // practically never happens; fall back to an easier layout
+        const P = levelParams(n); P.colors = Math.max(3, P.colors - 1);
+        L = buildPuzzle(n + 5000, P);
+      }
+      levelCache.set(n, L);
+      return L;
+    }
+    function todayKey() { const d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
+
+    // =====================================================================
+    // Skins
+    // =====================================================================
+    const TUBES = [
+      { id: 'classic', name: 'Classic Glass', cost: 0, shape: 'round', rim: '#e9ecff', tint: 'rgba(200,215,255,0.08)', desc: 'Shiny test tubes.' },
+      { id: 'lab', name: 'Lab Cylinder', cost: 150, shape: 'flat', rim: '#8fd3ff', tint: 'rgba(150,210,255,0.10)', marks: true, desc: 'Flat bottoms and measuring marks.' },
+      { id: 'potion', name: 'Potion Bottle', cost: 300, shape: 'potion', rim: '#c58a52', tint: 'rgba(210,170,255,0.12)', desc: 'A wizard\'s bottle with a slim neck.' },
+      { id: 'crystal', name: 'Crystal Vial', cost: 450, shape: 'crystal', rim: '#7ff7ff', tint: 'rgba(140,255,250,0.10)', glow: '#5ff', desc: 'Sparkly gem-cut glass.' },
+      { id: 'royal', name: 'Royal Gold', cost: 650, shape: 'round', rim: '#ffd23f', tint: 'rgba(255,230,150,0.08)', gold: true, desc: 'Golden rims and a fancy base.' },
+      { id: 'neon', name: 'Neon Glow', cost: 900, shape: 'capsule', rim: 'neon', tint: 'rgba(255,255,255,0.06)', desc: 'Rainbow glow that shifts colour.' },
+    ];
+    const BGS = [
+      { id: 'lab', name: 'Night Lab', cost: 0, shelf: ['#8a5a35', '#5b3a20'], desc: 'Bubbles in a cosy lab.' },
+      { id: 'sunset', name: 'Sunset Hills', cost: 120, shelf: ['#9c6b47', '#6a4329'], desc: 'Warm skies and drifting clouds.' },
+      { id: 'ocean', name: 'Deep Ocean', cost: 250, shelf: ['#3c7a8c', '#22505e'], desc: 'Fish, seaweed and sunbeams.' },
+      { id: 'candy', name: 'Candy Land', cost: 400, shelf: ['#ff8fc4', '#c9558f'], desc: 'Sprinkles and lollipops.' },
+      { id: 'space', name: 'Starry Space', cost: 550, shelf: ['#5a5f8a', '#353a63'], desc: 'Twinkling stars and planets.' },
+      { id: 'forest', name: 'Firefly Forest', cost: 700, shelf: ['#7a5a3a', '#4b3622'], desc: 'Glowing fireflies at night.' },
+    ];
+
+    // =====================================================================
+    // Save
+    // =====================================================================
+    let save = Potato.load('save', null);
+    if (!save || typeof save !== 'object') save = {};
+    save.coins = Number(save.coins) || 0;
+    save.stars = save.stars && typeof save.stars === 'object' ? save.stars : {};
+    save.unlocked = clamp(Number(save.unlocked) || 1, 1, LEVELS);
+    save.owned = Array.isArray(save.owned) ? save.owned : [];
+    ['classic', 'bg:lab'].forEach((k) => { if (!save.owned.includes(k)) save.owned.push(k); });
+    save.tube = TUBES.some((t) => t.id === save.tube) ? save.tube : 'classic';
+    save.bg = BGS.some((b) => b.id === save.bg) ? save.bg : 'lab';
+    save.tokens = Object.assign({ hint: 3, tube: 2 }, save.tokens || {});
+    save.daily = Object.assign({ last: 0, streak: 0, best: 0 }, save.daily || {});
+    save.rushBest = Number(save.rushBest) || 0;
+    save.muted = !!save.muted;
+    save.sym = !!save.sym;
+    save.fast = !!save.fast;
+    save.seenTut = !!save.seenTut;
+    const persist = () => Potato.save('save', save);
+    const totalStars = () => Object.values(save.stars).reduce((s, n) => s + (Number(n) || 0), 0);
+    const owns = (k) => save.owned.includes(k);
+
+    // =====================================================================
+    // Sound (WebAudio only, started on the first click)
+    // =====================================================================
+    let ac = null;
+    function audio() {
+      try {
+        if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+        if (ac.state === 'suspended') ac.resume();
+      } catch (e) { ac = null; }
+      return ac;
+    }
+    function tone(freq, dur, type = 'sine', vol = 0.06, delay = 0, slide = 0) {
+      if (save.muted || !ac) return;
+      const t = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, t);
+      if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t + dur);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(ac.destination);
+      o.start(t); o.stop(t + dur + 0.03);
+    }
+    const sfx = {
+      pick: () => tone(660, 0.07, 'triangle', 0.05, 0, 120),
+      drop: () => tone(440, 0.07, 'triangle', 0.04, 0, -80),
+      nope: () => { tone(200, 0.12, 'square', 0.035); tone(160, 0.14, 'square', 0.03, 0.08); },
+      glug: (k, i) => tone(300 + i * 60 + k * 30, 0.09, 'sine', 0.07, 0, 160),
+      cork: () => { tone(900, 0.05, 'square', 0.04, 0, -500); tone(1320, 0.18, 'sine', 0.05, 0.05); tone(1760, 0.22, 'sine', 0.04, 0.11); },
+      reveal: () => tone(1046, 0.15, 'triangle', 0.04, 0, 400),
+      hint: () => { tone(784, 0.1, 'sine', 0.05); tone(1175, 0.16, 'sine', 0.05, 0.08); },
+      tube: () => { tone(523, 0.1, 'triangle', 0.05); tone(784, 0.14, 'triangle', 0.05, 0.08); },
+      win: () => [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => tone(f, 0.28, 'triangle', 0.07, i * 0.09)),
+      tick: () => tone(1200, 0.03, 'square', 0.02),
+      coin: () => { tone(1320, 0.07, 'square', 0.03); tone(1760, 0.12, 'square', 0.03, 0.06); },
+    };
+
+    // =====================================================================
+    // Game state
+    // =====================================================================
+    let scene = 'title';      // title | levels | play | results | shop | paused
+    let G = null;             // the puzzle being played
+    let vis = [];             // per-tube visuals
+    let anim = null;          // the pour that is playing
+    let queued = null;        // a click made during a pour
+    let sel = -1, cursor = 0;
+    let parts = [], floaters = [];
+    let hintMove = null, hintT = 0;
+    let demo = null;          // the self-playing puzzle behind the title screen
+    let uid = 1;
+    let time = 0, shake = 0;
+    let W = 0, H = 0, dpr = 1;
+    let L = { w: 40, h: 160, rows: [] };
+    let winTimer = -1;
+
+    function makeUnits(tubes) { return tubes.map((t) => t.map((c) => ({ c, id: uid++ }))); }
+    function startPuzzle(def, mode, extra) {
+      G = Object.assign({
+        mode, cap: def.cap, par: def.par, palette: def.palette, hiddenOn: !!def.hidden,
+        start: def.tubes, tubes: makeUnits(def.tubes), revealed: new Set(), history: [], moves: 0,
+        extraUsed: false, hintsUsed: 0, done: false, level: def.level || 0, def,
+      }, extra || {});
+      for (const t of G.tubes) { if (t.length) G.revealed.add(t[t.length - 1].id); if (!G.hiddenOn) t.forEach((u) => G.revealed.add(u.id)); }
+      anim = null; queued = null; sel = -1; cursor = 0; hintMove = null; winTimer = -1;
+      parts = []; floaters = [];
+      vis = G.tubes.map(() => newVis());
+      layout(true);
+      updateHud();
+    }
+    function newVis() { return { x: W / 2, y: H / 2, lift: 0, cork: 0, corkDone: false, glow: 0, shake: 0, bub: [] }; }
+    const colOf = (u) => COLORS[G.palette[u.c]];
+    const topU = (t) => t[t.length - 1];
+    const tubeDone = (t) => isDone(t.map((u) => u.c), G.cap);
+    const tubeFullDone = (t) => t.length === G.cap && tubeDone(t);
+    const solvedNow = () => G.tubes.every(tubeDone);
+    function runOf(t) { if (!t.length) return 0; const c = topU(t).c; let r = 1; while (r < t.length && t[t.length - 1 - r].c === c) r++; return r; }
+    function canPour(i, j) {
+      if (i === j || i < 0 || j < 0) return false;
+      const s = G.tubes[i], d = G.tubes[j];
+      if (!s.length || d.length >= G.cap || tubeFullDone(s)) return false;
+      return !d.length || topU(d).c === topU(s).c;
+    }
+    function legalMovesExist() {
+      for (let i = 0; i < G.tubes.length; i++) for (let j = 0; j < G.tubes.length; j++) {
+        if (!canPour(i, j)) continue;
+        const s = G.tubes[i];
+        if (!G.tubes[j].length && runOf(s) === s.length) continue; // moving a single-colour tube to an empty one changes nothing
+        return true;
+      }
+      return false;
+    }
+
+    function doPour(i, j, instant) {
+      const s = G.tubes[i], d = G.tubes[j];
+      const n = Math.min(runOf(s), G.cap - d.length);
+      G.history.push({ tubes: G.tubes.map((t) => t.slice()), moves: G.moves });
+      if (G.history.length > 400) G.history.shift();
+      const srcBefore = s.slice(), dstBefore = d.slice();
+      const moved = s.splice(s.length - n, n);
+      d.push(...moved);
+      G.moves++;
+      if (G.plan && G.plan.path[G.plan.idx] && G.plan.path[G.plan.idx][0] === i && G.plan.path[G.plan.idx][1] === j) { G.plan.idx++; G.plan.key = stateKey(); } else G.plan = null;
+      hintMove = null;
+      const exposed = s.length ? topU(s).id : 0;
+      if (instant) {
+        moved.forEach((u) => G.revealed.add(u.id));
+        if (exposed) G.revealed.add(exposed);
+        afterPour(j);
+        return;
+      }
+      const col = colOf(moved[0]);
+      const side = pickSide(i, j);
+      anim = { from: i, to: j, n, col, srcBefore, dstBefore, moved, exposed, t: 0, side,
+        tMove: save.fast ? 0.14 : 0.24, tPour: (save.fast ? 0.16 : 0.3) + n * (save.fast ? 0.08 : 0.14), tBack: save.fast ? 0.14 : 0.24, glugs: 0 };
+      sfx.pick();
+    }
+    function afterPour(j) {
+      const d = G.tubes[j];
+      if (tubeFullDone(d)) {
+        vis[j].cork = 0; vis[j].corkDone = false; vis[j].corkStart = time;
+      }
+      if (solvedNow()) { G.done = true; winTimer = 1.1; }
+      else if (!legalMovesExist()) toast('No moves left! Tap Undo or try the extra tube.', 3);
+      updateHud();
+    }
+    function finishAnim() {
+      if (!anim) return;
+      anim.moved.forEach((u) => G.revealed.add(u.id));
+      if (anim.exposed && !G.revealed.has(anim.exposed)) {
+        G.revealed.add(anim.exposed);
+        revealFx(anim.from);
+      }
+      const j = anim.to;
+      anim = null;
+      afterPour(j);
+      if (queued !== null) { const q = queued; queued = null; tapTube(q); }
+    }
+    function revealFx(i) {
+      const v = vis[i];
+      v.revealT = time;
+      sfx.reveal();
+      const t = G.tubes[i];
+      const y = v.y + unitCenterY(t.length - 1);
+      for (let k = 0; k < 12; k++) parts.push({ x: v.x + (Math.random() - 0.5) * L.w * 0.6, y, vx: (Math.random() - 0.5) * 80, vy: -40 - Math.random() * 80, life: 0.7, max: 0.7, col: '#fff', r: 2 + Math.random() * 2, star: true });
+    }
+    function undo() {
+      if (!G || !G.history.length || G.done || scene !== 'play') return;
+      if (anim) { finishAnim(); }
+      const h = G.history.pop();
+      G.tubes = h.tubes; G.moves = h.moves;
+      sel = -1; hintMove = null; queued = null;
+      vis.forEach((v, i) => { if (!tubeFullDone(G.tubes[i])) { v.cork = 0; v.corkDone = false; v.corkStart = null; } });
+      sfx.drop();
+      updateHud();
+    }
+    function restart() {
+      if (!G || scene !== 'play') return;
+      if (G.mode === 'rush') { toast('No restarts in Rush. Keep pouring!', 2); return; }
+      const extra = G.extraUsed;
+      startPuzzle(G.def, G.mode, { level: G.level, day: G.day, extraUsed: false });
+      if (extra) { /* the extra tube is used up when you restart */ }
+      sfx.drop();
+    }
+    function addTube() {
+      if (!G || scene !== 'play' || G.done) return;
+      if (G.extraUsed) { toast('Only one extra tube per puzzle.', 2); return; }
+      if (save.tokens.tube <= 0) { toast('No extra tubes left. Get more in the Shop!', 2.5); return; }
+      save.tokens.tube--; persist();
+      G.extraUsed = true;
+      G.tubes.push([]);
+      G.history.forEach((h) => h.tubes.push([]));
+      const v = newVis(); vis.push(v);
+      layout(false);
+      v.x = L.pos[L.pos.length - 1].x; v.y = -L.h;
+      sfx.tube();
+      toast('Extra tube added! (best result is now 2★)', 2.2);
+      updateHud();
+    }
+    // Hints follow one saved plan, so pressing Hint again and again always heads towards the finish.
+    const stateKey = () => G.tubes.map((t) => t.map((u) => u.c).join('.')).join('|');
+    function planNext() {
+      const key = stateKey();
+      if (G.plan && G.plan.key === key && G.plan.idx < G.plan.path.length) return { move: G.plan.path[G.plan.idx] };
+      const r = solve(G.tubes.map((t) => t.map((u) => u.c)), G.cap, 120000);
+      if (!r.ok || !r.path.length) { G.plan = null; return { fail: true, aborted: r.aborted }; }
+      G.plan = { path: r.path, idx: 0, key };
+      return { move: r.path[0] };
+    }
+    function hint() {
+      if (!G || scene !== 'play' || G.done) return;
+      if (anim) finishAnim();
+      const free = G.mode === 'level' && G.level <= 3;
+      if (!free && save.tokens.hint <= 0) { toast('No hints left. Get more in the Shop!', 2.5); return; }
+      const p = planNext();
+      if (p.fail) { toast(p.aborted ? 'Hmm, that one is tricky. Try an Undo first!' : 'Stuck! Undo a few moves and try again.', 2.6); return; }
+      if (!free) { save.tokens.hint--; persist(); }
+      G.hintsUsed++;
+      hintMove = p.move; hintT = 0;
+      sel = -1;
+      sfx.hint();
+      updateHud();
+    }
+    // =====================================================================
+    // Layout: fit the tubes into rows on any screen shape
+    // =====================================================================
+    const HUD_TOP = () => (scene === 'play' || scene === 'paused' ? 64 : 10);
+    const HUD_BOT = () => (scene === 'play' || scene === 'paused' ? 84 : 10);
+    function tubeH(w, cap) { return w * (0.62 + cap * 0.98); }
+    function layout(snap) {
+      if (!G) return;
+      const n = G.tubes.length, cap = G.cap;
+      const top = HUD_TOP() + 8, bot = H - HUD_BOT() - 6;
+      const availW = W - 20, availH = Math.max(120, bot - top);
+      let best = null;
+      for (let r = 1; r <= 4; r++) {
+        const per = Math.ceil(n / r);
+        if (r > 1 && Math.ceil(n / (r - 1)) === per) continue;
+        const w1 = availW / (per * 1.7);
+        const w2 = availH / (r * (tubeH(1, cap) + 1.15));
+        const w = Math.min(w1, w2, 68);
+        if (!best || w > best.w * 1.04) best = { r, per, w };
+      }
+      const w = Math.max(14, best.w), h = tubeH(w, cap);
+      const rowH = h + w * 1.15;
+      const rows = [];
+      let idx = 0;
+      const baseCount = Math.floor(n / best.r), extra = n % best.r;
+      for (let r = 0; r < best.r; r++) { const c = baseCount + (r < extra ? 1 : 0); rows.push(c); }
+      const totalH = best.r * rowH;
+      const y0 = top + (availH - totalH) / 2 + w * 0.75;
+      const pos = [], shelves = [];
+      rows.forEach((count, r) => {
+        const stride = w * 1.7;
+        const x0 = W / 2 - ((count - 1) * stride) / 2;
+        const y = y0 + r * rowH;
+        for (let k = 0; k < count; k++) pos.push({ x: x0 + k * stride, y, row: r });
+        shelves.push({ x1: x0 - w * 0.95, x2: x0 + (count - 1) * stride + w * 0.95, y: y + h });
+        idx += count;
+      });
+      L = { w, h, pos, shelves, rowH };
+      vis.forEach((v, i) => { if (snap || v.x === undefined) { v.x = pos[i].x; v.y = pos[i].y; } });
+    }
+    function resize() {
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      W = window.innerWidth; H = window.innerHeight;
+      canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+      if (G) layout(!anim);
+      if (demo) layoutDemo();
+    }
+    window.addEventListener('resize', resize);
+
+    // =====================================================================
+    // Tube geometry (local space: origin = mouth centre, y goes down)
+    // =====================================================================
+    const shapeCache = new Map();
+    function shapePts(shape, half, y0, y1, w, hFull) {
+      const pts = [];
+      const arc = (cx, cy, r, a0, a1, steps, ry) => { for (let k = 0; k <= steps; k++) { const a = a0 + (a1 - a0) * (k / steps); pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * (ry || r)]); } };
+      if (shape === 'round' || shape === 'capsule') {
+        // left wall, then the bottom arc (angles PI..0 pass through PI/2, which is "down" on a canvas), then the right wall
+        const ry = shape === 'capsule' ? half * 1.45 : half;
+        pts.push([-half, y0]);
+        arc(0, y1 - ry, half, Math.PI, 0, 18, ry);
+        pts.push([half, y0]);
+        return fixArc(pts);
+      }
+      if (shape === 'flat') {
+        const rc = half * 0.42;
+        pts.push([-half, y0], [-half, y1 - rc]);
+        for (let k = 1; k <= 5; k++) { const a = Math.PI - (Math.PI / 2) * (k / 5); pts.push([-half + rc + Math.cos(a) * rc, y1 - rc + Math.sin(a) * rc]); }
+        for (let k = 0; k <= 5; k++) { const a = Math.PI / 2 - (Math.PI / 2) * (k / 5); pts.push([half - rc + Math.cos(a) * rc, y1 - rc + Math.sin(a) * rc]); }
+        pts.push([half, y0]);
+        return pts;
+      }
+      if (shape === 'potion') {
+        const neckY = hFull * 0.17, shoulder = hFull * 0.31;
+        const nh = half - w * 0.17;
+        pts.push([-nh, y0], [-nh, neckY]);
+        for (let k = 1; k <= 6; k++) { const t = k / 6; pts.push([-lerp(nh, half, Math.sin(t * Math.PI / 2)), lerp(neckY, shoulder, t)]); }
+        const r = half;
+        for (let k = 0; k <= 16; k++) { const a = Math.PI - Math.PI * (k / 16); pts.push([Math.cos(a) * r, y1 - r * 0.9 + Math.sin(a) * r * 0.9]); }
+        for (let k = 6; k >= 1; k--) { const t = k / 6; pts.push([lerp(nh, half, Math.sin(t * Math.PI / 2)), lerp(neckY, shoulder, t)]); }
+        pts.push([nh, neckY], [nh, y0]);
+        return fixArc(pts, y1);
+      }
+      if (shape === 'crystal') {
+        const cut = half * 1.25;
+        pts.push([-half, y0], [-half, y1 - cut], [-half * 0.45, y1 - cut * 0.2], [0, y1], [half * 0.45, y1 - cut * 0.2], [half, y1 - cut], [half, y0]);
+        return pts;
+      }
+      return pts;
+    }
+    // Arcs drawn with sin(a) for a in PI..0 already pass through the bottom (sin > 0). This just guards order.
+    function fixArc(pts) {
+      return pts.map((p) => [p[0], p[1]]).filter((p, i, a) => i === 0 || Math.abs(p[0] - a[i - 1][0]) + Math.abs(p[1] - a[i - 1][1]) > 0.01);
+    }
+    function geom(skin, w, h) {
+      const k = skin.shape + '|' + w.toFixed(2) + '|' + h.toFixed(2);
+      let g = shapeCache.get(k);
+      if (g) return g;
+      const t = Math.max(1.6, w * 0.075);
+      const yF = w * 0.34;
+      const outer = shapePts(skin.shape, w / 2, 0, h, w, h);
+      const inner = shapePts(skin.shape, w / 2 - t, yF, h - t, w, h);
+      const area = polyArea(inner);
+      g = { outer, inner, area, t, yF, w, h };
+      shapeCache.set(k, g);
+      if (shapeCache.size > 60) shapeCache.delete(shapeCache.keys().next().value);
+      return g;
+    }
+    function polyArea(p) { let s = 0; for (let i = 0, n = p.length; i < n; i++) { const a = p[i], b = p[(i + 1) % n]; s += a[0] * b[1] - b[0] * a[1]; } return Math.abs(s) / 2; }
+    function clipBelow(p, y) {
+      const out = [];
+      for (let i = 0, n = p.length; i < n; i++) {
+        const a = p[i], b = p[(i + 1) % n];
+        const ain = a[1] >= y, bin = b[1] >= y;
+        if (ain) out.push(a);
+        if (ain !== bin) { const t = (y - a[1]) / (b[1] - a[1]); out.push([a[0] + (b[0] - a[0]) * t, y]); }
+      }
+      return out;
+    }
+    function clipAbove(p, y) {
+      const out = [];
+      for (let i = 0, n = p.length; i < n; i++) {
+        const a = p[i], b = p[(i + 1) % n];
+        const ain = a[1] <= y, bin = b[1] <= y;
+        if (ain) out.push(a);
+        if (ain !== bin) { const t = (y - a[1]) / (b[1] - a[1]); out.push([a[0] + (b[0] - a[0]) * t, y]); }
+      }
+      return out;
+    }
+    function yRange(p) { let a = Infinity, b = -Infinity; for (const q of p) { if (q[1] < a) a = q[1]; if (q[1] > b) b = q[1]; } return [a, b]; }
+    function surfaceY(p, vol, rng) {
+      const [mn, mx] = rng || yRange(p);
+      if (vol <= 0.0001) return mx;
+      let lo = mn, hi = mx;
+      for (let k = 0; k < 20; k++) { const m = (lo + hi) / 2; if (polyArea(clipBelow(p, m)) > vol) lo = m; else hi = m; }
+      return (lo + hi) / 2;
+    }
+    function xform(pts, px, py, ang) {
+      const c = Math.cos(ang), s = Math.sin(ang);
+      return pts.map(([x, y]) => [px + x * c - y * s, py + x * s + y * c]);
+    }
+    // local y (upright) of the centre of unit k, used for symbols and effects
+    function unitCenterY(k) {
+      const g = geom(curTube(), L.w, L.h);
+      const u = g.area / G.cap;
+      const a = surfaceY(g.inner, u * k), b = surfaceY(g.inner, u * (k + 1));
+      return (a + b) / 2;
+    }
+    const curTube = () => TUBES.find((t) => t.id === save.tube) || TUBES[0];
+    const curBg = () => BGS.find((b) => b.id === save.bg) || BGS[0];
+
+    // Tilt so that the liquid just reaches the lip (that's when it pours).
+    function equilibriumAngle(g, vol, side) {
+      const lip = side > 0 ? g.inner[g.inner.length - 1] : g.inner[0];
+      let lo = 0.2, hi = 2.05;
+      const f = (a) => {
+        const P = xform(g.inner, 0, 0, a * side);
+        const sy = surfaceY(P, vol);
+        const ly = lip[0] * Math.sin(a * side) + lip[1] * Math.cos(a * side);
+        return sy - ly; // > 0: surface below the lip
+      };
+      if (f(hi) > 0) return hi;
+      for (let k = 0; k < 16; k++) { const m = (lo + hi) / 2; if (f(m) > 0) lo = m; else hi = m; }
+      return (lo + hi) / 2;
+    }
+    function pickSide(i, j) {
+      const a = L.pos[i], b = L.pos[j];
+      let side = b.x >= a.x ? 1 : -1;
+      const reach = L.h * 0.95 + L.w;
+      if (side === 1 && b.x - reach < 4) side = -1;
+      else if (side === -1 && b.x + reach > W - 4) side = 1;
+      return side;
+    }
+
+    // =====================================================================
+    // Input
+    // =====================================================================
+    function tubeAt(x, y) {
+      if (!G) return -1;
+      let best = -1, bd = Infinity;
+      L.pos.forEach((p, i) => {
+        const dx = Math.abs(x - p.x), top = p.y - L.w * 1.2, bot = p.y + L.h + L.w * 0.4;
+        if (dx < L.w * 0.85 && y > top && y < bot && dx < bd) { bd = dx; best = i; }
+      });
+      return best;
+    }
+    function tapTube(i) {
+      if (!G || G.done || scene !== 'play') return;
+      if (anim) { queued = i; return; }
+      cursor = i;
+      if (sel < 0) {
+        const t = G.tubes[i];
+        if (!t.length) { vis[i].shake = 0.3; sfx.nope(); return; }
+        if (tubeFullDone(t)) { vis[i].shake = 0.3; toast('That tube is finished!', 1.2); return; }
+        sel = i; sfx.pick();
+        return;
+      }
+      if (sel === i) { sel = -1; sfx.drop(); return; }
+      if (canPour(sel, i)) { const s = sel; sel = -1; doPour(s, i); return; }
+      // can't pour there: pick the clicked tube instead if it makes sense
+      vis[i].shake = 0.35;
+      sfx.nope();
+      const t = G.tubes[i];
+      if (t.length && !tubeFullDone(t)) sel = i;
+      else sel = -1;
+    }
+    canvas.addEventListener('pointerdown', (e) => {
+      audio();
+      if (scene !== 'play') return;
+      const i = tubeAt(e.clientX, e.clientY);
+      if (i >= 0) tapTube(i);
+      else if (sel >= 0) { sel = -1; sfx.drop(); }
+    });
+    window.addEventListener('keydown', (e) => {
+      const k = e.key.toLowerCase();
+      if (k === 'm') { toggleMute(); return; }
+      if (scene === 'paused' && (k === 'p' || k === 'escape')) { resume(); return; }
+      if (scene !== 'play') return;
+      if (k === 'p' || k === 'escape') { if (k === 'escape' && sel >= 0) { sel = -1; return; } pause(); return; }
+      if (k === 'z' || k === 'u' || (k === 'backspace')) { undo(); e.preventDefault(); return; }
+      if (k === 'r') { restart(); return; }
+      if (k === 'h') { hint(); return; }
+      if (k === 't') { addTube(); return; }
+      if (k === 'arrowright' || k === 'd') { cursor = (cursor + 1) % G.tubes.length; showCursor = 3; e.preventDefault(); return; }
+      if (k === 'arrowleft' || k === 'a') { cursor = (cursor + G.tubes.length - 1) % G.tubes.length; showCursor = 3; e.preventDefault(); return; }
+      if (k === 'arrowdown' || k === 'arrowup') { // jump between rows
+        const p = L.pos[cursor]; const dir = k === 'arrowdown' ? 1 : -1;
+        let best = -1, bd = Infinity;
+        L.pos.forEach((q, i) => { if (q.row === p.row + dir) { const d = Math.abs(q.x - p.x); if (d < bd) { bd = d; best = i; } } });
+        if (best >= 0) cursor = best;
+        showCursor = 3; e.preventDefault(); return;
+      }
+      if (k === ' ' || k === 'enter') { showCursor = 3; tapTube(cursor); e.preventDefault(); return; }
+      const num = '1234567890'.indexOf(k);
+      if (num >= 0) { const i = num; if (i < G.tubes.length) { cursor = i; tapTube(i); } }
+    });
+    let showCursor = 0;
+
+    // =====================================================================
+    // Update
+    // =====================================================================
+    function update(dt) {
+      time += dt;
+      if (shake > 0) shake = Math.max(0, shake - dt * 30);
+      if (scene === 'title' || scene === 'levels' || scene === 'shop') updateDemo(dt);
+      if (!G) return;
+      const playing = scene === 'play';
+      if (playing && G.mode === 'rush' && !G.done) {
+        G.timeLeft -= dt;
+        if (G.timeLeft <= 5 && Math.ceil(G.timeLeft) !== Math.ceil(G.timeLeft + dt)) sfx.tick();
+        if (G.timeLeft <= 0) { G.timeLeft = 0; endRush(); }
+        updateHud();
+      }
+      if (showCursor > 0) showCursor -= dt;
+      if (anim && playing) {
+        anim.t += dt;
+        const pourStart = anim.tMove, pourEnd = anim.tMove + anim.tPour;
+        if (anim.t > pourStart && anim.t < pourEnd) {
+          const p = (anim.t - pourStart) / anim.tPour;
+          const g = Math.floor(p * (anim.n * 2 + 1));
+          if (g > anim.glugs) { anim.glugs = g; sfx.glug(anim.n, g); }
+          if (Math.random() < dt * 30) splash();
+        }
+        if (anim.t >= pourEnd + anim.tBack) finishAnim();
+      }
+      // tube motion
+      vis.forEach((v, i) => {
+        const p = L.pos[i];
+        if (!p) return;
+        v.x = lerp(v.x, p.x, Math.min(1, dt * 14));
+        v.y = lerp(v.y, p.y, Math.min(1, dt * 14));
+        const want = sel === i ? 1 : 0;
+        v.lift = lerp(v.lift, want, Math.min(1, dt * 16));
+        if (v.shake > 0) v.shake = Math.max(0, v.shake - dt);
+        if (v.corkStart != null && !v.corkDone) {
+          v.cork = clamp((time - v.corkStart) / 0.45, 0, 1);
+          if (v.cork >= 1) {
+            v.corkDone = true; v.glow = 1; sfx.cork(); shake = 4;
+            const t = G.tubes[i];
+            const col = t.length ? colOf(t[0]) : COLORS[0];
+            for (let k = 0; k < 22; k++) {
+              const a = Math.random() * Math.PI * 2, sp = 60 + Math.random() * 160;
+              parts.push({ x: v.x, y: v.y + L.h * 0.3, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 60, life: 0.9, max: 0.9, col: k % 3 ? col.c : '#fff', r: 2 + Math.random() * 3, star: k % 3 === 0 });
+            }
+            floaters.push({ x: v.x, y: v.y - L.w * 0.6, text: 'Sorted!', col: col.l, life: 1.1, size: Math.max(14, L.w * 0.38) });
+          }
+        }
+        if (v.glow > 0) v.glow = Math.max(0, v.glow - dt * 0.9);
+        // ambient bubbles inside the liquid
+        if (Math.random() < dt * 0.6 && G.tubes[i].length && !(anim && anim.from === i)) v.bub.push({ x: (Math.random() - 0.5) * L.w * 0.5, y: L.h - L.w * 0.3, r: 1 + Math.random() * L.w * 0.04, s: 12 + Math.random() * 18 });
+        v.bub.forEach((b) => { b.y -= b.s * dt; b.x += Math.sin(time * 3 + b.s) * dt * 3; });
+        v.bub = v.bub.filter((b) => b.y > L.w * 0.4);
+      });
+      for (const p of parts) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 260 * dt; }
+      parts = parts.filter((p) => p.life > 0);
+      for (const f of floaters) { f.life -= dt; f.y -= 28 * dt; }
+      floaters = floaters.filter((f) => f.life > 0);
+      if (hintMove) hintT += dt;
+      if (winTimer > 0 && playing && !anim) {
+        winTimer -= dt;
+        if (winTimer <= 0.6 && !G.celebrated) { G.celebrated = true; celebrate(); }
+        if (winTimer <= 0) { winTimer = -1; onSolved(); }
+      }
+    }
+    function splash() {
+      if (!anim) return;
+      const v = vis[anim.to];
+      const g = geom(curTube(), L.w, L.h);
+      const vol = (anim.dstBefore.length + anim.n * pourProgress()) * (g.area / G.cap);
+      const sy = v.y + surfaceY(g.inner, vol);
+      parts.push({ x: v.x + (Math.random() - 0.5) * L.w * 0.3, y: sy, vx: (Math.random() - 0.5) * 70, vy: -40 - Math.random() * 60, life: 0.35, max: 0.35, col: anim.col.l, r: 1.2 + Math.random() * 1.6, clip: anim.to });
+    }
+    function pourProgress() {
+      if (!anim) return 1;
+      return ease(clamp((anim.t - anim.tMove) / anim.tPour, 0, 1));
+    }
+    function celebrate() {
+      sfx.win();
+      shake = 8;
+      vis.forEach((v, i) => {
+        v.glow = 1;
+        for (let k = 0; k < 10; k++) {
+          const a = -Math.PI / 2 + (Math.random() - 0.5) * 2;
+          parts.push({ x: v.x, y: v.y, vx: Math.cos(a) * 200, vy: Math.sin(a) * 260, life: 1.2, max: 1.2, col: G.tubes[i].length ? colOf(G.tubes[i][0]).c : '#fff', r: 3, star: true });
+        }
+      });
+    }
+
+    // =====================================================================
+    // Drawing
+    // =====================================================================
+    function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+    function polyPath(g, p) { g.beginPath(); p.forEach((q, i) => (i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]))); g.closePath(); }
+    function starPath(g, x, y, r, n = 5, inner = 0.45) {
+      g.beginPath();
+      for (let k = 0; k < n * 2; k++) { const a = -Math.PI / 2 + (k * Math.PI) / n, rr2 = k % 2 ? r * inner : r; g.lineTo(x + Math.cos(a) * rr2, y + Math.sin(a) * rr2); }
+      g.closePath();
+    }
+    function rimColor(skin, i) {
+      if (skin.rim !== 'neon') return skin.rim;
+      return `hsl(${(time * 60 + i * 40) % 360}, 95%, 65%)`;
+    }
+
+    // Draw one tube. segs: [{col, amt, hidden, id}] from bottom to top, amounts in units.
+    function drawTube(g, skin, px, py, ang, w, h, cap, segs, opts) {
+      opts = opts || {};
+      const G2 = geom(skin, w, h);
+      const unit = G2.area / cap;
+      const outerW = xform(G2.outer, px, py, ang);
+      const innerW = xform(G2.inner, px, py, ang);
+      // shadow on the shelf
+      if (!ang && opts.shadow !== false) {
+        g.fillStyle = 'rgba(0,0,0,0.28)';
+        g.beginPath(); g.ellipse(px, opts.shelfY != null ? opts.shelfY : py + h, w * 0.62, w * 0.14, 0, 0, Math.PI * 2); g.fill();
+      }
+      // glow (selected / sorted)
+      if (opts.glow) {
+        g.save();
+        g.shadowColor = opts.glowCol || '#fff'; g.shadowBlur = 24 * opts.glow;
+        g.strokeStyle = opts.glowCol || '#fff'; g.globalAlpha = 0.5 * opts.glow; g.lineWidth = 3;
+        polyPath(g, outerW); g.stroke();
+        g.restore();
+      }
+      // glass back
+      g.fillStyle = skin.tint;
+      polyPath(g, outerW); g.fill();
+      g.fillStyle = 'rgba(10,8,30,0.28)';
+      polyPath(g, innerW); g.fill();
+      // liquid bands
+      const [mn, mx] = yRange(innerW);
+      g.save();
+      polyPath(g, innerW); g.clip();
+      let cum = 0, prevY = mx + 1;
+      const bands = [];
+      for (const s of segs) {
+        if (s.amt <= 0.0001) continue;
+        cum += s.amt;
+        const y = surfaceY(innerW, cum * unit, [mn, mx]);
+        bands.push({ s, y0: y, y1: prevY });
+        prevY = y;
+      }
+      const left = Math.min(...outerW.map((q) => q[0])) - 2, right = Math.max(...outerW.map((q) => q[0])) + 2;
+      for (const b of bands) {
+        const c = b.s.hidden ? HIDDEN_COL : b.s.col;
+        const gr = g.createLinearGradient(left, 0, right, 0);
+        gr.addColorStop(0, c.d); gr.addColorStop(0.28, c.c); gr.addColorStop(0.45, c.l); gr.addColorStop(0.62, c.c); gr.addColorStop(1, c.d);
+        g.fillStyle = gr;
+        g.fillRect(left, b.y0 - 0.6, right - left, b.y1 - b.y0 + 1.2);
+        if (b.s.hidden) {
+          // a mystery layer: solid purple liquid with a "?" in the middle (drawn for tilted tubes too)
+          g.fillStyle = "rgba(20,10,50,0.35)"; g.fillRect(left, b.y0 - 0.6, right - left, 1.4);
+          const reg = clipAbove(clipBelow(innerW, b.y0), b.y1);
+          if (reg.length > 2) {
+            let cx = 0, cy = 0, x0 = Infinity, x1 = -Infinity; for (const q of reg) { cx += q[0]; cy += q[1]; x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); }
+            cx /= reg.length; cy /= reg.length;
+            const sz = Math.max(8, Math.min(w * 0.55, (b.y1 - b.y0) * 0.8, (x1 - x0) * 0.6));
+            if (sz > 7) { g.font = `700 ${Math.round(sz)}px Fredoka, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillStyle = "rgba(255,255,255,0.8)"; g.fillText("?", cx, cy + 1); }
+          }
+        }
+      }
+      // surface shine
+      if (bands.length) {
+        const top = bands[bands.length - 1];
+        const wob = opts.wobble ? Math.sin(time * 18) * 1.5 * opts.wobble : 0;
+        g.fillStyle = 'rgba(255,255,255,0.35)';
+        g.fillRect(left, top.y0 - 1 + wob, right - left, Math.max(1.5, w * 0.05));
+        // bubbles
+        if (opts.bubbles && !ang) {
+          g.fillStyle = 'rgba(255,255,255,0.35)';
+          for (const bb of opts.bubbles) { const yy = py + bb.y; if (yy > top.y0 + 3) { g.beginPath(); g.arc(px + bb.x, yy, bb.r, 0, Math.PI * 2); g.fill(); } }
+        }
+      }
+      // reveal flash
+      if (opts.flash > 0 && bands.length) {
+        const top = bands[bands.length - 1];
+        g.fillStyle = `rgba(255,255,255,${opts.flash * 0.8})`;
+        g.fillRect(left, top.y0, right - left, top.y1 - top.y0);
+      }
+      g.restore();
+      // symbols / question marks (upright only)
+      if (!ang) {
+        let k = 0;
+        for (const s of segs) {
+          for (let u = 0; u < Math.round(s.amt); u++, k++) {
+            if (s.hidden || !opts.sym) continue;
+            const yA = surfaceY(innerW, k * unit, [mn, mx]), yB = surfaceY(innerW, (k + 1) * unit, [mn, mx]);
+            const cy = (yA + yB) / 2, sz = Math.min(w * 0.42, (yA - yB) * 0.62);
+            if (s.hidden) {
+              g.font = `700 ${Math.round(sz * 1.25)}px Fredoka, sans-serif`;
+              g.textAlign = 'center'; g.textBaseline = 'middle';
+              g.fillStyle = 'rgba(255,255,255,0.75)';
+              g.fillText('?', px, cy + 1);
+            } else drawSym(g, s.col, px, cy, sz * 0.5);
+          }
+        }
+      }
+      // glass front: outline, highlight, rim
+      const rim = opts.rim || skin.rim;
+      g.save();
+      g.translate(px, py); g.rotate(ang);
+      g.lineJoin = 'round';
+      polyPath(g, G2.outer);
+      g.strokeStyle = 'rgba(255,255,255,0.55)';
+      g.lineWidth = Math.max(1.4, w * 0.05);
+      g.stroke();
+      g.strokeStyle = 'rgba(20,10,50,0.35)';
+      g.lineWidth = Math.max(0.8, w * 0.02);
+      g.stroke();
+      // highlight strip
+      const hg = g.createLinearGradient(-w * 0.38, 0, -w * 0.12, 0);
+      hg.addColorStop(0, 'rgba(255,255,255,0.0)'); hg.addColorStop(0.5, 'rgba(255,255,255,0.42)'); hg.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = hg;
+      rr(g, -w * 0.38, G2.yF + w * 0.05, w * 0.24, h * 0.62, w * 0.12); g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.25)';
+      rr(g, w * 0.22, G2.yF + w * 0.2, w * 0.07, h * 0.3, w * 0.035); g.fill();
+      if (skin.marks) {
+        g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 1;
+        for (let k = 1; k < cap; k++) { const yy = surfaceY(G2.inner, k * unit); g.beginPath(); g.moveTo(w * 0.18, yy); g.lineTo(w * 0.38, yy); g.stroke(); }
+      }
+      // rim
+      const rimW = skin.shape === 'potion' ? w * 0.82 : w * 1.12, rimH = Math.max(3, w * 0.16);
+      const rc = rim;
+      const rg = g.createLinearGradient(0, -rimH * 0.6, 0, rimH * 0.6);
+      rg.addColorStop(0, '#fff'); rg.addColorStop(0.35, rc); rg.addColorStop(1, shadeHex(rc, -70));
+      g.fillStyle = rg;
+      rr(g, -rimW / 2, -rimH * 0.55, rimW, rimH, rimH / 2); g.fill();
+      if (skin.gold) {
+        g.fillStyle = '#ffd23f';
+        g.beginPath(); g.ellipse(0, h - w * 0.02, w * 0.5, w * 0.12, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#b8860b';
+        g.beginPath(); g.ellipse(0, h + w * 0.04, w * 0.5, w * 0.08, 0, 0, Math.PI); g.fill();
+      }
+      if (skin.glow) {
+        g.globalAlpha = 0.4 + 0.3 * Math.sin(time * 3);
+        g.strokeStyle = skin.glow; g.lineWidth = 1.5;
+        polyPath(g, G2.outer); g.stroke();
+        g.globalAlpha = 1;
+      }
+      // cork
+      if (opts.cork > 0) {
+        const p = opts.cork;
+        const drop = (1 - easeOutBack(p)) * -w * 2.2;
+        const cw = (skin.shape === 'potion' ? w * 0.7 : w * 0.92), ch = w * 0.62;
+        g.globalAlpha = clamp(p * 3, 0, 1);
+        const cg = g.createLinearGradient(-cw / 2, 0, cw / 2, 0);
+        cg.addColorStop(0, '#8a5a2b'); cg.addColorStop(0.4, '#d9a066'); cg.addColorStop(1, '#7a4a20');
+        g.fillStyle = cg;
+        rr(g, -cw / 2, -ch * 0.75 + drop, cw, ch, w * 0.12); g.fill();
+        g.fillStyle = 'rgba(90,50,20,0.55)';
+        for (let k = 0; k < 4; k++) { g.beginPath(); g.arc(-cw * 0.25 + (k % 2) * cw * 0.45, -ch * 0.45 + drop + (k >> 1) * ch * 0.35, w * 0.05, 0, Math.PI * 2); g.fill(); }
+        g.globalAlpha = 1;
+      }
+      g.restore();
+      return { innerW, bands };
+    }
+    function shadeHex(hex, amt) {
+      if (!hex || hex[0] !== '#') return '#888';
+      return Potato.shade ? Potato.shade(hex, amt) : hex;
+    }
+    function drawSym(g, col, x, y, r) {
+      g.save();
+      g.fillStyle = 'rgba(255,255,255,0.85)';
+      g.strokeStyle = 'rgba(0,0,0,0.35)';
+      g.lineWidth = Math.max(1, r * 0.22);
+      const dark = col.n === 'White' || col.n === 'Yellow' || col.n === 'Lime';
+      if (dark) g.fillStyle = 'rgba(30,30,50,0.75)';
+      g.beginPath();
+      switch (col.sym) {
+        case 'circle': g.arc(x, y, r * 0.7, 0, Math.PI * 2); break;
+        case 'square': g.rect(x - r * 0.62, y - r * 0.62, r * 1.24, r * 1.24); break;
+        case 'tri': g.moveTo(x, y - r * 0.8); g.lineTo(x + r * 0.8, y + r * 0.6); g.lineTo(x - r * 0.8, y + r * 0.6); g.closePath(); break;
+        case 'diamond': g.moveTo(x, y - r * 0.85); g.lineTo(x + r * 0.7, y); g.lineTo(x, y + r * 0.85); g.lineTo(x - r * 0.7, y); g.closePath(); break;
+        case 'plus': g.rect(x - r * 0.22, y - r * 0.8, r * 0.44, r * 1.6); g.rect(x - r * 0.8, y - r * 0.22, r * 1.6, r * 0.44); break;
+        case 'ring': g.arc(x, y, r * 0.75, 0, Math.PI * 2); g.arc(x, y, r * 0.38, 0, Math.PI * 2, true); break;
+        case 'star': starPath(g, x, y, r * 0.9); break;
+        case 'heart': g.moveTo(x, y + r * 0.75); g.bezierCurveTo(x - r * 1.1, y, x - r * 0.6, y - r * 0.9, x, y - r * 0.3); g.bezierCurveTo(x + r * 0.6, y - r * 0.9, x + r * 1.1, y, x, y + r * 0.75); break;
+        case 'moon': g.arc(x, y, r * 0.75, Math.PI * 0.3, Math.PI * 1.7); g.arc(x + r * 0.35, y, r * 0.55, Math.PI * 1.6, Math.PI * 0.4, true); break;
+        case 'x': g.save(); g.translate(x, y); g.rotate(Math.PI / 4); g.rect(-r * 0.2, -r * 0.8, r * 0.4, r * 1.6); g.rect(-r * 0.8, -r * 0.2, r * 1.6, r * 0.4); g.restore(); break;
+        case 'drop': g.moveTo(x, y - r * 0.85); g.quadraticCurveTo(x + r * 0.75, y + r * 0.1, x, y + r * 0.75); g.quadraticCurveTo(x - r * 0.75, y + r * 0.1, x, y - r * 0.85); break;
+        case 'bar': g.rect(x - r * 0.8, y - r * 0.25, r * 1.6, r * 0.5); break;
+        case 'hex': for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; g.lineTo(x + Math.cos(a) * r * 0.75, y + Math.sin(a) * r * 0.75); } g.closePath(); break;
+        case 'flower': for (let k = 0; k < 5; k++) { const a = k * Math.PI * 2 / 5; g.moveTo(x + Math.cos(a) * r * 0.45 + r * 0.32, y + Math.sin(a) * r * 0.45); g.arc(x + Math.cos(a) * r * 0.45, y + Math.sin(a) * r * 0.45, r * 0.32, 0, Math.PI * 2); } break;
+      }
+      g.fill('evenodd'); g.stroke();
+      g.restore();
+    }
+    function segsFor(units, hiddenFn, removeTop, addCol, addAmt) {
+      const segs = [];
+      const arr = units.slice();
+      for (const u of arr) {
+        const hidden = hiddenFn(u);
+        const col = COLORS[G.palette[u.c]];
+        const last = segs[segs.length - 1];
+        if (last && !hidden && !last.hidden && last.col === col) last.amt += 1;
+        else segs.push({ col, amt: 1, hidden });
+      }
+      let rm = removeTop || 0;
+      while (rm > 0.0001 && segs.length) {
+        const s = segs[segs.length - 1];
+        const take = Math.min(s.amt, rm);
+        s.amt -= take; rm -= take;
+        if (s.amt <= 0.0001) segs.pop();
+      }
+      if (addAmt > 0) {
+        const last = segs[segs.length - 1];
+        if (last && !last.hidden && last.col === addCol) last.amt += addAmt;
+        else segs.push({ col: addCol, amt: addAmt, hidden: false });
+      }
+      return segs;
+    }
+
+    // ---------- Backgrounds ----------
+    const R = mulberry32(42);
+    const DOTS = Array.from({ length: 90 }, () => ({ x: R(), y: R(), s: R(), p: R() * 6.28 }));
+    function drawBg(g, id, w, h, t) {
+      let gr;
+      if (id === 'lab') {
+        gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#1b1640'); gr.addColorStop(1, '#2d2160');
+        g.fillStyle = gr; g.fillRect(0, 0, w, h);
+        // window with moon
+        const wx = w * 0.08, wy = h * 0.08, ww = Math.min(w * 0.26, 220), wh = ww * 1.1;
+        g.save(); if (h > w) g.globalAlpha = 0.45;
+        g.fillStyle = '#0f1a3d'; rr(g, wx, wy, ww, wh, 10); g.fill();
+        g.fillStyle = '#fdf6d0'; g.beginPath(); g.arc(wx + ww * 0.68, wy + wh * 0.3, ww * 0.13, 0, Math.PI * 2); g.fill();
+        g.fillStyle = 'rgba(253,246,208,0.12)'; g.beginPath(); g.arc(wx + ww * 0.68, wy + wh * 0.3, ww * 0.25, 0, Math.PI * 2); g.fill();
+        for (const d of DOTS.slice(0, 12)) { g.fillStyle = `rgba(255,255,255,${0.4 + 0.4 * Math.sin(t * 2 + d.p)})`; g.fillRect(wx + d.x * ww, wy + d.y * wh * 0.8, 1.5, 1.5); }
+        g.strokeStyle = '#4a3a8a'; g.lineWidth = 6; rr(g, wx, wy, ww, wh, 10); g.stroke();
+        g.beginPath(); g.moveTo(wx + ww / 2, wy); g.lineTo(wx + ww / 2, wy + wh); g.moveTo(wx, wy + wh / 2); g.lineTo(wx + ww, wy + wh / 2); g.lineWidth = 4; g.stroke();
+        g.restore();
+        // back shelves with silhouettes of flasks
+        g.fillStyle = 'rgba(10,6,30,0.35)';
+        for (let s = 0; s < 2; s++) {
+          const sy = h * (0.3 + s * 0.28), sx = w * 0.62;
+          g.fillRect(sx, sy, w * 0.36, 6);
+          for (let k = 0; k < 5; k++) {
+            const fx = sx + 14 + k * (w * 0.07), fh = 18 + ((k * 7 + s * 3) % 4) * 8;
+            rr(g, fx, sy - fh, 14, fh, 6); g.fill();
+          }
+        }
+        // soft spotlight
+        gr = g.createRadialGradient(w / 2, h * 0.55, 10, w / 2, h * 0.55, Math.max(w, h) * 0.6);
+        gr.addColorStop(0, 'rgba(160,120,255,0.22)'); gr.addColorStop(1, 'rgba(160,120,255,0)');
+        g.fillStyle = gr; g.fillRect(0, 0, w, h);
+        // rising bubbles
+        for (const d of DOTS.slice(20, 50)) {
+          const y = h - ((t * (14 + d.s * 22) + d.y * h) % (h + 40)) + 20;
+          const x = d.x * w + Math.sin(t + d.p) * 10;
+          g.strokeStyle = 'rgba(190,170,255,0.25)'; g.lineWidth = 1.5;
+          g.beginPath(); g.arc(x, y, 3 + d.s * 7, 0, Math.PI * 2); g.stroke();
+        }
+      } else if (id === 'sunset') {
+        gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#4b3fa0'); gr.addColorStop(0.45, '#f0708a'); gr.addColorStop(0.75, '#ffb46b'); gr.addColorStop(1, '#ffd98a');
+        g.fillStyle = gr; g.fillRect(0, 0, w, h);
+        g.fillStyle = 'rgba(255,240,180,0.9)'; g.beginPath(); g.arc(w * 0.72, h * 0.62, Math.min(w, h) * 0.12, 0, Math.PI * 2); g.fill();
+        g.fillStyle = 'rgba(255,240,180,0.18)'; g.beginPath(); g.arc(w * 0.72, h * 0.62, Math.min(w, h) * 0.22, 0, Math.PI * 2); g.fill();
+        for (let k = 0; k < 6; k++) {
+          const d = DOTS[k];
+          const x = ((d.x * w + t * (6 + d.s * 10)) % (w + 240)) - 120, y = h * (0.1 + d.y * 0.35);
+          g.fillStyle = 'rgba(255,220,230,0.55)';
+          g.beginPath(); g.ellipse(x, y, 60 + d.s * 40, 14, 0, 0, Math.PI * 2); g.ellipse(x + 30, y - 10, 34, 14, 0, 0, Math.PI * 2); g.fill();
+        }
+        g.fillStyle = '#9b4f7a';
+        g.beginPath(); g.moveTo(0, h); for (let x = 0; x <= w; x += 20) g.lineTo(x, h * 0.8 + Math.sin(x * 0.008) * 30 + Math.sin(x * 0.02) * 10); g.lineTo(w, h); g.fill();
+        g.fillStyle = '#7a3a63';
+        g.beginPath(); g.moveTo(0, h); for (let x = 0; x <= w; x += 20) g.lineTo(x, h * 0.88 + Math.sin(x * 0.011 + 2) * 22); g.lineTo(w, h); g.fill();
+      } else if (id === 'ocean') {
+        gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#1fa2d6'); gr.addColorStop(0.5, '#0e5f9a'); gr.addColorStop(1, '#0a2f5e');
+        g.fillStyle = gr; g.fillRect(0, 0, w, h);
+        g.save(); g.globalCompositeOperation = 'lighter';
+        for (let k = 0; k < 5; k++) {
+          const x = w * (0.1 + k * 0.2) + Math.sin(t * 0.4 + k) * 30;
+          gr = g.createLinearGradient(x, 0, x + 60, h);
+          gr.addColorStop(0, 'rgba(180,240,255,0.16)'); gr.addColorStop(1, 'rgba(180,240,255,0)');
+          g.fillStyle = gr;
+          g.beginPath(); g.moveTo(x - 20, 0); g.lineTo(x + 40, 0); g.lineTo(x + 140, h); g.lineTo(x + 40, h); g.fill();
+        }
+        g.restore();
+        for (let k = 0; k < 5; k++) { // fish
+          const d = DOTS[60 + k];
+          const dir = k % 2 ? 1 : -1;
+          let x = ((d.x * w + dir * t * (25 + d.s * 25)) % (w + 120) + w + 120) % (w + 120) - 60;
+          const y = h * (0.15 + d.y * 0.6) + Math.sin(t * 2 + d.p) * 6;
+          g.fillStyle = ['rgba(255,190,90,0.6)', 'rgba(255,120,150,0.55)', 'rgba(140,255,220,0.5)'][k % 3];
+          g.beginPath(); g.ellipse(x, y, 14, 7, 0, 0, Math.PI * 2); g.fill();
+          g.beginPath(); g.moveTo(x - dir * 12, y); g.lineTo(x - dir * 22, y - 7); g.lineTo(x - dir * 22, y + 7); g.fill();
+        }
+        for (let k = 0; k < 9; k++) { // seaweed
+          const x = (k + 0.5) * (w / 9);
+          g.strokeStyle = k % 2 ? '#1f8a5a' : '#2bb673'; g.lineWidth = 7; g.lineCap = 'round';
+          g.beginPath(); g.moveTo(x, h);
+          for (let s = 1; s <= 6; s++) g.lineTo(x + Math.sin(t * 1.4 + s * 0.8 + k) * s * 2.2, h - s * Math.min(16, h * 0.028) - (k % 3) * 6);
+          g.stroke();
+        }
+        for (const d of DOTS.slice(20, 45)) {
+          const y = h - ((t * (20 + d.s * 30) + d.y * h) % (h + 40)) + 20;
+          g.fillStyle = 'rgba(220,250,255,0.35)'; g.beginPath(); g.arc(d.x * w + Math.sin(t * 2 + d.p) * 6, y, 2 + d.s * 4, 0, Math.PI * 2); g.fill();
+        }
+      } else if (id === 'candy') {
+        gr = g.createLinearGradient(0, 0, w, h); gr.addColorStop(0, '#ffc3e1'); gr.addColorStop(1, '#c9b6ff');
+        g.fillStyle = gr; g.fillRect(0, 0, w, h);
+        g.save(); g.globalAlpha = 0.18; g.fillStyle = '#fff';
+        const off = (t * 12) % 80;
+        for (let x = -h; x < w + h; x += 80) { g.beginPath(); g.moveTo(x + off, 0); g.lineTo(x + off + 34, 0); g.lineTo(x + off + 34 - h, h); g.lineTo(x + off - h, h); g.fill(); }
+        g.restore();
+        for (let k = 0; k < 4; k++) { // lollipops
+          const x = w * (0.08 + k * 0.29), y = h * (0.78 + (k % 2) * 0.06), r = Math.min(26 + (k % 2) * 8, Math.min(w, h) * 0.07);
+          g.fillStyle = 'rgba(255,255,255,0.7)'; g.fillRect(x - 3, y, 6, h);
+          g.save(); g.translate(x, y); g.rotate(t * 0.5 * (k % 2 ? 1 : -1));
+          for (let s = 0; s < 6; s++) { g.fillStyle = s % 2 ? '#ff5fa2' : '#fff'; g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, r, s * Math.PI / 3, (s + 1) * Math.PI / 3); g.fill(); }
+          g.restore();
+        }
+        for (const d of DOTS.slice(0, 50)) {
+          const y = (d.y * h + t * (10 + d.s * 16)) % h;
+          g.save(); g.translate(d.x * w, y); g.rotate(d.p + t);
+          g.fillStyle = ['#ff5fa2', '#ffd43b', '#3ee0c8', '#8b5cf6', '#fff'][Math.floor(d.s * 5)];
+          rr(g, -5, -1.6, 10, 3.2, 1.6); g.fill(); g.restore();
+        }
+      } else if (id === 'space') {
+        gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#05051a'); gr.addColorStop(1, '#151040');
+        g.fillStyle = gr; g.fillRect(0, 0, w, h);
+        for (const [x, y, r, c] of [[0.2, 0.3, 0.4, 'rgba(120,60,200,0.25)'], [0.8, 0.7, 0.35, 'rgba(40,120,220,0.22)']]) {
+          gr = g.createRadialGradient(x * w, y * h, 0, x * w, y * h, r * Math.max(w, h)); gr.addColorStop(0, c); gr.addColorStop(1, 'rgba(0,0,0,0)');
+          g.fillStyle = gr; g.fillRect(0, 0, w, h);
+        }
+        for (const d of DOTS) { g.fillStyle = `rgba(255,255,255,${0.3 + 0.6 * Math.abs(Math.sin(t * (0.6 + d.s) + d.p))})`; const s = d.s < 0.15 ? 2.4 : 1.4; g.fillRect(d.x * w, d.y * h, s, s); }
+        const px = w * 0.85, py = h * 0.18, pr = Math.min(w, h) * 0.07;
+        gr = g.createRadialGradient(px - pr * 0.4, py - pr * 0.4, 1, px, py, pr); gr.addColorStop(0, '#ffcf8a'); gr.addColorStop(1, '#c0602a');
+        g.fillStyle = gr; g.beginPath(); g.arc(px, py, pr, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = 'rgba(255,220,170,0.7)'; g.lineWidth = 3; g.beginPath(); g.ellipse(px, py, pr * 1.7, pr * 0.42, -0.35, 0, Math.PI * 2); g.stroke();
+        const sp = (t * 0.25) % 4;
+        if (sp < 0.6) { const x = w * (0.1 + sp * 0.9), y = h * (0.1 + sp * 0.4); g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y); g.lineTo(x - 50, y - 22); g.stroke(); }
+      } else if (id === 'forest') {
+        gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#0b2a3a'); gr.addColorStop(1, '#14402f');
+        g.fillStyle = gr; g.fillRect(0, 0, w, h);
+        g.fillStyle = '#f6f1c8'; g.beginPath(); g.arc(w * 0.18, h * 0.16, Math.min(26, h * 0.1), 0, Math.PI * 2); g.fill();
+        for (let layer = 0; layer < 3; layer++) {
+          g.fillStyle = ['#123a38', '#0f3029', '#0a2219'][layer];
+          const n = 9 + layer * 2;
+          for (let k = 0; k < n; k++) {
+            const x = (k + 0.5 + (layer % 2) * 0.4) * (w / n), base = h * (0.68 + layer * 0.12), th = h * (0.18 + layer * 0.05 + ((k * 13) % 5) * 0.025), tw = Math.min(36 + layer * 6, w / n * 0.6);
+            g.beginPath(); g.moveTo(x, base - th); g.lineTo(x + tw, base); g.lineTo(x - tw, base); g.fill();
+            g.fillRect(x - 5, base - 4, 10, h);
+          }
+          g.fillRect(0, h * (0.68 + layer * 0.12), w, h);
+        }
+        for (const d of DOTS.slice(0, 34)) {
+          const x = d.x * w + Math.sin(t * 0.5 + d.p) * 30, y = d.y * h + Math.cos(t * 0.4 + d.p) * 20;
+          const a = Math.max(0, Math.sin(t * 1.5 + d.p * 3));
+          gr = g.createRadialGradient(x, y, 0, x, y, 10); gr.addColorStop(0, `rgba(230,255,140,${a})`); gr.addColorStop(1, 'rgba(230,255,140,0)');
+          g.fillStyle = gr; g.fillRect(x - 10, y - 10, 20, 20);
+        }
+      }
+    }
+    function drawShelves(g) {
+      const bg = curBg();
+      for (const s of L.shelves) {
+        const th = Math.max(8, L.w * 0.3);
+        g.fillStyle = 'rgba(0,0,0,0.25)';
+        rr(g, s.x1 + 4, s.y + 5, s.x2 - s.x1, th, th * 0.4); g.fill();
+        const gr = g.createLinearGradient(0, s.y, 0, s.y + th);
+        gr.addColorStop(0, bg.shelf[0]); gr.addColorStop(1, bg.shelf[1]);
+        g.fillStyle = gr;
+        rr(g, s.x1, s.y, s.x2 - s.x1, th, th * 0.4); g.fill();
+        g.fillStyle = 'rgba(255,255,255,0.25)';
+        g.fillRect(s.x1 + th * 0.4, s.y + 1.5, s.x2 - s.x1 - th * 0.8, 2);
+      }
+    }
+
+    function frame() {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawBg(ctx, curBg().id, W, H, time);
+      if (!G && demo) { drawDemo(); return; }
+      if (!G) return;
+      ctx.save();
+      if (shake > 0) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+      drawShelves(ctx);
+      const skin = curTube();
+      const hidFn = (u) => G.hiddenOn && !G.revealed.has(u.id);
+      const order = vis.map((_, i) => i).filter((i) => !anim || i !== anim.from);
+      for (const i of order) drawTubeAt(i, skin, hidFn);
+      // hint arrow
+      if (hintMove && !anim) drawHintArrow(hintMove[0], hintMove[1]);
+      // keyboard cursor
+      if (showCursor > 0 && scene === 'play' && L.pos[cursor]) {
+        const p = L.pos[cursor];
+        ctx.fillStyle = '#fff';
+        ctx.globalAlpha = clamp(showCursor, 0, 1);
+        const y = p.y + L.h + Math.max(8, L.w * 0.3) + 10 + Math.sin(time * 8) * 2;
+        ctx.beginPath(); ctx.moveTo(p.x, y - 8); ctx.lineTo(p.x + 8, y + 4); ctx.lineTo(p.x - 8, y + 4); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      // tutorial finger
+      if (tutOn && !anim && G.mode === 'level' && G.level === 1) drawTut();
+      // pouring tube on top
+      if (anim) drawPour(skin, hidFn);
+      for (const p of parts) {
+        ctx.globalAlpha = clamp(p.life / p.max, 0, 1);
+        ctx.fillStyle = p.col;
+        if (p.star) { starPath(ctx, p.x, p.y, p.r * 1.6); ctx.fill(); }
+        else { ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); }
+      }
+      ctx.globalAlpha = 1;
+      for (const f of floaters) {
+        ctx.globalAlpha = clamp(f.life, 0, 1);
+        ctx.font = `700 ${Math.round(f.size)}px Fredoka, sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(20,10,40,0.7)'; ctx.strokeText(f.text, f.x, f.y);
+        ctx.fillStyle = f.col; ctx.fillText(f.text, f.x, f.y);
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+      if (G.mode === 'rush' && scene === 'play') drawRushBar();
+    }
+    function drawTubeAt(i, skin, hidFn) {
+      const v = vis[i];
+      const t = G.tubes[i];
+      let segs;
+      if (anim && anim.to === i) segs = segsFor(anim.dstBefore, (u) => hidFn(u) && !anim.moved.includes(u), 0, anim.col, anim.n * pourProgressDst());
+      else segs = segsFor(t, hidFn);
+      const lift = v.lift * L.w * 0.55;
+      const sh = v.shake > 0 ? Math.sin(v.shake * 60) * v.shake * 10 : 0;
+      const flash = v.revealT != null ? clamp(1 - (time - v.revealT) / 0.45, 0, 1) : 0;
+      const glowCol = sel === i ? '#ffffff' : (t.length ? colOf(t[0]).l : '#fff');
+      const hinted = hintMove && (hintMove[0] === i || hintMove[1] === i) ? 0.6 + 0.4 * Math.sin(hintT * 8) : 0;
+      drawTube(ctx, skin, v.x + sh, v.y - lift, 0, L.w, L.h, G.cap, segs, {
+        cork: v.corkStart != null ? (v.corkDone ? 1 : v.cork) : 0, glow: Math.max(v.glow, sel === i ? 0.7 : 0, hinted), glowCol: hinted ? '#ffe14d' : glowCol,
+        sym: save.sym, flash, bubbles: v.bub, shelfY: L.pos[i].y + L.h, rim: rimColor(skin, i), wobble: anim && anim.to === i ? 1 : 0,
+      });
+    }
+    function pourProgressDst() {
+      if (!anim) return 1;
+      return ease(clamp((anim.t - anim.tMove - 0.06) / anim.tPour, 0, 1));
+    }
+    function drawPour(skin, hidFn) {
+      const a = anim, v = vis[a.from], d = L.pos[a.to];
+      const g = geom(skin, L.w, L.h);
+      const unit = g.area / G.cap;
+      const prog = pourProgress();
+      const before = a.srcBefore.length;
+      const volNow = (before - a.n * prog) * unit;
+      // target: lip over the destination mouth
+      const tx = d.x - a.side * L.w * 0.1, ty = d.y - L.w * 0.55;
+      const angPour = equilibriumAngle(g, Math.max(volNow, unit * 0.05), a.side);
+      let k, ang;
+      if (a.t < a.tMove) { k = ease(a.t / a.tMove); ang = angPour * k; }
+      else if (a.t < a.tMove + a.tPour) { k = 1; ang = angPour; }
+      else { k = 1 - ease(clamp((a.t - a.tMove - a.tPour) / a.tBack, 0, 1)); ang = equilibriumAngle(g, Math.max(volNow, unit * 0.05), a.side) * k; }
+      const lipL = a.side > 0 ? g.outer[g.outer.length - 1] : g.outer[0];
+      const c = Math.cos(ang * a.side), s = Math.sin(ang * a.side);
+      const pivTx = tx - (lipL[0] * c - lipL[1] * s), pivTy = ty - (lipL[0] * s + lipL[1] * c);
+      const rest = L.pos[a.from];
+      const restY = rest.y - L.w * 0.55;
+      const px = lerp(rest.x, pivTx, k), py = lerp(restY, pivTy, k);
+      v.x = px; v.y = py + L.w * 0.55; v.lift = 1; // keep the tube where the pour leaves it
+      // stream
+      if (a.t > a.tMove * 0.85 && a.t < a.tMove + a.tPour + 0.05) {
+        const lipX = px + lipL[0] * c - lipL[1] * s, lipY = py + lipL[0] * s + lipL[1] * c;
+        const dvol = (a.dstBefore.length + a.n * pourProgressDst()) * unit;
+        const surf = d.y + surfaceY(g.inner, dvol);
+        const startT = clamp((a.t - a.tMove * 0.85) / 0.08, 0, 1), endT = clamp((a.t - a.tMove - a.tPour + 0.02) / 0.07, 0, 1);
+        const y0 = lerp(lipY, surf, endT), y1 = lerp(lipY, surf, startT);
+        const sw = Math.max(2.5, L.w * 0.16) * (1 - endT * 0.6);
+        const gr = ctx.createLinearGradient(lipX - sw, 0, lipX + sw, 0);
+        gr.addColorStop(0, a.col.d); gr.addColorStop(0.5, a.col.l); gr.addColorStop(1, a.col.c);
+        ctx.fillStyle = gr;
+        ctx.beginPath();
+        const steps = 10;
+        for (let q = 0; q <= steps; q++) { const yy = lerp(y0, y1, q / steps); const xx = lerp(lipX, d.x, Math.pow(q / steps, 0.5)) + Math.sin(time * 30 + q) * 0.8; ctx.lineTo(xx - sw / 2 * (1 - q / steps * 0.3), yy); }
+        for (let q = steps; q >= 0; q--) { const yy = lerp(y0, y1, q / steps); const xx = lerp(lipX, d.x, Math.pow(q / steps, 0.5)) + Math.sin(time * 30 + q) * 0.8; ctx.lineTo(xx + sw / 2 * (1 - q / steps * 0.3), yy); }
+        ctx.fill();
+      }
+      const segs = segsFor(a.srcBefore, hidFn, a.n * prog);
+      drawTube(ctx, skin, px, py, ang * a.side, L.w, L.h, G.cap, segs, { shadow: false, rim: rimColor(skin, a.from), wobble: 1 });
+    }
+    function drawHintArrow(i, j) {
+      const a = L.pos[i], b = L.pos[j];
+      if (!a || !b) return;
+      const bob = Math.sin(hintT * 6) * 4;
+      ctx.save();
+      if (a.row === b.row) {
+        // same shelf: a dashed arc from one tube to the other
+        const y1 = a.y - L.w * 0.9, y2 = b.y - L.w * 0.9;
+        const mx = (a.x + b.x) / 2, my = Math.max(HUD_TOP() + 12, Math.min(y1, y2) - Math.max(26, Math.abs(a.x - b.x) * 0.22));
+        ctx.strokeStyle = '#ffe14d'; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.setLineDash([10, 9]); ctx.lineDashOffset = -hintT * 40;
+        ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 6;
+        ctx.beginPath(); ctx.moveTo(a.x, y1 + bob); ctx.quadraticCurveTo(mx, my + bob, b.x, y2 + bob); ctx.stroke();
+        ctx.setLineDash([]);
+        const ang = Math.atan2(y2 - (my + bob), b.x - mx);
+        ctx.fillStyle = '#ffe14d';
+        ctx.save(); ctx.translate(b.x, y2 + bob); ctx.rotate(ang);
+        ctx.beginPath(); ctx.moveTo(4, 0); ctx.lineTo(-14, -10); ctx.lineTo(-14, 10); ctx.fill();
+        ctx.restore();
+      }
+      ctx.shadowBlur = 0;
+      // numbered badges just above each tube: 1 = pick this tube, 2 = pour into this one
+      [[a, '1'], [b, '2']].forEach(([p, label], n) => {
+        const bx = a.row === b.row ? p.x + Math.max(18, L.w * 0.62) : p.x;
+        const by = p.y - L.w * (a.row === b.row ? 0.55 : 0.5) + Math.sin(hintT * 6 + n * 1.5) * 3;
+        ctx.fillStyle = '#ffe14d'; ctx.strokeStyle = '#7a5a00'; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(bx, by, 13, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#3a2a00'; ctx.font = '700 16px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, bx, by + 1);
+      });
+      ctx.restore();
+    }
+    let tutOn = false, tutCache = null;
+    function hideTut() { if (tutOn) { tutOn = false; save.seenTut = true; persist(); } }
+    function drawTut() {
+      if (G.moves >= 2) { hideTut(); return; }
+      const p0 = planNext();
+      if (!p0.move) return;
+      const [i, j] = p0.move;
+      const target = sel === i ? j : i;
+      const p = L.pos[target];
+      const y = p.y + L.h * 0.45 + Math.sin(time * 5) * 8;
+      ctx.save();
+      ctx.translate(p.x + L.w * 0.35, y);
+      ctx.rotate(-0.4);
+      ctx.fillStyle = '#fff'; ctx.strokeStyle = '#2a2552'; ctx.lineWidth = 3;
+      rr(ctx, -9, -4, 18, 34, 9); ctx.fill(); ctx.stroke();
+      rr(ctx, -13, 18, 26, 26, 10); ctx.fill(); ctx.stroke();
+      ctx.restore();
+      ctx.font = '700 18px Fredoka, sans-serif'; ctx.textAlign = 'center';
+      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(20,10,40,0.8)';
+      const msg = sel === i ? 'Now tap here to pour!' : 'Tap a tube to pick it up';
+      const my = Math.min(H - HUD_BOT() - 14, p.y + L.h + 64);
+      ctx.strokeText(msg, W / 2, my); ctx.fillStyle = '#ffe14d'; ctx.fillText(msg, W / 2, my);
+    }
+    function drawRushBar() {
+      const p = clamp(G.timeLeft / 90, 0, 1);
+      const w = Math.min(420, W - 40), x = (W - w) / 2, y = 66;
+      ctx.fillStyle = 'rgba(20,16,44,0.8)'; rr(ctx, x, y, w, 10, 5); ctx.fill();
+      ctx.fillStyle = G.timeLeft < 10 ? '#ff4757' : '#3ee0c8'; rr(ctx, x, y, Math.max(10, w * p), 10, 5); ctx.fill();
+    }
+
+    // ---------- Title-screen demo: a puzzle that solves itself ----------
+    function newDemo() {
+      const P = { colors: 5, cap: 4, empties: 2, hidden: false };
+      const def = buildPuzzle(900 + Math.floor(Math.random() * 500), P);
+      const r = solve(def.tubes, 4, 50000);
+      demo = { tubes: def.tubes.map((t) => t.slice()), palette: def.palette, path: r.path || [], k: 0, wait: 1, pour: null, pos: [], w: 30, h: 120 };
+      layoutDemo();
+    }
+    function layoutDemo() {
+      if (!demo) return;
+      const n = demo.tubes.length;
+      const w = clamp(Math.min(W / (n * 1.9), H * 0.06), 16, 46);
+      demo.w = w; demo.h = tubeH(w, 4);
+      const y = H - demo.h - w * 1.2;
+      demo.pos = demo.tubes.map((_, i) => ({ x: W / 2 + (i - (n - 1) / 2) * w * 1.75, y }));
+    }
+    function updateDemo(dt) {
+      if (!demo) return;
+      if (demo.pour) {
+        demo.pour.t += dt;
+        if (demo.pour.t >= 1.2) { demo.pour = null; demo.wait = 0.5; }
+        return;
+      }
+      demo.wait -= dt;
+      if (demo.wait > 0) return;
+      if (demo.k >= demo.path.length) { newDemo(); return; }
+      const [i, j] = demo.path[demo.k++];
+      const s = demo.tubes[i], d = demo.tubes[j];
+      const c = s[s.length - 1];
+      let run = 1; while (run < s.length && s[s.length - 1 - run] === c) run++;
+      const n = Math.min(run, 4 - d.length);
+      demo.pour = { i, j, n, c, sb: s.slice(), db: d.slice(), t: 0 };
+      for (let q = 0; q < n; q++) d.push(s.pop());
+    }
+    function drawDemo() {
+      const skin = curTube();
+      const P = { palette: demo.palette };
+      const segsOf = (arr, rm, addC, addA) => {
+        const segs = [];
+        for (const c of arr) { const col = COLORS[P.palette[c]]; const l = segs[segs.length - 1]; if (l && l.col === col) l.amt++; else segs.push({ col, amt: 1 }); }
+        let r = rm || 0;
+        while (r > 0.0001 && segs.length) { const s = segs[segs.length - 1]; const tk = Math.min(s.amt, r); s.amt -= tk; r -= tk; if (s.amt <= 0.0001) segs.pop(); }
+        if (addA) { const l = segs[segs.length - 1]; const col = COLORS[P.palette[addC]]; if (l && l.col === col) l.amt += addA; else segs.push({ col, amt: addA }); }
+        return segs;
+      };
+      const w = demo.w, h = demo.h;
+      const sy = demo.pos[0].y + h, x1 = demo.pos[0].x - w, x2 = demo.pos[demo.pos.length - 1].x + w;
+      const bg = curBg();
+      const gr = ctx.createLinearGradient(0, sy, 0, sy + 10); gr.addColorStop(0, bg.shelf[0]); gr.addColorStop(1, bg.shelf[1]);
+      ctx.fillStyle = gr; rr(ctx, x1, sy, x2 - x1, Math.max(8, w * 0.3), 5); ctx.fill();
+      const pr = demo.pour;
+      demo.pos.forEach((p, i) => {
+        if (pr && pr.i === i) return;
+        let segs = segsOf(demo.tubes[i]);
+        if (pr && pr.j === i) segs = segsOf(pr.db, 0, pr.c, pr.n * clamp((pr.t - 0.35) / 0.5, 0, 1));
+        drawTube(ctx, skin, p.x, p.y, 0, w, h, 4, segs, { rim: rimColor(skin, i), cork: isDone(demo.tubes[i], 4) && demo.tubes[i].length && !(pr && pr.j === i && pr.t < 0.9) ? 1 : 0 });
+      });
+      if (pr) {
+        const g = geom(skin, w, h), unit = g.area / 4;
+        const prog = clamp((pr.t - 0.3) / 0.5, 0, 1);
+        const vol = (pr.sb.length - pr.n * prog) * unit;
+        const side = demo.pos[pr.j].x > demo.pos[pr.i].x ? 1 : -1;
+        const k = pr.t < 0.3 ? ease(pr.t / 0.3) : pr.t > 0.85 ? 1 - ease((pr.t - 0.85) / 0.35) : 1;
+        const ang = equilibriumAngle(g, Math.max(vol, unit * 0.05), side) * k;
+        const c = Math.cos(ang * side), s = Math.sin(ang * side);
+        const d = demo.pos[pr.j], a = demo.pos[pr.i];
+        const tx = d.x, ty = d.y - w * 0.5;
+        const lo = (side > 0 ? g.outer[g.outer.length - 1] : g.outer[0])[0];
+        const px = lerp(a.x, tx - (lo) * c, k), py = lerp(a.y - w * 0.5, ty - (lo) * s, k);
+        if (prog > 0 && prog < 1) {
+          ctx.fillStyle = COLORS[P.palette[pr.c]].c;
+          const lx = px + lo * c, ly = py + lo * s;
+          ctx.fillRect(lx - w * 0.07, ly, w * 0.14, d.y + h * 0.6 - ly);
+        }
+        drawTube(ctx, skin, px, py, ang * side, w, h, 4, segsOf(pr.sb, pr.n * prog), { shadow: false, rim: rimColor(skin, pr.i) });
+      }
+    }
+
+    // =====================================================================
+    // Screens
+    // =====================================================================
+    const OVERLAYS = ['title', 'levels', 'results', 'shop', 'pause'];
+    function showOverlay(id) { OVERLAYS.forEach((o) => { $(o).hidden = o !== id; }); }
+    function setHud(on) { $('hud-top').classList.toggle('off', !on); $('hud-bot').classList.toggle('off', !on); }
+    let toastT = 0;
+    function toast(msg, secs) {
+      const t = $('toast'); t.textContent = msg; t.classList.add('on');
+      clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), (secs || 2) * 1000);
+    }
+    function updateHud() {
+      $('h-coins').textContent = '🪙 ' + save.coins;
+      $('c-hint').textContent = G && G.mode === 'level' && G.level <= 3 ? 'free' : save.tokens.hint;
+      $('c-tube').textContent = save.tokens.tube;
+      if (!G) return;
+      $('b-undo').disabled = !G.history.length;
+      $('b-tube').disabled = G.extraUsed;
+      $('b-restart').disabled = G.mode === 'rush';
+      if (G.mode === 'level') {
+        $('h-title').textContent = 'Level ' + G.level + (G.hiddenOn ? ' ?' : '');
+        const s3 = G.par, s2 = G.par + Math.max(4, Math.round(G.par * 0.35));
+        const now = G.moves <= s3 && !G.extraUsed ? 3 : G.moves <= s2 ? 2 : 1;
+        $('h-sub').innerHTML = `Moves ${G.moves} · <i>${'★'.repeat(now)}</i>${'☆'.repeat(3 - now)} ${now === 3 ? '≤ ' + s3 : now === 2 ? '≤ ' + s2 : ''}`;
+      } else if (G.mode === 'daily') {
+        $('h-title').textContent = 'Daily Puzzle';
+        $('h-sub').textContent = `Moves ${G.moves} · streak ${save.daily.streak}`;
+      } else {
+        $('h-title').textContent = `Rush · ${Math.ceil(G.timeLeft)}s`;
+        $('h-sub').textContent = `Solved ${G.rushCount} · best ${save.rushBest}`;
+      }
+    }
+    function confetti(n) {
+      const cols = ['#ff5fa2', '#ffd43b', '#3ee0c8', '#a855f7', '#38bdf8', '#a3e635'];
+      for (let i = 0; i < n; i++) {
+        const c = document.createElement('div');
+        c.className = 'confetti';
+        c.style.left = Math.random() * 100 + 'vw';
+        c.style.background = cols[i % cols.length];
+        c.style.animationDuration = 1.6 + Math.random() * 1.8 + 's';
+        c.style.animationDelay = Math.random() * 0.4 + 's';
+        document.body.appendChild(c);
+        setTimeout(() => c.remove(), 4000);
+      }
+    }
+
+    function showTitle() {
+      scene = 'title'; G = null; anim = null;
+      setHud(false);
+      if (!demo) newDemo();
+      $('t-coins').textContent = save.coins + ' coins';
+      $('t-stars').textContent = totalStars() + ' ★';
+      $('t-lv').textContent = 'Level ' + save.unlocked;
+      syncToggles();
+      showOverlay('title');
+    }
+    function syncToggles() {
+      $('tg-sound').classList.toggle('on', !save.muted); $('p-sound').classList.toggle('on', !save.muted);
+      $('tg-sound').textContent = $('p-sound').textContent = save.muted ? '🔇 Sound off' : '🔊 Sound on';
+      $('tg-sym').classList.toggle('on', save.sym); $('p-sym').classList.toggle('on', save.sym);
+      $('tg-fast').classList.toggle('on', save.fast);
+    }
+    let page = 0;
+    function showLevels(p) {
+      scene = 'levels'; G = null; anim = null;
+      setHud(false);
+      if (!demo) newDemo();
+      if (p == null) page = Math.floor((save.unlocked - 1) / 25);
+      $('l-stars').textContent = totalStars() + ' / ' + LEVELS * 3 + ' ★';
+      $('l-coins').textContent = '🪙 ' + save.coins;
+      const pages = $('pages'); pages.innerHTML = '';
+      for (let q = 0; q < LEVELS / 25; q++) {
+        const b = document.createElement('button');
+        b.className = 'page' + (q === page ? ' on' : '');
+        b.textContent = `${q * 25 + 1}–${q * 25 + 25}`;
+        b.onclick = () => { page = q; showLevels(q); };
+        pages.appendChild(b);
+      }
+      $('chap').textContent = CHAPTERS[page] || '';
+      const grid = $('grid'); grid.innerHTML = '';
+      for (let n = page * 25 + 1; n <= page * 25 + 25; n++) {
+        const P = levelParams(n);
+        const st = Number(save.stars[n]) || 0;
+        const open = n <= save.unlocked;
+        const b = document.createElement('button');
+        b.className = 'lv' + (open ? '' : ' locked') + (n === save.unlocked ? ' next' : '');
+        b.innerHTML = `${open ? n : '🔒'}<span class="st">${'<i>★</i>'.repeat(st)}${'★'.repeat(3 - st)}</span>${P.hidden ? '<span class="badge">?</span>' : P.tall ? '<span class="badge">↑</span>' : ''}`;
+        if (open) b.onclick = () => { audio(); playLevel(n); };
+        grid.appendChild(b);
+      }
+      showOverlay('levels');
+    }
+    function enterPlay() {
+      scene = 'play';
+      showOverlay(null);
+      setHud(true);
+      layout(true);
+      updateHud();
+    }
+    function playLevel(n) {
+      n = clamp(n, 1, LEVELS);
+      const def = getLevel(n);
+      def.level = n;
+      scene = 'play';
+      startPuzzle(def, 'level', { level: n });
+      enterPlay();
+      tutOn = n === 1;
+      if (n === 1) toast('Pour colours until each tube holds just one!', 3.5);
+      else if (levelParams(n).hidden && !(Number(save.stars[n]) > 0)) toast('Mystery layers! The ? colours show up when they reach the top.', 3.5);
+      else if (levelParams(n).tall && !(Number(save.stars[n]) > 0)) toast('Tall tubes: 5 layers each!', 2.5);
+    }
+    function playDaily() {
+      const day = todayKey();
+      const def = buildPuzzle(day % 100000 + 20000, { colors: 9, cap: 4, hidden: true, empties: 2 });
+      scene = 'play';
+      startPuzzle(def, 'daily', { day });
+      enterPlay();
+      toast(save.daily.last === day ? 'Already solved today. Play again for fun!' : 'Today\'s puzzle: mystery layers and 9 colours!', 3);
+    }
+    function playRush(keep) {
+      const k = keep ? G.rushCount : 0;
+      const t = keep ? G.timeLeft : 90;
+      const colors = Math.min(7, 4 + Math.floor(k / 2));
+      const def = buildPuzzle(Math.floor(Math.random() * 1e6) + 50000, { colors, cap: 4, hidden: false, empties: 2 });
+      scene = 'play';
+      startPuzzle(def, 'rush', { rushCount: k, timeLeft: t });
+      enterPlay();
+      if (!keep) toast('Rush! Solve as many as you can. Each one adds 8 seconds.', 3);
+    }
+    function onSolved() {
+      if (G.mode === 'rush') {
+        G.rushCount++;
+        G.timeLeft = Math.min(99, G.timeLeft + 8);
+        floaters.push({ x: W / 2, y: H * 0.4, text: '+8s!', col: '#3ee0c8', life: 1.2, size: 34 });
+        sfx.coin();
+        playRush(true);
+        return;
+      }
+      scene = 'results';
+      setHud(false);
+      const res = $('results');
+      let stars = 1, coins = 0, spuds = 0, note = '';
+      if (G.mode === 'level') {
+        const s3 = G.par, s2 = G.par + Math.max(4, Math.round(G.par * 0.35));
+        stars = G.moves <= s3 && !G.extraUsed ? 3 : G.moves <= s2 ? 2 : 1;
+        const prev = Number(save.stars[G.level]) || 0;
+        const first = prev === 0;
+        if (stars > prev) save.stars[G.level] = stars;
+        coins = (first ? 10 : 3) + Math.max(0, stars - prev) * 6 + (G.hiddenOn && first ? 5 : 0);
+        spuds = first ? 2 + stars : stars > prev ? stars - prev : 0;
+        if (G.level === save.unlocked && save.unlocked < LEVELS) save.unlocked++;
+        note = stars === 3 ? 'Perfect pouring!' : G.extraUsed ? 'Try without the extra tube for 3★' : `Solve it in ${s3} moves for 3★`;
+        $('r-title').textContent = `Level ${G.level} complete!`;
+        $('r-next').hidden = G.level >= LEVELS;
+        $('r-next').textContent = 'Next level';
+        $('r-stats').innerHTML = `<div><span>Moves</span><b>${G.moves}</b></div><div><span>3★ target</span><b>${s3}</b></div><div><span>Best</span><b>${'★'.repeat(Math.max(stars, prev))}</b></div>`;
+        Potato.score(totalStars());
+      } else if (G.mode === 'daily') {
+        const day = G.day;
+        stars = 3;
+        if (save.daily.last !== day) {
+          const yest = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); })();
+          save.daily.streak = save.daily.last === yest ? save.daily.streak + 1 : 1;
+          save.daily.last = day;
+          coins = 40 + Math.min(7, save.daily.streak) * 5;
+          spuds = 8;
+          note = `Daily streak: ${save.daily.streak} day${save.daily.streak > 1 ? 's' : ''}!`;
+        } else note = 'Come back tomorrow for a new puzzle!';
+        $('r-title').textContent = 'Daily Puzzle solved!';
+        $('r-next').hidden = true;
+        $('r-stats').innerHTML = `<div><span>Moves</span><b>${G.moves}</b></div><div><span>Streak</span><b>${save.daily.streak}</b></div><div><span>Colours</span><b>9</b></div>`;
+      }
+      save.coins += coins;
+      persist();
+      if (spuds > 0) Potato.earn(spuds);
+      $('r-stars').innerHTML = [1, 2, 3].map((k) => `<span class="${k <= stars ? 'on' : ''}">★</span>`).join('');
+      $('r-note').textContent = note;
+      $('r-reward').textContent = coins ? `+${coins} coins` + (Potato.inHub && spuds ? `  ·  +${spuds} Spuds` : '') : '';
+      $('r-replay').hidden = false;
+      showOverlay('results');
+      confetti(stars * 30);
+    }
+    function endRush() {
+      G.done = true;
+      scene = 'results';
+      setHud(false);
+      const n = G.rushCount;
+      const best = n > save.rushBest;
+      if (best) save.rushBest = n;
+      const coins = n * 6;
+      const spuds = Math.min(25, n * 2);
+      save.coins += coins;
+      persist();
+      if (spuds > 0) Potato.earn(spuds);
+      $('r-title').textContent = 'Time\'s up!';
+      $('r-stars').innerHTML = [1, 2, 3].map((k) => `<span class="${(n >= 2 && k === 1) || (n >= 5 && k === 2) || (n >= 9 && k === 3) ? 'on' : ''}">★</span>`).join('');
+      $('r-note').textContent = best ? 'New best Rush score!' : 'Each puzzle you solve adds 8 seconds.';
+      $('r-stats').innerHTML = `<div><span>Solved</span><b>${n}</b></div><div><span>Best</span><b>${save.rushBest}</b></div><div><span>Coins</span><b>${coins}</b></div>`;
+      $('r-reward').textContent = coins ? `+${coins} coins` + (Potato.inHub && spuds ? `  ·  +${spuds} Spuds` : '') : '';
+      $('r-next').hidden = false; $('r-next').textContent = 'Rush again';
+      showOverlay('results');
+      sfx.win();
+    }
+    let shopTab = 'tubes', shopFrom = 'title';
+    function showShop(from) {
+      if (from) shopFrom = from;
+      scene = 'shop';
+      setHud(false);
+      if (!demo) newDemo();
+      $('s-coins').textContent = '🪙 ' + save.coins + ' coins';
+      document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('on', t.dataset.tab === shopTab));
+      const list = $('shop-list'); list.innerHTML = '';
+      const add = (name, desc, draw, btnText, btnCls, onClick, eq, disabled) => {
+        const d = document.createElement('div');
+        d.className = 'item' + (eq ? ' eq' : '');
+        const cv = document.createElement('canvas');
+        d.appendChild(cv);
+        d.insertAdjacentHTML('beforeend', `<b>${name}</b><small>${desc}</small>`);
+        const b = document.createElement('button');
+        b.className = 'btn ' + btnCls; b.textContent = btnText; b.disabled = !!disabled;
+        b.onclick = () => { audio(); onClick(); };
+        d.appendChild(b);
+        list.appendChild(d);
+        requestAnimationFrame(() => {
+          const r = cv.getBoundingClientRect();
+          const cw = Math.max(100, r.width || 140), ch = 96;
+          cv.width = cw * dpr; cv.height = ch * dpr;
+          const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+          draw(g, cw, ch);
+        });
+      };
+      const sample = [{ col: COLORS[0], amt: 1 }, { col: COLORS[7], amt: 1 }, { col: COLORS[2], amt: 1 }, { col: COLORS[9], amt: 1 }];
+      if (shopTab === 'tubes') {
+        TUBES.forEach((t, i) => {
+          const have = owns(t.id), eq = save.tube === t.id;
+          add(t.name, t.desc, (g, w, h) => {
+            drawBg(g, curBg().id, w, h, 3);
+            [-1, 0, 1].forEach((k) => drawTube(g, t, w / 2 + k * 30, 12, 0, 20, 70, 4, k === 0 ? sample : [{ col: COLORS[(i + k + 5) % 12], amt: 2 + k }], { rim: t.rim === 'neon' ? `hsl(${k * 90 + 200},95%,65%)` : t.rim, shadow: true, shelfY: 82 }));
+          }, eq ? 'Using' : have ? 'Use' : `🪙 ${t.cost}`, have ? 'teal' : '', () => {
+            if (have) { save.tube = t.id; persist(); showShop(); return; }
+            if (save.coins < t.cost) { toast('Not enough coins yet. Solve more levels!', 2); return; }
+            save.coins -= t.cost; save.owned.push(t.id); save.tube = t.id; persist(); sfx.coin(); showShop();
+          }, eq, eq);
+        });
+      } else if (shopTab === 'bgs') {
+        BGS.forEach((b) => {
+          const have = owns('bg:' + b.id), eq = save.bg === b.id;
+          add(b.name, b.desc, (g, w, h) => drawBg(g, b.id, w, h, 4), eq ? 'Using' : have ? 'Use' : `🪙 ${b.cost}`, have ? 'teal' : '', () => {
+            if (have) { save.bg = b.id; persist(); showShop(); return; }
+            if (save.coins < b.cost) { toast('Not enough coins yet. Solve more levels!', 2); return; }
+            save.coins -= b.cost; save.owned.push('bg:' + b.id); save.bg = b.id; persist(); sfx.coin(); showShop();
+          }, eq, eq);
+        });
+      } else {
+        const icon = (emoji) => (g, w, h) => { drawBg(g, curBg().id, w, h, 2); g.font = '44px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(emoji, w / 2, h / 2 + 2); };
+        add('3 Hints', `Shows a good next move. You have ${save.tokens.hint}.`, icon('💡'), '🪙 40', '', () => {
+          if (save.coins < 40) { toast('Not enough coins yet!', 2); return; }
+          save.coins -= 40; save.tokens.hint += 3; persist(); sfx.coin(); showShop();
+        });
+        add('Extra Tube', `An empty tube when you're stuck. You have ${save.tokens.tube}.`, icon('🧪'), '🪙 60', '', () => {
+          if (save.coins < 60) { toast('Not enough coins yet!', 2); return; }
+          save.coins -= 60; save.tokens.tube += 1; persist(); sfx.coin(); showShop();
+        });
+        add('Helper Pack', '5 hints and 2 extra tubes. Great value!', icon('🎁'), '🪙 150', '', () => {
+          if (save.coins < 150) { toast('Not enough coins yet!', 2); return; }
+          save.coins -= 150; save.tokens.hint += 5; save.tokens.tube += 2; persist(); sfx.coin(); showShop();
+        });
+      }
+      showOverlay('shop');
+    }
+    function pause() {
+      if (scene !== 'play') return;
+      scene = 'paused';
+      syncToggles();
+      showOverlay('pause');
+    }
+    function resume() { if (scene === 'paused') { scene = 'play'; showOverlay(null); } }
+    function toggleMute() { save.muted = !save.muted; persist(); syncToggles(); toast(save.muted ? 'Sound off' : 'Sound on', 1); }
+
+    // buttons
+    $('t-play').onclick = () => { audio(); playLevel(save.unlocked); };
+    $('t-levels').onclick = () => { audio(); showLevels(); };
+    $('t-daily').onclick = () => { audio(); playDaily(); };
+    $('t-rush').onclick = () => { audio(); playRush(false); };
+    $('t-shop').onclick = () => { audio(); showShop('title'); };
+    $('tg-sound').onclick = $('p-sound').onclick = () => { audio(); toggleMute(); };
+    $('tg-sym').onclick = $('p-sym').onclick = () => { save.sym = !save.sym; persist(); syncToggles(); };
+    $('tg-fast').onclick = () => { save.fast = !save.fast; persist(); syncToggles(); };
+    $('l-back').onclick = showTitle;
+    $('s-back').onclick = () => (shopFrom === 'levels' ? showLevels() : showTitle());
+    document.querySelectorAll('.tab').forEach((t) => (t.onclick = () => { shopTab = t.dataset.tab; showShop(); }));
+    $('r-next').onclick = () => {
+      if (G && G.mode === 'rush') return playRush(false);
+      if (G && G.mode === 'level') return playLevel(G.level + 1);
+      showTitle();
+    };
+    $('r-replay').onclick = () => {
+      if (!G) return showTitle();
+      if (G.mode === 'level') return playLevel(G.level);
+      if (G.mode === 'daily') return playDaily();
+      return playRush(false);
+    };
+    $('r-menu').onclick = () => (G && G.mode === 'level' ? showLevels() : showTitle());
+    $('b-menu').onclick = pause;
+    $('b-undo').onclick = undo;
+    $('b-restart').onclick = restart;
+    $('b-hint').onclick = hint;
+    $('b-tube').onclick = addTube;
+    $('p-resume').onclick = resume;
+    $('p-restart').onclick = () => { resume(); if (G && G.mode === 'rush') playRush(false); else restart(); };
+    $('p-quit').onclick = () => { const m = G && G.mode; if (m === 'level') showLevels(); else showTitle(); };
+    document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+
+    // logo letters
+    $('logo').innerHTML = 'Color Sort'.split('').map((ch, i) => ch === ' ' ? ' ' : `<span style="color:${COLORS[[0, 1, 2, 4, 6, 7, 8, 9, 5][i % 9]].c};animation-delay:${i * 0.12}s">${ch}</span>`).join('');
+
+    // =====================================================================
+    // Loop
+    // =====================================================================
+    let last = performance.now();
+    function loop(now) {
+      requestAnimationFrame(loop);
+      const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+      last = now;
+      update(dt);
+      frame();
+    }
+
+    // Handy for testing from the console: ColorSort.play(40), ColorSort.auto(10), ColorSort.step(1)
+    window.ColorSort = {
+      get state() { return { scene, G, save, anim }; },
+      play: playLevel, daily: playDaily, rush: () => playRush(false),
+      levels: showLevels, shop: (tab) => { if (tab) shopTab = tab; showShop('title'); }, title: showTitle,
+      step(sec) { for (let k = 0; k < Math.round(sec * 60); k++) update(1 / 60); frame(); },
+      tap: tapTube, undo, hint, addTube,
+      solve: () => solve(G.tubes.map((t) => t.map((u) => u.c)), G.cap, 200000),
+      auto(n) { // play n solver moves instantly (follows one plan so it never goes in circles)
+        if (anim) finishAnim();
+        const r = solve(G.tubes.map((t) => t.map((u) => u.c)), G.cap, 200000);
+        if (!r.ok) return;
+        for (let k = 0; k < Math.min(n, r.path.length); k++) doPour(r.path[k][0], r.path[k][1], true);
+        vis.forEach((v) => { if (v.corkStart != null) { v.corkDone = true; v.cork = 1; } });
+      },
+      pourFrozen(i, j, t) { doPour(i, j); anim.t = t; },
+      getLevel, levelParams, rawSolve: solve,
+      selftest(from, to) {
+        const out = [];
+        let fails = 0, worst = 0, totalMs = 0;
+        for (let n = from; n <= to; n++) {
+          const t0 = performance.now();
+          levelCache.delete(n);
+          const L2 = getLevel(n);
+          const ms = performance.now() - t0;
+          totalMs += ms; worst = Math.max(worst, ms);
+          // replay the solver's path on the level to double-check it really solves it
+          const st = L2.tubes.map((t) => t.slice());
+          const r = solve(st, L2.cap, 200000);
+          let ok = r.ok;
+          if (ok) {
+            for (const [i, j] of r.path) {
+              const s = st[i], d = st[j];
+              const c = s[s.length - 1];
+              if (!s.length || d.length >= L2.cap || (d.length && d[d.length - 1] !== c)) { ok = false; break; }
+              let run = 1; while (run < s.length && s[s.length - 1 - run] === c) run++;
+              const m = Math.min(run, L2.cap - d.length);
+              for (let q = 0; q < m; q++) d.push(s.pop());
+            }
+            ok = ok && st.every((t) => isDone(t, L2.cap));
+          }
+          if (!ok) fails++;
+          out.push(`${n}:${L2.colors}c/${L2.cap}${L2.hidden ? 'H' : ''} par${L2.par} ${ms.toFixed(0)}ms${ok ? '' : ' FAIL'}`);
+        }
+        return { fails, worst: Math.round(worst), avg: Math.round(totalMs / (to - from + 1)), out };
+      },
+    };
+
+    resize();
+    // test params: ?level=N&auto=K&scene=levels|shop|results|daily|rush&pour=0.5
+    const pScene = params.get('scene');
+    if (params.get('bg')) save.bg = params.get('bg');
+    if (params.get('skin')) save.tube = params.get('skin');
+    if (params.get('coins')) save.coins = Number(params.get('coins'));
+    if (params.get('selftest')) {
+      const [a, b] = params.get('selftest').split('-').map(Number);
+      const r = window.ColorSort.selftest(a, b);
+      const pre = document.createElement('pre'); pre.id = 'selftest';
+      pre.textContent = JSON.stringify({ fails: r.fails, worst: r.worst, avg: r.avg }) + '\n' + r.out.join('\n');
+      document.body.appendChild(pre);
+    }
+    if (params.get('level')) {
+      playLevel(Number(params.get('level')));
+      if (params.get('auto')) window.ColorSort.auto(Number(params.get('auto')));
+      if (params.get('extra')) addTube();
+      if (params.get('sel')) tapTube(Number(params.get('sel')));
+      if (params.get('pour')) { const r = window.ColorSort.solve(); if (r.ok) window.ColorSort.pourFrozen(r.path[0][0], r.path[0][1], Number(params.get('pour'))); }
+      if (params.get('hint')) hint();
+      if (params.get('win')) { window.ColorSort.auto(500); }
+    } else if (pScene === 'levels') showLevels();
+    else if (pScene === 'shop') { shopTab = params.get('tab') || 'tubes'; showShop('title'); }
+    else if (pScene === 'daily') { playDaily(); if (params.get('auto')) window.ColorSort.auto(Number(params.get('auto'))); }
+    else if (pScene === 'rush') { playRush(false); if (params.get('auto')) window.ColorSort.auto(Number(params.get('auto'))); }
+    else showTitle();
+    if (params.get('freeze')) { /* keep the pour frozen for screenshots */ const f = () => { if (anim) anim.t = Number(params.get('pour')); }; setInterval(f, 5); }
+    requestAnimationFrame(loop);
+    if (params.get("sim")) window.ColorSort.step(Number(params.get("sim")));
+    if (params.get("dump")) setTimeout(() => { const pre = document.createElement("pre"); pre.id = "selftest"; pre.textContent = JSON.stringify({ L: { w: L.w, h: L.h, pos: L.pos && L.pos[0], shelf: L.shelves && L.shelves[0] }, vis: vis[0], time, scene }); document.body.appendChild(pre); }, 1500);
+  })();
+  </script>
+</body>
+</html>

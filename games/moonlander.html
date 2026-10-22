@@ -1,0 +1,1859 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Moon Lander – Gentle Landing Space Game | Potato Games</title>
+  <meta name="description" content="Fly a little lander across six planets! Fire your engine, tilt and touch down gently on landing pads, rescue stranded astronauts, grab glowing crystals and fly through icy caves. Upgrade your ship and earn all the stars. A free space game on Potato.">
+  <link rel="icon" href="moonlander-icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070a1c; --panel: #141a3a; --panel-2: #1e2652; --line: #2f3a75; --text: #eef2ff; --muted: #9ea8d6;
+      --accent: #ffb020; --accent-d: #b56e00; --cyan: #4fe3ff; --good: #3ee08f; --bad: #ff5d6c; --gold: #ffd43b;
+      --display: 'Fredoka', 'Trebuchet MS', system-ui, sans-serif; --body: 'Nunito', system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body { background: var(--bg); color: var(--text); font-family: var(--body); overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+    canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; }
+    button { font-family: var(--display); }
+    .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 14px; background: rgba(4, 6, 20, 0.5); z-index: 10; animation: fade .25s; }
+    .overlay[hidden] { display: none; }
+    @keyframes fade { from { opacity: 0; } }
+    .card { width: min(560px, 100%); max-height: 100%; overflow-y: auto; padding: 22px; border-radius: 24px; background: linear-gradient(180deg, rgba(30, 38, 86, 0.97), rgba(16, 21, 52, 0.97)); border: 2px solid rgba(120, 160, 255, 0.28); text-align: center; box-shadow: 0 24px 70px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.12); animation: pop .3s cubic-bezier(.2,1.4,.4,1); }
+    .card.wide { width: min(800px, 100%); }
+    @keyframes pop { from { transform: scale(.92) translateY(10px); opacity: 0; } }
+    .logo { margin: 0; font: 700 62px/1 var(--display); color: #fff; letter-spacing: 1px; text-shadow: 0 5px 0 #2a3a9a, 0 0 30px rgba(79, 227, 255, 0.45); }
+    .logo em { font-style: normal; color: var(--accent); text-shadow: 0 5px 0 var(--accent-d), 0 0 30px rgba(255, 176, 32, 0.4); }
+    .tag { color: var(--muted); font-weight: 800; margin: 8px 0 14px; }
+    h2 { margin: 0 0 8px; font: 700 32px var(--display); color: var(--cyan); }
+    p { color: var(--muted); margin: 8px 0 14px; line-height: 1.45; }
+    .btn { padding: 12px 26px; border: 0; border-radius: 16px; background: linear-gradient(180deg, #ffc955, var(--accent)); color: #3a2200; font: 700 20px var(--display); cursor: pointer; box-shadow: 0 5px 0 var(--accent-d); }
+    .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--accent-d); }
+    .btn.cyan { background: linear-gradient(180deg, #8af0ff, #22b8d8); color: #032a35; box-shadow: 0 5px 0 #127a92; }
+    .btn.ghost { background: var(--panel-2); color: var(--text); box-shadow: 0 5px 0 #0a0e26; }
+    .btn.small { padding: 7px 14px; font-size: 15px; box-shadow: 0 3px 0 var(--accent-d); }
+    .btn:disabled { opacity: .45; cursor: default; }
+    .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .menu { display: grid; gap: 10px; max-width: 330px; margin: 0 auto 10px; }
+    .pills { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 0 0 12px; }
+    .pill { padding: 5px 13px; border-radius: 999px; background: var(--panel-2); font: 700 16px var(--display); }
+    .pill.gold { color: var(--gold); } .pill.cyan { color: var(--cyan); }
+    .how { text-align: left; list-style: none; padding: 0; margin: 0 0 14px; font-size: 14.5px; }
+    .how li { padding: 3px 0 3px 24px; position: relative; color: var(--muted); }
+    .how li::before { content: '🚀'; position: absolute; left: 0; font-size: 13px; top: 4px; }
+    .how b { color: var(--text); }
+    .tog { border: 2px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 12px; padding: 6px 12px; font: 700 14px var(--display); cursor: pointer; }
+    .tog.on { border-color: var(--cyan); color: var(--text); }
+    /* planet map */
+    .planets { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; margin-bottom: 12px; }
+    .planet { position: relative; border: 2px solid var(--line); background: var(--panel); border-radius: 16px; padding: 8px 4px 6px; cursor: pointer; color: var(--text); }
+    .planet canvas { position: static; width: 64px; height: 64px; display: block; margin: 0 auto 2px; }
+    .planet b { font: 700 14px var(--display); display: block; }
+    .planet small { color: var(--muted); font-weight: 800; font-size: 12px; }
+    .planet.on { border-color: var(--accent); background: var(--panel-2); box-shadow: 0 0 0 3px rgba(255, 176, 32, 0.25); }
+    .planet.locked { opacity: .5; }
+    .levels { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 8px; margin-bottom: 12px; }
+    .lvl { border: 2px solid var(--line); background: linear-gradient(180deg, #232c62, #19204a); border-radius: 14px; padding: 8px 6px; color: var(--text); cursor: pointer; text-align: center; }
+    .lvl b { font: 700 18px var(--display); display: block; }
+    .lvl span { font-size: 12px; color: var(--muted); font-weight: 800; display: block; min-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lvl i { font-style: normal; color: var(--gold); letter-spacing: 1px; }
+    .lvl em { font-style: normal; color: #3b4580; letter-spacing: 1px; }
+    .lvl.next { border-color: var(--accent); }
+    .lvl.locked { opacity: .4; cursor: default; }
+    .pdesc { min-height: 20px; color: var(--muted); font-weight: 800; margin: 0 0 10px; font-size: 14px; }
+    /* intro + results */
+    .goals { display: grid; gap: 8px; text-align: left; margin: 10px 0 16px; }
+    .goals div { background: var(--panel-2); border-radius: 12px; padding: 9px 14px; font-weight: 800; display: flex; gap: 10px; align-items: center; }
+    .goals .s { color: #3b4580; font-size: 20px; }
+    .goals .s.on { color: var(--gold); }
+    .bigstars { font-size: 58px; letter-spacing: 6px; color: #2d3670; margin: 0 0 2px; }
+    .bigstars span { display: inline-block; }
+    .bigstars span.on { color: var(--gold); text-shadow: 0 4px 0 #a07c00; animation: spop .5s backwards; }
+    .bigstars span:nth-child(2).on { animation-delay: .25s; } .bigstars span:nth-child(3).on { animation-delay: .5s; }
+    @keyframes spop { 0% { transform: scale(0) rotate(-40deg); } 70% { transform: scale(1.35); } 100% { transform: scale(1); } }
+    .reward { color: var(--cyan); font: 700 18px var(--display); min-height: 24px; margin-bottom: 12px; }
+    /* hangar */
+    .shop { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: 10px; margin: 8px 0 14px; text-align: left; }
+    .up { background: var(--panel-2); border: 2px solid var(--line); border-radius: 16px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+    .up b { font: 700 17px var(--display); }
+    .up small { color: var(--muted); font-weight: 700; flex: 1; }
+    .up .lv { color: var(--cyan); font-weight: 900; font-size: 13px; letter-spacing: 2px; }
+    .up .btn { align-self: flex-start; }
+    .up.eq { border-color: var(--cyan); }
+    .up canvas { position: static; width: 100%; height: 70px; }
+    .tabs { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 8px; }
+    .tab { border: 2px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 12px; padding: 7px 16px; font: 700 16px var(--display); cursor: pointer; }
+    .tab.on { border-color: var(--accent); color: var(--text); }
+    /* touch controls */
+    .pad { position: fixed; bottom: max(14px, env(safe-area-inset-bottom)); z-index: 4; display: flex; gap: 12px; }
+    .pad[hidden] { display: none; }
+    .pad.left { left: 14px; } .pad.right { right: 14px; }
+    .tbtn { width: 74px; height: 74px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.35); background: rgba(20, 28, 70, 0.55); color: #fff; font: 700 30px var(--display); display: flex; align-items: center; justify-content: center; touch-action: none; backdrop-filter: blur(3px); }
+    .tbtn.big { width: 96px; height: 96px; font-size: 16px; background: rgba(255, 140, 0, 0.45); border-color: rgba(255, 210, 120, 0.7); }
+    .tbtn.on { background: rgba(255, 190, 60, 0.75); transform: scale(0.94); }
+    .topbtn { position: fixed; top: 10px; right: 10px; z-index: 4; width: 42px; height: 42px; border-radius: 12px; border: 0; background: rgba(20, 28, 70, 0.7); color: #fff; font-size: 20px; cursor: pointer; }
+    .topbtn[hidden] { display: none; }
+    .confetti { position: fixed; top: -14px; width: 10px; height: 14px; border-radius: 2px; pointer-events: none; z-index: 30; animation: fall linear forwards; }
+    @keyframes fall { to { transform: translateY(110vh) rotate(760deg); } }
+    @media (max-width: 520px) {
+      .logo { font-size: 48px; }
+      .card { padding: 18px 14px; }
+      .tbtn { width: 64px; height: 64px; }
+      .tbtn.big { width: 84px; height: 84px; }
+      .planets { grid-template-columns: repeat(3, 1fr); gap: 6px; } .planet { padding: 6px 2px 4px; } .planet canvas { width: 46px; height: 46px; } .planet b { font-size: 12.5px; }
+      .levels { grid-template-columns: repeat(2, 1fr); }
+      .bigstars { font-size: 46px; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <button class="topbtn" id="b-pause" hidden title="Pause (P)">❚❚</button>
+  <div class="pad left" id="pad-l" hidden>
+    <div class="tbtn" id="t-left">⟲</div>
+    <div class="tbtn" id="t-right">⟳</div>
+  </div>
+  <div class="pad right" id="pad-r" hidden>
+    <div class="tbtn big" id="t-thrust">THRUST</div>
+  </div>
+
+  <div class="overlay" id="title">
+    <div class="card">
+      <h1 class="logo">Moon <em>Lander</em></h1>
+      <div class="tag">Fly gently, rescue astronauts and grab the crystals!</div>
+      <div class="pills"><span class="pill gold" id="t-stars">0 ★</span><span class="pill cyan" id="t-crys">0 crystals</span></div>
+      <ul class="how">
+        <li><b>Hold ↑</b> (or Space, or THRUST) to fire your engine. <b>← →</b> tilt the ship.</li>
+        <li>Touch down <b>slowly and straight</b> on a pad. Keep the speed numbers <b style="color:var(--good)">green</b>!</li>
+        <li>Land next to stranded <b>astronauts</b> to pick them up, and fly through <b>crystals</b>.</li>
+        <li>Land on the <b>green base pad</b> to finish. Spend crystals on ship upgrades.</li>
+      </ul>
+      <div class="menu">
+        <button class="btn" id="t-play">Play</button>
+        <div class="row" style="flex-wrap:nowrap">
+          <button class="btn ghost" id="t-hangar" style="flex:1">🔧 Hangar</button>
+          <button class="btn ghost" id="t-daily" style="flex:1">📅 Daily</button>
+        </div>
+      </div>
+      <div class="row"><button class="tog" id="tg-sound">🔊 Sound on</button><button class="tog" id="tg-assist">🛟 Easy landing</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="map" hidden>
+    <div class="card wide">
+      <h2>Choose a mission</h2>
+      <div class="pills"><span class="pill gold" id="m-stars">0 ★</span><span class="pill cyan" id="m-crys">0</span></div>
+      <div class="planets" id="planets"></div>
+      <div class="pdesc" id="pdesc"></div>
+      <div class="levels" id="levels"></div>
+      <div class="row"><button class="btn ghost" id="m-hangar">🔧 Hangar</button><button class="btn ghost" id="m-back">Back</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="intro" hidden>
+    <div class="card">
+      <h2 id="i-title">Mission</h2>
+      <div id="i-sub" style="color:var(--muted);font-weight:800"></div>
+      <div class="goals" id="i-goals"></div>
+      <div id="i-tip" style="color:var(--cyan);font-weight:800;margin:-4px 0 14px;min-height:20px"></div>
+      <div class="row"><button class="btn" id="i-go">Launch!</button><button class="btn ghost" id="i-back">Back</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="results" hidden>
+    <div class="card">
+      <h2 id="r-title">Mission complete!</h2>
+      <div class="bigstars" id="r-stars"></div>
+      <div class="goals" id="r-goals"></div>
+      <div class="reward" id="r-reward"></div>
+      <div class="row">
+        <button class="btn" id="r-next">Next mission</button>
+        <button class="btn ghost" id="r-retry">Retry</button>
+        <button class="btn ghost" id="r-hangar">🔧 Hangar</button>
+        <button class="btn ghost" id="r-map">Map</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="fail" hidden>
+    <div class="card">
+      <h2 id="f-title" style="color:var(--accent)">Oops!</h2>
+      <p id="f-msg">That landing was a bit too bumpy.</p>
+      <div id="f-tip" style="color:var(--cyan);font-weight:800;margin:-4px 0 14px"></div>
+      <div class="row"><button class="btn" id="f-retry">Try again (R)</button><button class="btn ghost" id="f-hangar">🔧 Hangar</button><button class="btn ghost" id="f-map">Map</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="hangar" hidden>
+    <div class="card wide">
+      <h2>Hangar</h2>
+      <div class="pills"><span class="pill cyan" id="h-crys">0 crystals</span></div>
+      <div class="tabs"><button class="tab on" data-tab="up">Upgrades</button><button class="tab" data-tab="skin">Paint jobs</button></div>
+      <div class="shop" id="shop"></div>
+      <div class="row"><button class="btn ghost" id="h-back">Back</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="pause" hidden>
+    <div class="card">
+      <h2>Paused</h2>
+      <div class="menu">
+        <button class="btn" id="p-resume">Resume</button>
+        <button class="btn ghost" id="p-retry">Restart mission</button>
+        <button class="btn ghost" id="p-map">Quit to map</button>
+      </div>
+      <div class="row"><button class="tog" id="p-sound">🔊 Sound on</button><button class="tog" id="p-assist">🛟 Easy landing</button></div>
+      <p style="margin:12px 0 0;font-size:13px"><b>↑</b>/<b>W</b>/<b>Space</b> thrust · <b>←</b><b>→</b>/<b>A</b><b>D</b> tilt · <b>S</b> straighten up · <b>R</b> restart · <b>P</b> pause · <b>M</b> mute</p>
+    </div>
+  </div>
+
+  <script src="potato-sdk.js"></script>
+  <script>
+  (() => {
+    'use strict';
+    const $ = (id) => document.getElementById(id);
+    const canvas = $('c');
+    const ctx = canvas.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    // screenshot helper: ?still=1 turns off CSS animations so a test capture shows the finished screen
+    if (params.get("still")) { const st = document.createElement("style"); st.textContent = "*,*::before,*::after{animation:none!important;transition:none!important}"; document.head.appendChild(st); }
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const ease = (t) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    function mulberry32(a) {
+      return function () {
+        a |= 0; a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    // =====================================================================
+    // Planets (each has its own gravity, wind and a special obstacle)
+    // =====================================================================
+    const PLANETS = [
+      { id: 'moon', name: 'The Moon', g: 20, wind: 0, gust: 0, req: 0, hazard: null, caves: [5],
+        sky: ['#01020a', '#0b1230', '#1a2450'], ground: ['#c9ccd6', '#8a8e9c', '#4a4e5c'], rim: '#f4f5fa', far: ['#2c3148', '#1c2034'], deep: '#2a2d38',
+        desc: 'Low gravity and no wind. The perfect place to learn!' },
+      { id: 'mars', name: 'Red Planet', g: 30, wind: 7, gust: 5, req: 8, hazard: 'devil', caves: [4, 5],
+        sky: ['#2a0c10', '#8a3a2a', '#e08a5a'], ground: ['#e3874c', '#a8522a', '#5e2a14'], rim: '#ffbe8a', far: ['#9a4a33', '#6e2e1f'], deep: '#3e1a0c',
+        desc: 'Stronger gravity, a steady breeze and spinning dust devils.' },
+      { id: 'frost', name: 'Frost Moon', g: 14, wind: 0, gust: 0, req: 18, hazard: 'icicle', caves: [1, 2, 3, 4, 5],
+        sky: ['#050d28', '#173e78', '#5aa0d8'], ground: ['#f2fbff', '#a9d4f0', '#5a8cb8'], rim: '#ffffff', far: ['#3c6ea0', '#24507e'], deep: '#2a4a70',
+        desc: 'Floaty gravity and icy caves. Watch out for falling icicles!' },
+      { id: 'jungle', name: 'Jungle World', g: 34, wind: 3, gust: 9, req: 30, hazard: 'geyser', caves: [4, 5],
+        sky: ['#140a33', '#2a5a7a', '#5fc0a0'], ground: ['#6fd04f', '#2f8a3a', '#164a24'], rim: '#c8ff8a', far: ['#1f6a5a', '#134a40'], deep: '#0e3018',
+        desc: 'Heavy gravity, gusty winds and steam geysers that push you up.' },
+      { id: 'storm', name: 'Storm Giant', g: 26, wind: 9, gust: 18, req: 44, hazard: 'rock', caves: [5],
+        sky: ['#10061f', '#3e1d63', '#7a4fa8'], ground: ['#a894c8', '#62528a', '#2e2548'], rim: '#e6d9ff', far: ['#4a3670', '#33244f'], deep: '#1e1636',
+        desc: 'Wild winds that change direction, and drifting space rocks.' },
+      { id: 'crystal', name: 'Crystal Core', g: 30, wind: 0, gust: 0, req: 60, hazard: 'well', caves: [1, 2, 3, 4, 5],
+        sky: ['#0b0320', '#2a0f55', '#5a2a99'], ground: ['#8a6ae0', '#4a2f9a', '#1d1048'], rim: '#f0d0ff', far: ['#3a1f78', '#260f55'], deep: '#160a33',
+        desc: 'Glittering caves full of gravity wells that pull your ship.' },
+    ];
+    const LEVEL_NAMES = [
+      ['First Steps', 'Crater Hop', 'Astronaut Pickup', 'Long Haul', 'Bumpy Ride', 'Moon Cave'],
+      ['Red Dust', 'Breezy Plains', 'Dust Devil Alley', 'Canyon Run', 'Rusty Tunnel', 'Olympus Climb'],
+      ['Snow Drift', 'Ice Tunnel', 'Frozen Rescue', 'Icicle Halls', 'Glacier Maze', 'Deep Freeze'],
+      ['Steamy Start', 'Geyser Fields', 'Windy Treetops', 'Hot Springs', 'Vine Cave', 'Volcano Garden'],
+      ['Gust Front', 'Rock Belt', 'Thunder Plains', 'Twister Valley', 'Hurricane Eye', 'Storm Tunnel'],
+      ['Shimmer Gate', 'Pull of the Core', 'Gem Hollow', 'Gravity Maze', 'Crystal Heart', 'The Grand Core'],
+    ];
+
+    // =====================================================================
+    // Upgrades and paint jobs
+    // =====================================================================
+    const UPGRADES = [
+      { id: 'tank', name: 'Bigger Fuel Tank', desc: '+20% fuel per level.', costs: [10, 25, 50] },
+      { id: 'engine', name: 'Turbo Engine', desc: '+12% engine power per level.', costs: [10, 25, 50] },
+      { id: 'legs', name: 'Bouncy Legs', desc: 'Land safely at higher speeds (+20% per level).', costs: [8, 20, 40] },
+      { id: 'shield', name: 'Bubble Shield', desc: 'Saves you from one crash per level (two at level 2).', costs: [30, 70] },
+      { id: 'stab', name: 'Stabilizer', desc: 'Your ship tips itself upright when you let go of ← →.', costs: [15] },
+      { id: 'radar', name: 'Radar', desc: 'Arrows point to astronauts and crystals.', costs: [20] },
+    ];
+    const SKINS = [
+      { id: 'classic', name: 'Classic', cost: 0, hull: '#f2f4f8', trim: '#9aa3b8', foil: '#e8b13a', glass: '#5fd4ff' },
+      { id: 'rocket', name: 'Red Rocket', cost: 15, hull: '#ff5a5a', trim: '#ffffff', foil: '#d9d9e8', glass: '#9feaff' },
+      { id: 'comet', name: 'Blue Comet', cost: 20, hull: '#4a8cff', trim: '#cfe0ff', foil: '#ffd43b', glass: '#a8fff0' },
+      { id: 'alien', name: 'Alien Lime', cost: 30, hull: '#9be15d', trim: '#2f6a20', foil: '#b06bff', glass: '#ff9be0' },
+      { id: 'gold', name: 'Gold Star', cost: 45, hull: '#ffd23f', trim: '#b8860b', foil: '#fff1b0', glass: '#ff7a59' },
+      { id: 'ghost', name: 'Night Ghost', cost: 60, hull: '#2c2f45', trim: '#8a6aff', foil: '#5a4aa8', glass: '#c5a8ff' },
+    ];
+
+    // =====================================================================
+    // Save
+    // =====================================================================
+    let save = Potato.load('save', null);
+    if (!save || typeof save !== 'object') save = {};
+    save.crystals = Number(save.crystals) || 0;
+    save.stars = save.stars && typeof save.stars === 'object' ? save.stars : {};
+    save.ups = Object.assign({ tank: 0, engine: 0, legs: 0, shield: 0, stab: 0, radar: 0 }, save.ups || {});
+    save.skins = Array.isArray(save.skins) ? save.skins : ['classic'];
+    if (!save.skins.includes('classic')) save.skins.push('classic');
+    save.skin = SKINS.some((s) => s.id === save.skin) ? save.skin : 'classic';
+    save.daily = Object.assign({ last: 0, best: 0 }, save.daily || {});
+    save.muted = !!save.muted;
+    save.assist = save.assist === undefined ? false : !!save.assist;
+    save.planet = clamp(Number(save.planet) || 0, 0, PLANETS.length - 1);
+    const persist = () => Potato.save('save', save);
+    const totalStars = () => Object.values(save.stars).reduce((s, n) => s + (Number(n) || 0), 0);
+    const starsOf = (p, l) => Number(save.stars[p + '-' + l]) || 0;
+    const planetOpen = (p) => totalStars() >= PLANETS[p].req;
+    const levelOpen = (p, l) => planetOpen(p) && (l === 0 || starsOf(p, l - 1) > 0);
+
+    // =====================================================================
+    // Sound
+    // =====================================================================
+    let ac = null, engine = null, windNode = null;
+    function audio() {
+      try {
+        if (!ac) {
+          ac = new (window.AudioContext || window.webkitAudioContext)();
+          // engine rumble: looping noise through a low-pass filter
+          const buf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+          const d = buf.getChannelData(0);
+          let last = 0;
+          for (let i = 0; i < d.length; i++) { last = last * 0.96 + (Math.random() * 2 - 1) * 0.04; d[i] = last * 6; }
+          const mk = (freq) => {
+            const src = ac.createBufferSource(); src.buffer = buf; src.loop = true;
+            const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = freq;
+            const g = ac.createGain(); g.gain.value = 0;
+            src.connect(f).connect(g).connect(ac.destination); src.start();
+            return { g, f };
+          };
+          engine = mk(420);
+          windNode = mk(900);
+        }
+        if (ac.state === 'suspended') ac.resume();
+      } catch (e) { ac = null; }
+      return ac;
+    }
+    function tone(freq, dur, type = 'sine', vol = 0.06, delay = 0, slide = 0) {
+      if (save.muted || !ac) return;
+      const t = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain();
+      o.type = type; o.frequency.setValueAtTime(freq, t);
+      if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t + dur);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur + 0.03);
+    }
+    function boom() {
+      if (save.muted || !ac) return;
+      const t = ac.currentTime;
+      const buf = ac.createBuffer(1, ac.sampleRate * 0.7, ac.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+      const s = ac.createBufferSource(); s.buffer = buf;
+      const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(1200, t); f.frequency.exponentialRampToValueAtTime(120, t + 0.6);
+      const g = ac.createGain(); g.gain.value = 0.35;
+      s.connect(f).connect(g).connect(ac.destination); s.start(t);
+    }
+    const sfx = {
+      crystal: () => { tone(1320, 0.09, 'triangle', 0.05); tone(1980, 0.16, 'triangle', 0.04, 0.06); },
+      land: () => { tone(160, 0.12, 'square', 0.05); tone(523, 0.12, 'triangle', 0.05, 0.08); tone(784, 0.18, 'triangle', 0.05, 0.16); },
+      bump: () => tone(120, 0.12, 'square', 0.05, 0, -40),
+      rescue: () => [660, 880, 1046, 1320].forEach((f, i) => tone(f, 0.12, 'square', 0.03, i * 0.07)),
+      fanfare: () => [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => tone(f, 0.26, 'triangle', 0.07, i * 0.1)),
+      warn: () => tone(880, 0.08, 'square', 0.025),
+      shield: () => { tone(400, 0.2, 'sine', 0.06, 0, 600); },
+      fuel: () => tone(700 + Math.random() * 60, 0.05, 'sine', 0.02),
+      click: () => tone(600, 0.05, 'triangle', 0.04),
+      puff: () => tone(300, 0.05, 'triangle', 0.015, 0, -120),
+    };
+    function setEngineSound(level, wind) {
+      if (!ac || !engine) return;
+      const on = !save.muted && scene === 'play';
+      engine.g.gain.setTargetAtTime(on ? level * 0.22 : 0, ac.currentTime, 0.05);
+      engine.f.frequency.setTargetAtTime(300 + level * 400, ac.currentTime, 0.1);
+      windNode.g.gain.setTargetAtTime(on ? Math.min(0.08, wind * 0.004) : 0, ac.currentTime, 0.3);
+    }
+
+    // =====================================================================
+    // Level generation (seeded, so every level is always the same)
+    // =====================================================================
+    const STEP = 16;
+    function genLevel(p, l, seedOverride) {
+      const P = PLANETS[p];
+      const rng = mulberry32(seedOverride != null ? seedOverride : 7000 + p * 131 + l * 17);
+      const R = (a, b) => a + rng() * (b - a);
+      const width = Math.round(1500 + l * 360 + p * 120);
+      const N = Math.ceil(width / STEP) + 1;
+      const amp = 40 + l * 20 + p * 8;
+      const base = 820;
+      const f = [R(0.002, 0.004), R(0.006, 0.01), R(0.016, 0.026)], ph = [R(0, 6.28), R(0, 6.28), R(0, 6.28)];
+      const g = new Array(N);
+      for (let i = 0; i < N; i++) {
+        const x = i * STEP;
+        g[i] = base + amp * (0.55 * Math.sin(x * f[0] + ph[0]) + 0.32 * Math.sin(x * f[1] + ph[1]) + 0.13 * Math.sin(x * f[2] + ph[2]));
+      }
+      // craters and bumps
+      const nCr = 3 + l;
+      for (let k = 0; k < nCr; k++) {
+        const cx = R(300, width - 300), r = R(40, 90), dep = R(10, 26);
+        for (let i = 0; i < N; i++) { const d = Math.abs(i * STEP - cx) / r; if (d < 1.25) g[i] += d < 1 ? dep * (1 - d * d) : -dep * 0.6 * (1.25 - d) * 4 * (d - 1); }
+      }
+      const gy = (x) => { const fi = clamp(x / STEP, 0, N - 1.001), i = Math.floor(fi); return lerp(g[i], g[i + 1], fi - i); };
+      const pads = [];
+      const flatten = (cx, w) => {
+        const y = gy(cx);
+        const i0 = Math.floor((cx - w / 2) / STEP), i1 = Math.ceil((cx + w / 2) / STEP);
+        for (let i = i0 - 4; i <= i1 + 4; i++) {
+          if (i < 0 || i >= N) continue;
+          if (i >= i0 && i <= i1) g[i] = y;
+          else { const d = i < i0 ? i0 - i : i - i1; const t = d / 5; g[i] = lerp(y, g[i], t * t); }
+        }
+        return y;
+      };
+      const nAstro = [0, 1, 1, 2, 2, 3][l];
+      const nCrys = [3, 4, 5, 6, 7, 8][l];
+      // pads: start, astronaut pads spread out, optional fuel pad, base at the end
+      const sx = 170;
+      pads.push({ type: 'start', x: sx, w: 120 });
+      const span = width - 600;
+      const astroXs = [];
+      for (let k = 0; k < nAstro; k++) astroXs.push(420 + (span * (k + 0.5)) / Math.max(1, nAstro) + R(-60, 60));
+      astroXs.forEach((x) => pads.push({ type: 'astro', x, w: 104 }));
+      if (l >= 3) {
+        const fx = width * 0.5 + R(-80, 80);
+        if (!pads.some((q) => Math.abs(q.x - fx) < 220)) pads.push({ type: 'fuel', x: fx, w: 104 });
+      }
+      pads.push({ type: 'base', x: width - 200, w: 140 });
+      pads.forEach((pd) => { pd.y = flatten(pd.x, pd.w); });
+      // caves: tunnels through mountains. You can fly over the mountain or (quicker, and where the treasure is) through the tunnel.
+      const C = new Array(N).fill(null);   // tunnel roof
+      const T = new Array(N).fill(null);   // mountain top above the tunnel
+      const caves = [];
+      if (P.caves.includes(l)) {
+        const nCave = p === 2 || p === 5 ? (l >= 3 ? 2 : 1) : 1;
+        for (let k = 0; k < nCave; k++) {
+          const len = R(520, 800);
+          let cx = nCave === 1 ? width * R(0.42, 0.6) : width * (k === 0 ? R(0.3, 0.38) : R(0.66, 0.74));
+          const x1 = clamp(cx - len / 2, 380, width - 560), x2 = Math.min(width - 420, x1 + len);
+          if (x2 - x1 < 320 || caves.some((c) => x1 < c.x2 + 120 && x2 > c.x1 - 120)) continue;
+          if (pads.some((pd) => (pd.type === 'start' || pd.type === 'base') && pd.x + pd.w / 2 > x1 - 60 && pd.x - pd.w / 2 < x2 + 60)) continue;
+          const i1 = Math.floor(x1 / STEP), i2 = Math.ceil(x2 / STEP);
+          caves.push({ x1: i1 * STEP, x2: i2 * STEP, i1, i2 });
+          // smooth the tunnel floor a bit
+          for (let pass = 0; pass < 2; pass++) for (let i = i1; i <= i2; i++) {
+            const inPad = pads.some((pd) => Math.abs(i * STEP - pd.x) < pd.w / 2 + 40);
+            if (!inPad) g[i] = lerp(g[i], (g[Math.max(0, i - 2)] + g[Math.min(N - 1, i + 2)]) / 2, 0.5);
+          }
+          const peak = R(300, 420);
+          for (let i = i1; i <= i2; i++) {
+            let mn = Infinity;
+            for (let j = i - 4; j <= i + 4; j++) mn = Math.min(mn, g[clamp(j, 0, N - 1)]);
+            const gap = 205 + 30 * Math.sin(i * 0.15 + k) + (pads.some((pd) => Math.abs(i * STEP - pd.x) < pd.w) ? 25 : 0);
+            C[i] = mn - gap;
+          }
+          // keep the roof smooth
+          for (let pass = 0; pass < 2; pass++) for (let i = i1 + 1; i < i2; i++) { C[i] = Math.min(C[i], (C[i - 1] + C[i + 1]) / 2 + 6); }
+          for (let i = i1; i <= i2; i++) { const e = Math.min(i - i1, i2 - i) * STEP; T[i] = C[i] - Math.min(peak, 26 + e * 1.25) * (0.92 + 0.08 * Math.sin(i * 0.4)); }
+        }
+      }
+      const cyF = (x) => { const fi = clamp(x / STEP, 0, N - 1.001), i = Math.floor(fi); const a = C[i], b = C[i + 1]; if (a == null || b == null) return -1e9; return lerp(a, b, fi - i); };
+      const inCave = (x) => caves.some((c) => x > c.x1 - 20 && x < c.x2 + 20);
+      // crystals: in the air, and inside caves when there are some
+      const crystals = [];
+      let tries = 0;
+      while (crystals.length < nCrys && tries++ < 400) {
+        const x = R(320, width - 320);
+        if (pads.some((pd) => Math.abs(pd.x - x) < 70)) continue;
+        if (crystals.some((c) => Math.abs(c.x - x) < 90)) continue;
+        const gyv = gy(x), cyv = cyF(x);
+        let y;
+        if (cyv > -1e8) { if (gyv - cyv < 140) continue; y = lerp(cyv, gyv, R(0.35, 0.6)); }
+        else y = gyv - R(70, 280 + l * 30);
+        crystals.push({ x, y, got: false, ph: R(0, 6.28) });
+      }
+      // obstacles for this planet
+      const haz = [];
+      const nHaz = P.hazard ? Math.min(6, (P.hazard === 'icicle' ? 2 : 1) + l) : 0;
+      tries = 0;
+      while (haz.length < nHaz && tries++ < 500) {
+        const x = R(380, width - 380);
+        if (pads.some((pd) => Math.abs(pd.x - x) < pd.w / 2 + 90)) continue;
+        if (haz.some((h) => Math.abs(h.x - x) < (P.hazard === 'well' ? 380 : 160))) continue;
+        if (P.hazard === 'well' && caves.some((c) => Math.abs(x - c.x1) < 150 || Math.abs(x - c.x2) < 150)) continue;
+        if (P.hazard === 'well' && pads.some((pd) => Math.abs(pd.x - x) < pd.w / 2 + 200)) continue;
+        if (P.hazard === 'devil') { if (inCave(x)) continue; haz.push({ k: 'devil', x, x0: x, range: R(80, 160), sp: R(0.25, 0.45), ph: R(0, 6.28) }); }
+        else if (P.hazard === 'geyser') { if (inCave(x)) continue; haz.push({ k: 'geyser', x, y: gy(x), period: R(3.6, 5), ph: R(0, 4) }); }
+        else if (P.hazard === 'rock') { if (inCave(x)) continue; const y = gy(x) - R(180, 420); haz.push({ k: 'rock', x, y, cx: x, cy: y, r: R(18, 30), orb: R(40, 90), sp: R(0.3, 0.6) * (rng() < 0.5 ? -1 : 1), ph: R(0, 6.28), spin: R(-1, 1) }); }
+        else if (P.hazard === 'well') { const cyv = cyF(x); const y = cyv > -1e8 ? lerp(cyv, gy(x), 0.45) : gy(x) - R(160, 300); haz.push({ k: 'well', x, y, R: 190, pull: 22 + l * 2 }); }
+        else if (P.hazard === 'icicle') {
+          const cyv = cyF(x);
+          if (cyv > -1e8) haz.push({ k: 'icicle', x, y: cyv, len: R(34, 56), state: 'hang', vy: 0, shake: 0 });
+          else if (tries > 200) haz.push({ k: 'icicle', x, y: -1e9, len: 0, state: 'gone' });
+        }
+      }
+      for (const h of haz) if (h.k === 'icicle' && h.state !== 'gone') {
+        // more icicles nearby in the same cave
+        for (let k = 1; k <= 2; k++) { const x = h.x + k * 34; const cyv = cyF(x); if (cyv > -1e8 && !pads.some((pd) => Math.abs(pd.x - x) < pd.w / 2 + 60)) haz.push({ k: 'icicle', x, y: cyv, len: 22 + rng() * 26, state: 'hang', vy: 0, shake: 0 }); }
+      }
+      // fuel: enough to fly the whole route comfortably (plus a big safety margin for kids)
+      const TH = 68;
+      const route = width + nAstro * 300;
+      const fuelMul = { moon: 1, mars: 1.2, frost: 1, jungle: 1.6, storm: 1.7, crystal: 1.25 }[P.id];
+      const fuel = Math.round((((route / 55) * (P.g / TH) * 2.2 + 10 + nAstro * 6) * fuelMul + (P.gust ? 8 : 0)) * 10) / 10;
+      // decorations: rocks on the ground
+      const deco = [];
+      for (let k = 0; k < width / 60; k++) { const x = R(0, width); if (!pads.some((pd) => Math.abs(pd.x - x) < pd.w / 2 + 10)) deco.push({ x, r: R(3, 9), t: rng() }); }
+      const stars = Array.from({ length: 160 }, () => ({ x: rng(), y: rng(), s: rng(), p: R(0, 6.28) }));
+      const mtn = [[], []];
+      for (let layer = 0; layer < 2; layer++) {
+        const ph2 = R(0, 6.28);
+        for (let k = 0; k <= 80; k++) mtn[layer].push(0.5 + 0.28 * Math.sin(k * 0.35 + ph2) + 0.15 * Math.sin(k * 0.9 + ph2 * 2) + 0.07 * Math.sin(k * 2.3));
+      }
+      return { p, l, width, N, g, C, T, pads, crystals, haz, caves, fuel, deco, stars, mtn, nAstro, nCrys, name: LEVEL_NAMES[p][l] };
+    }
+
+    // =====================================================================
+    // Game state
+    // =====================================================================
+    let scene = 'title';
+    let LV = null, S = null;
+    let W = 0, H = 0, dpr = 1;
+    let time = 0;
+    const cam = { x: 0, y: 600, z: 1 };
+    const input = { thrust: false, left: false, right: false, straight: false };
+    let parts = [], floaters = [], msgs = [];
+    let titleLv = null;
+    let usingTouch = false;
+    let bot = false, testing = false;
+
+    const curSkin = () => SKINS.find((s) => s.id === save.skin) || SKINS[0];
+    function shipStats() {
+      return {
+        T: 68 * (1 + 0.12 * save.ups.engine),
+        rot: 2.7,
+        fuel: LV.fuel * (1 + 0.2 * save.ups.tank),
+        safeV: 40 * (1 + 0.2 * save.ups.legs) * (save.assist ? 1.25 : 1),
+        safeH: 30 * (1 + 0.2 * save.ups.legs) * (save.assist ? 1.25 : 1),
+        safeA: 0.28 + 0.04 * save.ups.legs + (save.assist ? 0.08 : 0),
+        shields: save.ups.shield,
+      };
+    }
+    const gyAt = (x) => { const L = LV; const fi = clamp(x / STEP, 0, L.N - 1.001), i = Math.floor(fi); return lerp(L.g[i], L.g[i + 1], fi - i); };
+    // inside the rock above a tunnel (between the tunnel roof and the mountain top)
+    const rockAt = (x, y) => { const L = LV; const fi = clamp(x / STEP, 0, L.N - 1.001), i = Math.floor(fi); const a = L.C[i], b = L.C[i + 1]; if (a == null || b == null) return false; const t = fi - i; return y < lerp(a, b, t) && y > lerp(L.T[i], L.T[i + 1], t); };
+    const cyAt = (x) => { const L = LV; const fi = clamp(x / STEP, 0, L.N - 1.001), i = Math.floor(fi); const a = L.C[i], b = L.C[i + 1]; if (a == null || b == null) return -1e9; return lerp(a, b, fi - i); };
+    const padAt = (x) => LV.pads.find((pd) => Math.abs(x - pd.x) <= pd.w / 2);
+
+    function startLevel(p, l, opts) {
+      opts = opts || {};
+      LV = opts.level || genLevel(p, l);
+      const st = shipStats();
+      const sp = LV.pads[0];
+      S = {
+        t: 0, st, fuel: st.fuel, shields: st.shields, rescued: 0, crys: 0, daily: !!opts.daily,
+        ship: { x: sp.x, y: sp.y - 15, vx: 0, vy: 0, a: 0, va: 0, state: 'landed', pad: sp, legs: 0, flame: 0, land: 0, rest: 0, bump: 0, inv: 0 },
+        astros: LV.pads.filter((pd) => pd.type === 'astro').map((pd) => ({ pad: pd, x: pd.x + pd.w / 2 - 14, state: 'wait', wave: Math.random() * 6 })),
+        dock: 0, shake: 0, over: false, landSpeed: 0, msgT: 0, tut: p === 0 && l === 0 ? 0 : -1, lift: false, wind: 0, crashT: 0,
+        deathX: 0, deathY: 0, outOfFuelT: 0, bestSoft: 99,
+      };
+      LV.crystals.forEach((c) => (c.got = false));
+      LV.haz.forEach((h) => { if (h.k === 'icicle' && h.state !== 'gone') { h.state = 'hang'; h.vy = 0; h.shake = 0; h.dy = 0; } });
+      parts = []; floaters = []; msgs = [];
+      cam.x = sp.x; cam.y = sp.y - 120; cam.z = baseZoom() * 1.2;
+      scene = 'play';
+      showOverlay(null);
+      $('b-pause').hidden = false;
+      updateTouch();
+      if (S.tut === 0) say('Hold ↑ (or THRUST) to lift off!', 4);
+      else if (l === 0) say(PLANETS[p].desc, 4);
+    }
+    function say(text, secs, col) { msgs = [{ text, t: secs || 2.5, col: col || '#fff' }]; }
+    function floater(x, y, text, col, size) { floaters.push({ x, y, text, col, life: 1.4, size: size || 20 }); }
+
+    // ---------- physics ----------
+    const FEET = [[-13, 16], [13, 16]];
+    const BODY = [[0, -18], [-12, -9], [12, -9], [-15, 4], [15, 4], [0, 8]];
+    function toWorld(sh, p) { const c = Math.cos(sh.a), s = Math.sin(sh.a); return [sh.x + p[0] * c - p[1] * s, sh.y + p[0] * s + p[1] * c]; }
+    function windNow() {
+      const P = PLANETS[LV.p];
+      if (!P.wind && !P.gust) return 0;
+      const t = S.t;
+      let w = P.wind * Math.sin(t * 0.07 + LV.l);
+      w += P.gust * (Math.sin(t * 0.6 + LV.l * 2) * 0.6 + Math.sin(t * 1.7) * 0.4) * (P.id === 'storm' ? Math.sign(Math.sin(t * 0.13 + 1)) : 1);
+      return w;
+    }
+    function hazardForce(sh, h) {
+      // returns [ax, ay] that obstacles push the ship with
+      let ax = 0, ay = 0;
+      for (const z of LV.haz) {
+        if (z.k === 'devil') {
+          const dx = sh.x - z.x, top = gyAt(z.x) - 190;
+          if (Math.abs(dx) < 46 && sh.y > top && sh.y < gyAt(z.x) + 10) {
+            ax += Math.sin(S.t * 7 + z.ph) * 90 - dx * 1.2;
+            ay -= 30;
+            if (Math.random() < h * 6) puffAt(sh.x + (Math.random() - 0.5) * 30, sh.y + 10, '#e8a070', 1);
+          }
+        } else if (z.k === 'geyser') {
+          const ph = (S.t + z.ph) % z.period;
+          const on = ph > z.period - 1.6;
+          if (on && Math.abs(sh.x - z.x) < 36 && sh.y > z.y - 300 && sh.y < z.y) ay -= 110 * (1 - (z.y - sh.y) / 300 * 0.5);
+        } else if (z.k === 'well') {
+          const dx = z.x - sh.x, dy = z.y - sh.y, d = Math.hypot(dx, dy);
+          if (d < z.R && d > 1) { const f = z.pull * Math.sin(Math.PI * Math.min(1, d / z.R)) * (d < 50 ? d / 50 : 1); ax += (dx / d) * f; ay += (dy / d) * f; }
+        }
+      }
+      return [ax, ay];
+    }
+    function step(h) {
+      const sh = S.ship, st = S.st, P = PLANETS[LV.p];
+      S.t += h;
+      if (sh.state === 'dead') return;
+      if (sh.inv > 0) sh.inv -= h;
+      let thrust = input.thrust && S.fuel > 0;
+      let rot = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+      if (bot) { const b = autopilot(); thrust = b.thrust && S.fuel > 0; rot = b.rot; }
+      sh.flame = lerp(sh.flame, thrust ? 1 : 0, Math.min(1, h * 18));
+      S.wind = windNow();
+      if (sh.state === 'fly') {
+        if (rot) { sh.va = rot * st.rot; if (Math.random() < h * 8) rcsPuff(sh, rot); }
+        else if (save.ups.stab || input.straight || save.assist) { sh.va = -clamp(sh.a * 4, -st.rot * 0.8, st.rot * 0.8); }
+        else sh.va *= Math.pow(0.02, h);
+        sh.a += sh.va * h;
+        if (sh.a > Math.PI) sh.a -= Math.PI * 2;
+        if (sh.a < -Math.PI) sh.a += Math.PI * 2;
+        let ax = S.wind, ay = P.g;
+        if (thrust) { ax += Math.sin(sh.a) * st.T; ay -= Math.cos(sh.a) * st.T; S.fuel = Math.max(0, S.fuel - h); }
+        const [hx, hy] = hazardForce(sh, h);
+        ax += hx; ay += hy;
+        // soft walls: the edges of the map and the top of the sky
+        if (sh.x < 40) ax += (40 - sh.x) * 6;
+        if (sh.x > LV.width - 40) ax -= (sh.x - LV.width + 40) * 6;
+        if (sh.y < -120) ay += (-120 - sh.y) * 4;
+        sh.vx += ax * h; sh.vy += ay * h;
+        const sp = Math.hypot(sh.vx, sh.vy);
+        if (sp > 240) { sh.vx *= 240 / sp; sh.vy *= 240 / sp; }
+        const px = sh.x, py = sh.y, pa = sh.a - sh.va * h;
+        sh.x += sh.vx * h; sh.y += sh.vy * h;
+        collide(px, py, pa);
+      } else if (sh.state === 'landed' || sh.state === 'rest') {
+        sh.va = 0;
+        if (sh.state === 'rest') sh.a = lerp(sh.a, Math.atan2(gyAt(sh.x + 13) - gyAt(sh.x - 13), 26), Math.min(1, h * 6));
+        else sh.a = lerp(sh.a, 0, Math.min(1, h * 8));
+        if (thrust && st.T * Math.cos(sh.a) > P.g * 0.9) {
+          sh.state = 'fly'; sh.vy = -18; sh.y -= 2; sh.pad = null; S.dock = 0;
+          if (S.tut === 0) { S.tut = 1; say('Nice! Tilt with ← → to fly sideways.', 4); }
+        }
+        if (thrust) S.fuel = Math.max(0, S.fuel - h);
+        landedLogic(h);
+      }
+      // feet spring animation
+      sh.legs = lerp(sh.legs, 0, Math.min(1, h * 6));
+      // dust when the engine is near the ground
+      if (thrust) {
+        const nz = toWorld(sh, [0, 14]);
+        const alt = gyAt(nz[0]) - nz[1];
+        if (alt < 140 && Math.random() < h * 40) {
+          const gx = nz[0] + (nz[1] - sh.y) * Math.tan(sh.a) * 0.3;
+          const dir = Math.random() < 0.5 ? -1 : 1;
+          parts.push({ x: gx, y: gyAt(gx) - 2, vx: dir * (60 + Math.random() * 100) * (1 - alt / 160), vy: -Math.random() * 30, life: 0.8, max: 0.8, r: 3 + Math.random() * 5, col: P.ground[0], kind: 'dust' });
+        }
+        if (Math.random() < h * 60) {
+          const a = sh.a + (Math.random() - 0.5) * 0.4;
+          const nz2 = toWorld(sh, [0, 16]);
+          parts.push({ x: nz2[0], y: nz2[1], vx: -Math.sin(a) * 160 + sh.vx * 0.5, vy: Math.cos(a) * 160 + sh.vy * 0.5, life: 0.35, max: 0.35, r: 3 + Math.random() * 3, col: '#ffcf6a', kind: 'fire' });
+        }
+      }
+      // crystals
+      for (const c of LV.crystals) {
+        if (c.got) continue;
+        if (Math.hypot(c.x - sh.x, c.y + Math.sin(S.t * 2 + c.ph) * 5 - sh.y) < 30) {
+          c.got = true; S.crys++;
+          sfx.crystal();
+          floater(c.x, c.y - 20, '+1 crystal', '#8af0ff', 18);
+          for (let k = 0; k < 14; k++) { const a = Math.random() * 6.28; parts.push({ x: c.x, y: c.y, vx: Math.cos(a) * 110, vy: Math.sin(a) * 110, life: 0.6, max: 0.6, r: 2.5, col: k % 2 ? '#8af0ff' : '#fff', kind: 'spark' }); }
+        }
+      }
+      // obstacles that move or can hit you
+      for (const z of LV.haz) {
+        if (z.k === 'devil') z.x = z.x0 + Math.sin(S.t * z.sp + z.ph) * z.range;
+        else if (z.k === 'rock') {
+          z.x = z.cx + Math.cos(S.t * z.sp + z.ph) * z.orb; z.y = z.cy + Math.sin(S.t * z.sp + z.ph) * z.orb * 0.6;
+          if (sh.state === 'fly' && Math.hypot(sh.x - z.x, sh.y - z.y) < z.r + 14) hit('a space rock', z.x, z.y);
+        } else if (z.k === 'icicle') {
+          if (z.state === 'hang' && Math.abs(sh.x - z.x) < Math.max(70, Math.abs(sh.vx) * 2) && (z.x - sh.x) * sh.vx >= 0 && sh.y > z.y) { z.state = 'shake'; z.shake = 0.8; tone(1500, 0.06, 'triangle', 0.02); }
+          else if (z.state === 'shake') { z.shake -= h; if (z.shake <= 0) { z.state = 'fall'; z.vy = 0; z.dy = 0; } }
+          else if (z.state === 'fall') {
+            z.vy += 600 * h; z.dy += z.vy * h;
+            const tipY = z.y + z.dy + z.len;
+            if (sh.state !== 'dead' && Math.abs(sh.x - z.x) < 15 && tipY > sh.y - 16 && z.y + z.dy < sh.y + 14) { z.state = 'gone'; hit('a falling icicle', z.x, tipY); shatter(z.x, tipY); }
+            else if (tipY > gyAt(z.x)) { z.state = 'gone'; shatter(z.x, gyAt(z.x)); }
+          }
+        }
+      }
+      // astronauts walk to the ship when it has landed on their pad
+      for (const a of S.astros) {
+        if (a.state === 'wait' || a.state === 'walk') {
+          const onPad = (sh.state === 'landed') && sh.pad === a.pad;
+          const tx = onPad ? sh.x + (a.x > sh.x ? 14 : -14) : a.pad.x + a.pad.w / 2 - 14;
+          const dx = tx - a.x;
+          if (onPad || Math.abs(dx) > 1) a.state = 'walk';
+          a.x += clamp(dx, -40 * h, 40 * h);
+          if (Math.abs(dx) < 1.5) {
+            if (onPad) {
+              a.state = 'in'; S.rescued++;
+              sfx.rescue();
+              floater(sh.x, sh.y - 40, 'Rescued!', '#ffd43b', 24);
+              for (let k = 0; k < 12; k++) { const an = Math.random() * 6.28; parts.push({ x: sh.x, y: sh.y - 10, vx: Math.cos(an) * 90, vy: Math.sin(an) * 90 - 40, life: 0.8, max: 0.8, r: 3, col: '#ffd43b', kind: 'star' }); }
+              if (S.rescued === LV.nAstro) say('Everyone is on board! Head to the green base.', 3, '#3ee08f');
+            } else a.state = 'wait';
+          }
+        }
+      }
+      // ran out of fuel and can't reach the base
+      if (S.fuel <= 0 && (sh.state === 'rest' || (sh.state === 'landed' && sh.pad && sh.pad.type !== 'base' && sh.pad.type !== 'fuel'))) {
+        S.outOfFuelT += h;
+        if (S.outOfFuelT > 1.6) fail('Out of fuel!', 'Your tank is empty. Try saving fuel by gliding, or upgrade your fuel tank in the Hangar.');
+      } else S.outOfFuelT = 0;
+    }
+    // never let the ship get wedged inside rock: nudge it to the nearest free spot
+    function unstick(sh) {
+      const dirs = [[0, 1], [0, -1], [-1, 0], [1, 0], [0.7, 0.7], [-0.7, 0.7], [0.7, -0.7], [-0.7, -0.7]];
+      for (let r = 2; r <= 60; r += 2) {
+        for (const [dx, dy] of dirs) {
+          const x = sh.x + dx * r, y = sh.y + dy * r;
+          if (!bodyHitAt(sh, x, y) && FEET.every((f) => { const o = { x, y, a: sh.a }; const [wx, wy] = toWorld(o, f); return wy <= gyAt(wx) + 0.5; })) {
+            sh.x = x; sh.y = y; sh.vx *= 0.3; sh.vy *= 0.3; return;
+          }
+        }
+      }
+      sh.a = 0;
+    }
+    function bodyHitAt(sh, x, y) {
+      const o = { x, y, a: sh.a };
+      for (const b of BODY) { const [wx, wy] = toWorld(o, b); if (wy > gyAt(wx) + 1 || rockAt(wx, wy)) return true; }
+      for (const f of FEET) { const [wx, wy] = toWorld(o, f); if (rockAt(wx, wy)) return true; }
+      return false;
+    }
+    function collide(px, py, pa) {
+      const sh = S.ship, st = S.st;
+      // feet first
+      let footHit = false, footPen = 0;
+      for (const f of FEET) {
+        const [wx, wy] = toWorld(sh, f);
+        const gyv = gyAt(wx);
+        if (wy > gyv) { footHit = true; footPen = Math.max(footPen, wy - gyv); }
+      }
+      // body against the ground and the rock above tunnels
+      const bodyHit = bodyHitAt(sh, sh.x, sh.y);
+      const speed = Math.hypot(sh.vx, sh.vy);
+      if (bodyHit) {
+        if (speed > 70 || (Math.abs(sh.a) > 1.2 && footHit)) { hit(footHit ? 'the ground' : 'the rocks'); return; }
+        // gentle scrape: bounce back the way we came
+        const nx = sh.x, ny = sh.y;
+        sh.x = px; sh.y = py;
+        const hx = bodyHitAt(sh, nx, py), hy = bodyHitAt(sh, px, ny);
+        if (hy || !hx) sh.vy = -sh.vy * 0.4;
+        if (hx || !hy) sh.vx = -sh.vx * 0.4;
+        if (bodyHitAt(sh, sh.x, sh.y)) { sh.a = pa; sh.va = 0; }
+        if (bodyHitAt(sh, sh.x, sh.y)) unstick(sh);
+        if (sh.bump <= 0) { sfx.bump(); S.shake = 4; sh.bump = 0.3; }
+        return;
+      }
+      if (sh.bump > 0) sh.bump -= 1 / 120;
+      if (!footHit) return;
+      const pad = padAt(sh.x);
+      const vy = sh.vy, vx = Math.abs(sh.vx), ang = Math.abs(sh.a);
+      const both = FEET.every((f) => { const [wx, wy] = toWorld(sh, f); return wy > gyAt(wx) - 4; });
+      if (vy > st.safeV * 1.75 || ang > 0.9) { hit('the ground'); return; }
+      if (pad && vy <= st.safeV && vx <= st.safeH && ang <= st.safeA) {
+        // touchdown!
+        sh.y = pad.y - 16; sh.vx = 0; sh.vy = 0; sh.state = 'landed'; sh.pad = pad; sh.legs = clamp(vy / st.safeV, 0.25, 1);
+        S.landSpeed = vy;
+        S.bestSoft = Math.min(S.bestSoft, vy);
+        sfx.land();
+        dustBurst(sh.x, pad.y, 14);
+        const soft = vy < st.safeV * 0.5;
+        floater(sh.x, sh.y - 46, soft ? 'Feather soft!' : 'Nice landing!', soft ? '#3ee08f' : '#ffffff', 22);
+        if (pad.type === 'astro') { const a = S.astros.find((q) => q.pad === pad && q.state !== 'in'); if (a) say('Hold still while the astronaut climbs in...', 2); }
+        else if (pad.type === 'fuel') say('Refuelling...', 1.5);
+        else if (pad.type === 'base') { const left = LV.nAstro - S.rescued; say(left > 0 ? `Docking... (${left} astronaut${left > 1 ? 's' : ''} still waiting!)` : 'Docking...', 2); }
+        if (S.tut >= 0 && S.tut < 3) S.tut = 3;
+        return;
+      }
+      if (pad && both && vy <= st.safeV * 1.75) {
+        // a bit too fast or tilted: bounce
+        sh.y -= footPen + 1; sh.vy = -Math.abs(vy) * 0.35; sh.vx *= 0.5;
+        sfx.bump(); S.shake = 5; dustBurst(sh.x, pad.y, 8);
+        say(vy > st.safeV ? 'Too fast! Slow down before you touch down.' : ang > st.safeA ? 'Land straight! Level the ship first.' : 'Too much sideways speed!', 2.2, '#ffb020');
+        return;
+      }
+      // rough ground: settle if slow, otherwise bounce
+      if (vy <= st.safeV * 1.1 && vx < st.safeH * 1.5) {
+        sh.y -= footPen; sh.vx *= 0.3; sh.vy = 0;
+        if (Math.abs(sh.vx) < 8) { sh.state = 'rest'; sh.vx = 0; sh.legs = 0.4; sfx.bump(); say('Bumpy spot! Hop over to a landing pad.', 2.2, '#ffb020'); }
+      } else {
+        sh.y -= footPen + 1; sh.vy = -Math.abs(vy) * 0.4; sh.vx *= 0.6;
+        sfx.bump(); S.shake = 5; dustBurst(sh.x, gyAt(sh.x), 8);
+      }
+    }
+    function landedLogic(h) {
+      const sh = S.ship;
+      const pad = sh.pad;
+      if (!pad || sh.state !== 'landed') return;
+      if (pad.type === 'fuel' && S.fuel < S.st.fuel) {
+        S.fuel = Math.min(S.st.fuel, S.fuel + S.st.fuel * 0.35 * h);
+        if (Math.random() < h * 12) sfx.fuel();
+      }
+      if (pad.type === 'base' && !S.over) {
+        S.dock += h;
+        if (S.dock > 1.1) win();
+      }
+    }
+    function hit(what, x, y) {
+      const sh = S.ship;
+      if (sh.state === 'dead' || S.over) return;
+      if (sh.inv > 0) return;
+      if (S.shields > 0) {
+        S.shields--;
+        sh.inv = 1.2;
+        sh.vx = -sh.vx * 0.5; sh.vy = -Math.abs(sh.vy) * 0.5 - 30;
+        sh.y -= 6;
+        sfx.shield(); S.shake = 6;
+        floater(sh.x, sh.y - 40, 'Shield saved you!', '#8af0ff', 20);
+        return;
+      }
+      sh.state = 'dead';
+      S.deathX = sh.x; S.deathY = sh.y;
+      S.shake = 16;
+      boom();
+      // the ship breaks into a few tumbling pieces and a puff of smoke
+      const sk = curSkin();
+      for (let k = 0; k < 6; k++) {
+        const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.6;
+        parts.push({ x: sh.x, y: sh.y, vx: Math.cos(a) * (80 + Math.random() * 120) + sh.vx * 0.3, vy: Math.sin(a) * (80 + Math.random() * 140), life: 2.2, max: 2.2, r: 5 + Math.random() * 6, col: [sk.hull, sk.foil, sk.trim][k % 3], kind: 'debris', rot: Math.random() * 6, vr: (Math.random() - 0.5) * 10, grav: true });
+      }
+      for (let k = 0; k < 24; k++) { const a = Math.random() * 6.28, s = Math.random() * 90; parts.push({ x: sh.x, y: sh.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 20, life: 1.4, max: 1.4, r: 8 + Math.random() * 12, col: k % 3 ? '#cfcfd8' : '#ffb020', kind: 'smoke' }); }
+      S.crashT = 1.4;
+      S.crashWhat = what;
+    }
+    function fail(title, msg) {
+      if (S.over) return;
+      S.over = true;
+      scene = 'fail';
+      setEngineSound(0, 0);
+      $('f-title').textContent = title;
+      $('f-msg').textContent = msg;
+      const tips = ['Tip: tap the engine in short bursts to slow your fall.', 'Tip: keep the ship upright just before touchdown.', 'Tip: the arrows on the speed gauge turn green when it\'s safe to land.', 'Tip: Bouncy Legs in the Hangar let you land a bit faster.', 'Tip: try "Easy landing" on the title screen if it feels too hard.'];
+      $('f-tip').textContent = tips[Math.floor(Math.random() * tips.length)];
+      $('b-pause').hidden = true; updateTouch();
+      showOverlay('fail');
+    }
+    function win() {
+      S.over = true;
+      if (testing) { S.won = true; return; }
+      const sh = S.ship;
+      const goals = goalsFor(LV);
+      const done = goals.map((g) => g.check(S, LV));
+      const stars = done.filter(Boolean).length;
+      const key = LV.p + '-' + LV.l;
+      let earned = S.crys;
+      let spuds = 0;
+      if (S.daily) {
+        const day = todayKey();
+        const first = save.daily.last !== day;
+        if (first) { save.daily.last = day; earned += 10; spuds = 6; }
+      } else {
+        const prev = starsOf(LV.p, LV.l);
+        if (stars > prev) { save.stars[key] = stars; earned += (stars - prev) * 3; spuds = (prev === 0 ? 2 : 0) + (stars - prev) * 2; }
+      }
+      save.crystals += earned;
+      persist();
+      if (spuds) Potato.earn(spuds);
+      Potato.score(totalStars());
+      sfx.fanfare();
+      confetti(stars * 25 + 10);
+      setTimeout(() => {
+        scene = 'results';
+        setEngineSound(0, 0);
+        $('b-pause').hidden = true; updateTouch();
+        $('r-title').textContent = S.daily ? 'Daily mission complete!' : stars === 3 ? 'Perfect mission!' : 'Mission complete!';
+        $('r-stars').innerHTML = [0, 1, 2].map((k) => `<span class="${k < stars ? 'on' : ''}">★</span>`).join('');
+        $('r-goals').innerHTML = goals.map((g, k) => `<div><span class="s ${done[k] ? 'on' : ''}">★</span>${g.text}${g.status ? ` <span style="margin-left:auto;color:var(--muted)">${g.status(S, LV)}</span>` : ''}</div>`).join('');
+        $('r-reward').textContent = `+${earned} crystals` + (Potato.inHub && spuds ? ` · +${spuds} Spuds` : '');
+        const hasNext = !S.daily && (LV.l < 5 ? true : LV.p < PLANETS.length - 1);
+        $('r-next').hidden = !hasNext;
+        showOverlay('results');
+      }, 900);
+    }
+    function goalsFor(L) {
+      const g = [{ text: 'Land on the green base', check: () => true }];
+      if (L.nAstro) g.push({ text: `Rescue ${L.nAstro === 1 ? 'the astronaut' : 'all ' + L.nAstro + ' astronauts'}`, check: (s) => s.rescued >= L.nAstro, status: (s) => `${s.rescued}/${L.nAstro}` });
+      else g.push({ text: 'Land with a quarter of your fuel left', check: (s) => s.fuel >= s.st.fuel * 0.25, status: (s) => Math.round((s.fuel / s.st.fuel) * 100) + '%' });
+      g.push({ text: `Collect all ${L.nCrys} crystals`, check: (s) => s.crys >= L.nCrys, status: (s) => `${s.crys}/${L.nCrys}` });
+      return g;
+    }
+
+    // ---------- autopilot (used for testing that every level can be finished) ----------
+    function autopilot() {
+      const sh = S.ship, st = S.st, P = PLANETS[LV.p];
+      // pick a target: astronauts first, then the base
+      let target = null;
+      const waiting = S.astros.filter((a) => a.state !== 'in').sort((a, b) => Math.abs(a.pad.x - sh.x) - Math.abs(b.pad.x - sh.x));
+      if (waiting.length) target = waiting[0].pad;
+      else if (S.fuel < st.fuel * 0.3) target = LV.pads.find((pd) => pd.type === 'fuel' && Math.abs(pd.x - sh.x) < 900) || LV.pads.find((pd) => pd.type === 'base');
+      else target = LV.pads.find((pd) => pd.type === 'base');
+      if (sh.state === 'landed' && sh.pad === target) {
+        if (target.type === 'fuel' && S.fuel < st.fuel * 0.95) return { thrust: false, rot: 0 };
+        if (target.type === 'astro') return { thrust: false, rot: 0 };
+      }
+      const dx = target.x - sh.x;
+      const dist = Math.abs(dx);
+      // cruising height: stay above the ground ahead; if a tunnel is ahead, line up with its middle
+      let groundTop = 1e9, caveAhead = false, mouthY = null, nearBand = null;
+      const look = Math.sign(dx) || 1;
+      for (let k = 0; k <= 20; k++) {
+        const x = sh.x + look * Math.min(dist, k * 30);
+        const gyv = gyAt(x);
+        const c = cyAt(x);
+        if (c > -1e8) {
+          caveAhead = true;
+          if (k <= 4) { if (!nearBand) nearBand = [c, gyv]; nearBand[0] = Math.max(nearBand[0], c); nearBand[1] = Math.min(nearBand[1], gyv); }
+          if (mouthY == null) mouthY = lerp(c, gyv, 0.5);
+        } else if (!caveAhead) groundTop = Math.min(groundTop, gyv);
+      }
+      if (cyAt(sh.x) > -1e8) { const c = cyAt(sh.x), gyv = gyAt(sh.x); nearBand = nearBand ? [Math.max(nearBand[0], c), Math.min(nearBand[1], gyv)] : [c, gyv]; }
+      let wantY = nearBand ? lerp(nearBand[0], nearBand[1], 0.5) : mouthY != null ? Math.min(mouthY, groundTop - 45) : groundTop - 110;
+
+      for (const z of LV.haz) if (z.k === "rock") {
+        const ahead = (z.x - sh.x) * look;
+        if (ahead > -60 && ahead < 220 && Math.abs(z.y - wantY) < z.r + 70) {
+          const above = z.y - z.r - 80, below = z.y + z.r + 80;
+          wantY = below < gyAt(z.x) - 60 && Math.abs(below - sh.y) < Math.abs(above - sh.y) ? below : above;
+        }
+      }
+      if (dist < 60) wantY = target.y - 16;
+      let wantVx = clamp(dx * 0.7, -75, 75);
+      if (caveAhead) wantVx = clamp(wantVx, -50, 50);
+      if (mouthY != null && !nearBand && sh.y < mouthY - 50) wantVx = clamp(wantVx, -25, 25);
+      for (const z of LV.haz) if (z.k === "icicle" && (z.state === "shake" || z.state === "fall") && (z.x - sh.x) * look > -10 && Math.abs(z.x - sh.x) < 55) wantVx = -look * 15;
+      if (dist < 140) wantVx = clamp(dx * 1.0, -26, 26);
+      if (dist < 50) wantVx = clamp(dx * 0.8, -10, 10);
+      let wantVy = clamp((wantY - sh.y) * 1.2, -60, 45);
+      if (dist < 60) wantVy = Math.min(st.safeV * 0.55, Math.max(12, (target.y - 16 - sh.y) * 0.8));
+      const hf = hazardForce(sh, 0);
+      const axd = (wantVx - sh.vx) * 1.6 - S.wind - hf[0];
+      const ayd = (wantVy - sh.vy) * 1.6 - P.g - hf[1];
+      let ang = Math.atan2(axd, -ayd);
+      ang = clamp(ang, -0.85, 0.85);
+      if (dist < 30) ang = clamp(ang, -0.24, 0.24);
+      const mag = Math.hypot(axd, ayd);
+      const da = ang - sh.a;
+      const rot = Math.abs(da) > 0.05 ? Math.sign(da) : 0;
+      const thrust = -ayd > 0.17 * Math.hypot(axd, ayd) && mag > st.T * 0.3 && Math.abs(da) < 0.6;
+      if (sh.state !== 'fly' && sh.pad === target && target.type === 'base') return { thrust: false, rot: 0 };
+      return { thrust: sh.state !== 'fly' ? true : thrust, rot: sh.state === 'fly' ? rot : 0 };
+    }
+
+    // =====================================================================
+    // Update
+    // =====================================================================
+    function update(dt) {
+      time += dt;
+      if (scene !== 'play') { ambient(dt); return; }
+      let acc = dt;
+      while (acc > 1e-6) { const h = Math.min(1 / 120, acc); step(h); acc -= h; }
+      const sh = S.ship;
+      if (sh.state === 'dead') {
+        S.crashT -= dt;
+        if (S.crashT <= 0 && !S.over) fail('Oops! Crash landing!', `You bumped into ${S.crashWhat}. Slow down and keep the ship upright when you land.`);
+      }
+      if (S.shake > 0) S.shake = Math.max(0, S.shake - dt * 25);
+      for (const p of parts) {
+        p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt;
+        if (p.kind === 'dust' || p.kind === 'smoke') { p.vx *= Math.pow(0.15, dt); p.vy *= Math.pow(0.3, dt); p.vy -= 10 * dt; }
+        if (p.grav) { p.vy += PLANETS[LV.p].g * 3 * dt; if (p.y > gyAt(p.x)) { p.y = gyAt(p.x); p.vy *= -0.3; p.vx *= 0.6; } }
+        if (p.vr) p.rot += p.vr * dt;
+      }
+      parts = parts.filter((p) => p.life > 0);
+      if (parts.length > 600) parts.splice(0, parts.length - 600);
+      for (const f of floaters) { f.life -= dt; f.y -= 24 * dt; }
+      floaters = floaters.filter((f) => f.life > 0);
+      for (const m of msgs) m.t -= dt;
+      msgs = msgs.filter((m) => m.t > 0);
+      // tutorial
+      if (S.tut === 1 && Math.abs(sh.x - LV.pads[0].x) > 160) { S.tut = 2; say('Fly to the green base pad and land slowly!', 4); }
+      // camera
+      const z0 = baseZoom();
+      const alt = gyAt(sh.x) - sh.y;
+      const near = sh.state !== 'dead' && alt < 170 ? 1.28 : 1;
+      cam.z = lerp(cam.z, z0 * near, Math.min(1, dt * 1.5));
+      const lookX = sh.state === 'dead' ? S.deathX : sh.x + sh.vx * 0.6;
+      const lookY = sh.state === 'dead' ? S.deathY : sh.y + sh.vy * 0.4;
+      cam.x = lerp(cam.x, lookX, Math.min(1, dt * 3));
+      cam.y = lerp(cam.y, lookY, Math.min(1, dt * 3));
+      const hw = W / 2 / cam.z, hh = H / 2 / cam.z;
+      cam.x = clamp(cam.x, Math.min(hw - 60, LV.width / 2), Math.max(LV.width + 60 - hw, LV.width / 2));
+      cam.y = clamp(cam.y, -320 + hh, 1080 - hh);
+      // sound
+      setEngineSound(sh.state === 'dead' ? 0 : sh.flame, Math.abs(S.wind));
+    }
+    function baseZoom() {
+      // landscape: show about 640 world units of height; portrait: about 480 units of width
+      return Math.max(0.45, Math.min(H / 640, W / 480));
+    }
+    function ambient(dt) {
+      for (const p of parts) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; }
+      parts = parts.filter((p) => p.life > 0);
+    }
+    function rcsPuff(sh, dir) {
+      const side = toWorld(sh, [dir > 0 ? -15 : 15, -12]);
+      parts.push({ x: side[0], y: side[1], vx: (dir > 0 ? -1 : 1) * 60 * Math.cos(sh.a), vy: -20, life: 0.3, max: 0.3, r: 3, col: '#ffffff', kind: 'smoke' });
+    }
+    function puffAt(x, y, col, n) { for (let k = 0; k < n; k++) parts.push({ x, y, vx: (Math.random() - 0.5) * 60, vy: -Math.random() * 40, life: 0.6, max: 0.6, r: 4 + Math.random() * 4, col, kind: 'dust' }); }
+    function dustBurst(x, y, n) {
+      const col = PLANETS[LV.p].ground[0];
+      for (let k = 0; k < n; k++) { const d = k % 2 ? 1 : -1; parts.push({ x: x + d * 10, y: y - 2, vx: d * (40 + Math.random() * 90), vy: -Math.random() * 30, life: 0.9, max: 0.9, r: 4 + Math.random() * 5, col, kind: 'dust' }); }
+    }
+    function shatter(x, y) {
+      tone(2000, 0.1, 'triangle', 0.03); tone(1500, 0.12, 'triangle', 0.03, 0.05);
+      for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.4; parts.push({ x, y, vx: Math.cos(a) * 90, vy: Math.sin(a) * 90, life: 0.7, max: 0.7, r: 2 + Math.random() * 2, col: '#e6f8ff', kind: 'spark', grav: true }); }
+    }
+
+    // =====================================================================
+    // Drawing
+    // =====================================================================
+    function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+    function starPath(g, x, y, r, n = 5, inner = 0.45) { g.beginPath(); for (let k = 0; k < n * 2; k++) { const a = -Math.PI / 2 + (k * Math.PI) / n, q = k % 2 ? r * inner : r; g.lineTo(x + Math.cos(a) * q, y + Math.sin(a) * q); } g.closePath(); }
+    function shade(hex, amt) { return Potato.shade ? Potato.shade(hex, amt) : hex; }
+
+    function drawSky(L, P) {
+      const gr = ctx.createLinearGradient(0, 0, 0, H);
+      gr.addColorStop(0, P.sky[0]); gr.addColorStop(0.6, P.sky[1]); gr.addColorStop(1, P.sky[2]);
+      ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+      // stars (very slow parallax)
+      const dim = P.id === 'mars' || P.id === 'jungle' ? 0.45 : 1;
+      for (const s of L.stars) {
+        const x = ((s.x * W * 1.5 - cam.x * 0.03 * (1 + s.s)) % W + W) % W;
+        const y = s.y * H * 0.8;
+        const a = (0.35 + 0.55 * Math.abs(Math.sin(time * (0.5 + s.s) + s.p))) * dim * (1 - y / H);
+        ctx.fillStyle = `rgba(255,255,255,${a})`;
+        const r = s.s > 0.92 ? 1.8 : 1.1;
+        ctx.fillRect(x, y, r, r);
+      }
+      // a planet or moon hanging in the sky
+      const bx = W * 0.78 - cam.x * 0.02, by = H * 0.2, br = Math.min(W, H) * 0.09;
+      const PL = { moon: ['#7ec8ff', '#1c5aa8', true], mars: ['#f2d6a0', '#a87a40', false], frost: ['#ffe0a8', '#e08a40', false], jungle: ['#ffd0f0', '#a04a90', false], storm: ['#ffe6a8', '#c08a3a', false], crystal: ['#a8fff0', '#2a8a9a', false] }[P.id];
+      const pg = ctx.createRadialGradient(bx - br * 0.4, by - br * 0.4, br * 0.1, bx, by, br);
+      pg.addColorStop(0, PL[0]); pg.addColorStop(1, PL[1]);
+      ctx.fillStyle = pg; ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fill();
+      if (PL[2]) { // our home world with clouds
+        ctx.save(); ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.clip();
+        ctx.fillStyle = '#3fae5a';
+        ctx.beginPath(); ctx.ellipse(bx - br * 0.3, by - br * 0.1, br * 0.35, br * 0.5, 0.4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(bx + br * 0.4, by + br * 0.3, br * 0.3, br * 0.25, -0.3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.ellipse(bx - br + ((time * 4 + k * br * 0.6) % (br * 2.4)), by - br * 0.6 + k * br * 0.4, br * 0.35, br * 0.08, 0, 0, Math.PI * 2); ctx.fill(); }
+        ctx.fillStyle = 'rgba(0,0,20,0.45)'; ctx.beginPath(); ctx.arc(bx + br * 0.45, by + br * 0.3, br * 1.05, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      } else if (P.id === 'storm' || P.id === 'jungle') {
+        ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.ellipse(bx, by, br * 1.7, br * 0.4, -0.3, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.beginPath(); ctx.arc(bx, by, br * 1.25, 0, Math.PI * 2); ctx.fill();
+      // storm lightning flash
+      if (P.id === 'storm') {
+        const f = (time * 0.37) % 7;
+        if (f < 0.12) { ctx.fillStyle = `rgba(230,220,255,${0.25 * (1 - f / 0.12)})`; ctx.fillRect(0, 0, W, H); }
+      }
+      // two layers of far mountains
+      for (let layer = 0; layer < 2; layer++) {
+        const par = layer ? 0.35 : 0.18;
+        const horizon = H * (layer ? 0.7 : 0.62) + (cam.y - 600) * cam.z * -0.12 * (layer + 1);
+        ctx.fillStyle = P.far[layer];
+        ctx.beginPath(); ctx.moveTo(0, H);
+        const m = L.mtn[layer];
+        const span = 90;
+        const off = cam.x * par;
+        for (let x = 0; x <= W + span; x += 12) {
+          const u = (x + off) / span;
+          const i = ((Math.floor(u) % (m.length - 1)) + (m.length - 1)) % (m.length - 1);
+          const f = u - Math.floor(u);
+          const v = lerp(m[i], m[i + 1], f);
+          ctx.lineTo(x, horizon - v * (layer ? 90 : 140));
+        }
+        ctx.lineTo(W, H); ctx.fill();
+      }
+    }
+    const wx = (x) => (x - cam.x) * cam.z + W / 2;
+    const wy = (y) => (y - cam.y) * cam.z + H / 2;
+    function drawTerrain(L, P) {
+      const x0 = cam.x - W / 2 / cam.z - 40, x1 = cam.x + W / 2 / cam.z + 40;
+      const i0 = clamp(Math.floor(x0 / STEP), 0, L.N - 1), i1 = clamp(Math.ceil(x1 / STEP), 0, L.N - 1);
+      // ground
+      const gr = ctx.createLinearGradient(0, 640, 0, 1150);
+      gr.addColorStop(0, P.ground[0]); gr.addColorStop(0.25, P.ground[1]); gr.addColorStop(1, P.ground[2]);
+      ctx.fillStyle = gr;
+      ctx.beginPath();
+      // the edges of the world rise into big hills (the ship is gently pushed back before it gets there)
+      const edgeY = (x) => x < 0 ? Math.max(-500, L.g[0] + x * 1.1) : Math.max(-500, L.g[L.N - 1] - (x - (L.N - 1) * STEP) * 1.1);
+      const ex0 = Math.min(x0, 0), ex1 = Math.max(x1, (L.N - 1) * STEP);
+      ctx.moveTo(ex0, 1400);
+      if (x0 < 0) for (let x = Math.floor(x0 / STEP) * STEP; x < 0; x += STEP) ctx.lineTo(x, edgeY(x));
+      for (let i = i0; i <= i1; i++) ctx.lineTo(i * STEP, L.g[i]);
+      if (x1 > (L.N - 1) * STEP) for (let x = (L.N - 1) * STEP + STEP; x <= x1 + STEP; x += STEP) ctx.lineTo(x, edgeY(x));
+      ctx.lineTo(ex1 + STEP, 1400); ctx.closePath(); ctx.fill();
+      // texture: craters and pebbles
+      ctx.save(); ctx.clip();
+      for (const d of L.deco) {
+        if (d.x < x0 || d.x > x1) continue;
+        const y = gyAt(d.x);
+        if (d.t < 0.35) { // little crater
+          ctx.fillStyle = 'rgba(0,0,0,0.16)'; ctx.beginPath(); ctx.ellipse(d.x, y + 10 + d.r, d.r * 2.2, d.r * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.beginPath(); ctx.ellipse(d.x, y + 11.5 + d.r, d.r * 1.8, d.r * 0.35, 0, 0, Math.PI); ctx.fill();
+        } else { // speckle
+          ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.beginPath(); ctx.arc(d.x, y + 20 + d.t * 120, d.r * 0.6, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      ctx.restore();
+      // rim highlight
+      ctx.strokeStyle = P.rim; ctx.lineWidth = 3; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      for (let i = i0; i <= i1; i++) (i === i0 ? ctx.moveTo : ctx.lineTo).call(ctx, i * STEP, L.g[i]);
+      ctx.stroke();
+      // planet-specific surface details
+      for (const d of L.deco) {
+        if (d.x < x0 || d.x > x1 || d.t < 0.35) continue;
+        const y = gyAt(d.x);
+        if (P.id === 'jungle' && d.t > 0.7) { // little plants
+          ctx.strokeStyle = '#2f9a3a'; ctx.lineWidth = 3;
+          for (let k = -1; k <= 1; k++) { ctx.beginPath(); ctx.moveTo(d.x, y); ctx.quadraticCurveTo(d.x + k * 6, y - 10, d.x + k * 10 + Math.sin(time * 2 + d.x) * 2, y - 16 - d.r); ctx.stroke(); }
+        } else if (P.id === 'crystal' && d.t > 0.75) {
+          ctx.fillStyle = '#c9a8ff';
+          ctx.beginPath(); ctx.moveTo(d.x - 4, y + 2); ctx.lineTo(d.x, y - 10 - d.r); ctx.lineTo(d.x + 4, y + 2); ctx.fill();
+        } else if (P.id === 'frost' && d.t > 0.8) {
+          ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.ellipse(d.x, y, d.r * 1.6, d.r * 0.5, 0, Math.PI, 0); ctx.fill();
+        } else if (d.t > 0.6) { // boulder
+          ctx.fillStyle = P.ground[1]; ctx.beginPath(); ctx.ellipse(d.x, y - d.r * 0.4, d.r, d.r * 0.75, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.ellipse(d.x - d.r * 0.3, y - d.r * 0.7, d.r * 0.4, d.r * 0.25, 0, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      // mountains with tunnels: the rock above each tunnel
+      for (const cv of L.caves) {
+        if (cv.x2 < x0 || cv.x1 > x1) continue;
+        ctx.beginPath();
+        for (let i = cv.i1; i <= cv.i2; i++) ctx.lineTo(i * STEP, L.T[i]);
+        for (let i = cv.i2; i >= cv.i1; i--) ctx.lineTo(i * STEP, L.C[i]);
+        ctx.closePath();
+        let top = Infinity; for (let i = cv.i1; i <= cv.i2; i++) top = Math.min(top, L.T[i]);
+        const mg = ctx.createLinearGradient(0, top, 0, top + 460);
+        mg.addColorStop(0, P.ground[0]); mg.addColorStop(0.3, P.ground[1]); mg.addColorStop(1, P.ground[2]);
+        ctx.fillStyle = mg; ctx.fill();
+        ctx.save(); ctx.clip();
+        ctx.fillStyle = 'rgba(0,0,0,0.12)';
+        for (let i = cv.i1; i <= cv.i2; i += 2) { const yy = lerp(L.T[i], L.C[i], ((i * 53) % 10) / 10); ctx.beginPath(); ctx.arc(i * STEP + ((i * 31) % 9), yy, 3 + (i % 4), 0, Math.PI * 2); ctx.fill(); }
+        ctx.restore();
+        // snowy / grassy top edge
+        ctx.strokeStyle = P.rim; ctx.lineWidth = 3; ctx.lineJoin = 'round';
+        ctx.beginPath(); for (let i = cv.i1; i <= cv.i2; i++) ctx.lineTo(i * STEP, L.T[i]); ctx.stroke();
+        // tunnel roof edge and little stalactites
+        ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 3;
+        ctx.beginPath(); for (let i = cv.i1; i <= cv.i2; i++) ctx.lineTo(i * STEP, L.C[i]); ctx.stroke();
+        ctx.fillStyle = P.ground[2];
+        for (let i = cv.i1 + 2; i < cv.i2 - 1; i += 3) {
+          const c = L.C[i], len = 8 + ((i * 37) % 13);
+          ctx.beginPath(); ctx.moveTo(i * STEP - 5, c - 1); ctx.lineTo(i * STEP + 1, c + len); ctx.lineTo(i * STEP + 6, c - 1); ctx.fill();
+        }
+        // a sign at the tunnel mouth
+        if (cv.x1 > x0 - 50) { const sx = cv.x1 - 30, sy = gyAt(sx); ctx.fillStyle = '#6a4a2a'; ctx.fillRect(sx - 2, sy - 34, 4, 34); ctx.fillStyle = '#ffd43b'; rr(ctx, sx - 22, sy - 48, 44, 18, 4); ctx.fill(); ctx.fillStyle = '#3a2a10'; ctx.font = '700 11px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('CAVE', sx, sy - 39); }
+      }
+    }
+    function drawCaveBacks(L, P) {
+      // the dark back wall inside each tunnel, drawn behind everything else
+      for (const cv of L.caves) {
+        ctx.beginPath();
+        for (let i = cv.i1; i <= cv.i2; i++) ctx.lineTo(i * STEP, L.C[i] - 4);
+        for (let i = cv.i2; i >= cv.i1; i--) ctx.lineTo(i * STEP, L.g[i] + 4);
+        ctx.closePath();
+        const mid = (L.C[(cv.i1 + cv.i2) >> 1] + L.g[(cv.i1 + cv.i2) >> 1]) / 2;
+        const bg = ctx.createRadialGradient((cv.x1 + cv.x2) / 2, mid, 20, (cv.x1 + cv.x2) / 2, mid, (cv.x2 - cv.x1) * 0.7);
+        bg.addColorStop(0, shade(P.deep, -10)); bg.addColorStop(1, shade(P.deep, 25));
+        ctx.fillStyle = bg; ctx.fill();
+        ctx.save(); ctx.clip();
+        ctx.fillStyle = 'rgba(255,255,255,0.05)';
+        for (let i = cv.i1; i <= cv.i2; i += 3) { ctx.beginPath(); ctx.arc(i * STEP, lerp(L.C[i], L.g[i], ((i * 29) % 10) / 10), 6 + (i % 5) * 2, 0, Math.PI * 2); ctx.fill(); }
+        ctx.restore();
+      }
+    }
+    function drawPad(pd, P) {
+      const x = pd.x - pd.w / 2, y = pd.y;
+      // legs
+      ctx.fillStyle = '#4a5068';
+      ctx.fillRect(x + 8, y, 6, 14); ctx.fillRect(x + pd.w - 14, y, 6, 14);
+      // deck
+      const dg = ctx.createLinearGradient(0, y - 6, 0, y + 6);
+      dg.addColorStop(0, '#e2e6f0'); dg.addColorStop(1, '#7a8098');
+      ctx.fillStyle = dg; rr(ctx, x, y - 5, pd.w, 9, 3); ctx.fill();
+      // hazard stripes
+      ctx.save(); rr(ctx, x, y - 5, pd.w, 9, 3); ctx.clip();
+      const col = pd.type === 'base' ? '#2fd07a' : pd.type === 'astro' ? '#ffb020' : pd.type === 'fuel' ? '#ffe14d' : '#9aa3b8';
+      ctx.fillStyle = col;
+      for (let k = -2; k < pd.w / 12 + 2; k++) { ctx.beginPath(); ctx.moveTo(x + k * 12, y + 4); ctx.lineTo(x + k * 12 + 6, y + 4); ctx.lineTo(x + k * 12 + 12, y - 5); ctx.lineTo(x + k * 12 + 6, y - 5); ctx.fill(); }
+      ctx.restore();
+      // lights
+      for (const lx of [x + 3, x + pd.w - 3]) {
+        const on = Math.sin(time * 5 + pd.x) > 0;
+        ctx.fillStyle = on ? col : 'rgba(255,255,255,0.25)';
+        ctx.beginPath(); ctx.arc(lx, y - 8, 3, 0, Math.PI * 2); ctx.fill();
+        if (on) { ctx.fillStyle = col; ctx.globalAlpha = 0.25; ctx.beginPath(); ctx.arc(lx, y - 8, 9, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
+      }
+      if (pd.type === 'base') {
+        // beacon tower with flag
+        const tx = x + pd.w + 10;
+        ctx.fillStyle = '#5a6080'; ctx.fillRect(tx - 2, y - 62, 4, 62);
+        ctx.fillStyle = '#2fd07a';
+        const wv = Math.sin(time * 4) * 3;
+        ctx.beginPath(); ctx.moveTo(tx + 2, y - 62); ctx.quadraticCurveTo(tx + 14, y - 58 + wv, tx + 26, y - 54); ctx.lineTo(tx + 2, y - 46); ctx.fill();
+        const glow = 0.5 + 0.5 * Math.sin(time * 3);
+        ctx.fillStyle = `rgba(80,255,160,${0.25 + glow * 0.35})`; ctx.beginPath(); ctx.arc(tx, y - 66, 7 + glow * 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#b6ffd6'; ctx.beginPath(); ctx.arc(tx, y - 66, 3.5, 0, Math.PI * 2); ctx.fill();
+        // dome
+        ctx.fillStyle = '#d8deea'; ctx.beginPath(); ctx.ellipse(x - 26, y + 2, 22, 18, 0, Math.PI, 0); ctx.fill();
+        ctx.fillStyle = '#7ad0ff'; ctx.beginPath(); ctx.ellipse(x - 26, y - 6, 8, 5, 0, Math.PI, 0); ctx.fill();
+        // BASE label
+        if (!(S && S.ship.pad === pd)) label('BASE', pd.x, y - 22, '#2fd07a');
+      } else if (pd.type === 'fuel') {
+        const tx = x - 16;
+        ctx.fillStyle = '#ffd43b'; rr(ctx, tx - 12, y - 30, 24, 32, 6); ctx.fill();
+        ctx.fillStyle = '#b88a00'; ctx.fillRect(tx - 12, y - 18, 24, 4);
+        ctx.fillStyle = '#5a3a00'; ctx.font = '700 13px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('F', tx, y - 23);
+        label('FUEL', pd.x, y - 22, '#ffe14d');
+      } else if (pd.type === 'astro') {
+        // small shelter
+        const tx = x + pd.w + 14;
+        ctx.fillStyle = '#c8cedc'; ctx.beginPath(); ctx.ellipse(tx, y + 2, 16, 14, 0, Math.PI, 0); ctx.fill();
+        ctx.fillStyle = '#ffb020'; ctx.fillRect(tx - 1, y - 30, 2, 18);
+        ctx.fillStyle = '#ff5d6c'; ctx.beginPath(); ctx.moveTo(tx + 1, y - 30); ctx.lineTo(tx + 12, y - 26); ctx.lineTo(tx + 1, y - 22); ctx.fill();
+      }
+    }
+    function label(text, x, y, col) {
+      ctx.font = '700 13px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,20,0.6)'; ctx.strokeText(text, x, y); ctx.fillStyle = col; ctx.fillText(text, x, y);
+    }
+    function drawAstronaut(a, x, y, t, scale) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(scale || 1, scale || 1);
+      const walking = a.state === 'walk';
+      const step = walking ? Math.sin(t * 12) : 0;
+      // legs
+      ctx.fillStyle = '#e8ecf4';
+      ctx.fillRect(-5, -10, 4, 10 + step * 1.5); ctx.fillRect(1, -10, 4, 10 - step * 1.5);
+      // backpack + body
+      ctx.fillStyle = '#b8c0d0'; rr(ctx, -9, -24, 6, 12, 2); ctx.fill();
+      ctx.fillStyle = '#f6f8fc'; rr(ctx, -6, -24, 12, 15, 4); ctx.fill();
+      ctx.fillStyle = '#ff5d6c'; ctx.fillRect(-2, -20, 4, 3);
+      // waving arm
+      const wave = a.state === 'wait' ? Math.sin(t * 8 + a.wave) * 0.6 : step * 0.4;
+      ctx.save(); ctx.translate(5, -21); ctx.rotate(a.state === 'wait' ? -2.2 + wave : 0.3 + wave);
+      ctx.fillStyle = '#f6f8fc'; rr(ctx, -2, 0, 4, 10, 2); ctx.fill(); ctx.restore();
+      ctx.fillStyle = '#f6f8fc'; rr(ctx, -8, -21, 3, 9, 1.5); ctx.fill();
+      // helmet
+      ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(0, -30, 7.5, 0, Math.PI * 2); ctx.fill();
+      const vg = ctx.createLinearGradient(-5, -34, 5, -26); vg.addColorStop(0, '#ffe08a'); vg.addColorStop(1, '#e09a20');
+      ctx.fillStyle = vg; ctx.beginPath(); ctx.ellipse(1.5, -30, 5, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.ellipse(0, -32, 1.8, 1, -0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    function drawShip(sh, g, skin, opts) {
+      opts = opts || {};
+      g.save();
+      g.translate(sh.x, sh.y);
+      g.rotate(sh.a);
+      const legC = sh.legs * 4;
+      // flame
+      if (sh.flame > 0.05) {
+        const fl = sh.flame * (26 + Math.sin(time * 60) * 4 + Math.random() * 4);
+        const fg = g.createLinearGradient(0, 12, 0, 12 + fl);
+        fg.addColorStop(0, 'rgba(255,255,230,0.95)'); fg.addColorStop(0.3, 'rgba(255,200,60,0.9)'); fg.addColorStop(1, 'rgba(255,90,20,0)');
+        g.fillStyle = fg;
+        g.beginPath(); g.moveTo(-6, 12); g.quadraticCurveTo(0, 12 + fl * 1.2, 6, 12); g.fill();
+        g.fillStyle = 'rgba(255,240,180,0.35)'; g.beginPath(); g.arc(0, 14, 9 * sh.flame, 0, Math.PI * 2); g.fill();
+      }
+      // legs
+      g.strokeStyle = skin.trim; g.lineWidth = 2.5; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(-8, 4); g.lineTo(-13, 15 - legC); g.moveTo(8, 4); g.lineTo(13, 15 - legC); g.stroke();
+      g.beginPath(); g.moveTo(-6, 8); g.lineTo(-13, 15 - legC); g.moveTo(6, 8); g.lineTo(13, 15 - legC); g.stroke();
+      g.fillStyle = skin.trim; rr(g, -17, 14 - legC, 8, 3, 1.5); g.fill(); rr(g, 9, 14 - legC, 8, 3, 1.5); g.fill();
+      // engine bell
+      g.fillStyle = '#5a6078'; g.beginPath(); g.moveTo(-5, 7); g.lineTo(5, 7); g.lineTo(7, 13); g.lineTo(-7, 13); g.fill();
+      // descent stage (foil)
+      const fg2 = g.createLinearGradient(-12, 0, 12, 0);
+      fg2.addColorStop(0, shade(skin.foil, -50)); fg2.addColorStop(0.45, shade(skin.foil, 40)); fg2.addColorStop(1, shade(skin.foil, -40));
+      g.fillStyle = fg2; rr(g, -12, -2, 24, 10, 2.5); g.fill();
+      g.strokeStyle = 'rgba(0,0,0,0.2)'; g.lineWidth = 1; g.beginPath(); g.moveTo(-4, -2); g.lineTo(-4, 8); g.moveTo(4, -2); g.lineTo(4, 8); g.stroke();
+      // cabin
+      const cg = g.createLinearGradient(-11, -18, 11, 0);
+      cg.addColorStop(0, shade(skin.hull, 30)); cg.addColorStop(0.5, skin.hull); cg.addColorStop(1, shade(skin.hull, -50));
+      g.fillStyle = cg;
+      g.beginPath(); g.moveTo(-11, -1); g.lineTo(-11, -9); g.quadraticCurveTo(-11, -20, 0, -20); g.quadraticCurveTo(11, -20, 11, -9); g.lineTo(11, -1); g.closePath(); g.fill();
+      g.strokeStyle = shade(skin.hull, -80); g.lineWidth = 1.2; g.stroke();
+      // window
+      const wg = g.createRadialGradient(-2, -12, 1, 0, -10, 7);
+      wg.addColorStop(0, '#ffffff'); wg.addColorStop(0.3, skin.glass); wg.addColorStop(1, shade(skin.glass, -90));
+      g.fillStyle = wg; g.beginPath(); g.arc(0, -10, 5.5, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = skin.trim; g.lineWidth = 1.6; g.stroke();
+      // antenna
+      g.strokeStyle = skin.trim; g.lineWidth = 1.4; g.beginPath(); g.moveTo(5, -18); g.lineTo(9, -26); g.stroke();
+      g.fillStyle = Math.sin(time * 6) > 0 ? '#ff5d6c' : '#7a2a30'; g.beginPath(); g.arc(9, -26, 2, 0, Math.PI * 2); g.fill();
+      // side thrusters
+      g.fillStyle = skin.trim; g.fillRect(-14, -9, 3, 5); g.fillRect(11, -9, 3, 5);
+      // shield bubble
+      if (opts.shield) {
+        g.strokeStyle = `rgba(140,240,255,${0.35 + 0.25 * Math.sin(time * 6)})`; g.lineWidth = 2;
+        g.beginPath(); g.arc(0, -2, 26, 0, Math.PI * 2); g.stroke();
+      }
+      g.restore();
+    }
+    function drawCrystal(c) {
+      if (c.got) return;
+      const y = c.y + Math.sin(time * 2 + c.ph) * 5;
+      const glow = ctx.createRadialGradient(c.x, y, 2, c.x, y, 26);
+      glow.addColorStop(0, 'rgba(140,240,255,0.55)'); glow.addColorStop(1, 'rgba(140,240,255,0)');
+      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(c.x, y, 26, 0, Math.PI * 2); ctx.fill();
+      ctx.save(); ctx.translate(c.x, y); ctx.rotate(Math.sin(time + c.ph) * 0.2);
+      ctx.fillStyle = '#5fd8ff'; ctx.beginPath(); ctx.moveTo(0, -13); ctx.lineTo(9, -4); ctx.lineTo(5, 11); ctx.lineTo(-5, 11); ctx.lineTo(-9, -4); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#c8f6ff'; ctx.beginPath(); ctx.moveTo(0, -13); ctx.lineTo(9, -4); ctx.lineTo(0, -1); ctx.lineTo(-9, -4); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#2aa0d8'; ctx.beginPath(); ctx.moveTo(0, -1); ctx.lineTo(5, 11); ctx.lineTo(-5, 11); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, -13); ctx.lineTo(9, -4); ctx.lineTo(5, 11); ctx.lineTo(-5, 11); ctx.lineTo(-9, -4); ctx.closePath(); ctx.stroke();
+      ctx.restore();
+      const tw = Math.max(0, Math.sin(time * 3 + c.ph * 2));
+      if (tw > 0.7) { ctx.fillStyle = '#fff'; starPath(ctx, c.x + 8, y - 10, 4 * tw, 4, 0.3); ctx.fill(); }
+    }
+    function drawHazards(P) {
+      for (const z of LV.haz) {
+        if (z.k === 'devil') {
+          const gyv = gyAt(z.x);
+          for (let k = 0; k < 16; k++) {
+            const hgt = k / 16;
+            const r = 8 + hgt * 38;
+            const a = time * 9 + k * 0.7 + z.ph;
+            const x = z.x + Math.cos(a) * r + Math.sin(time * 2 + k) * 4, y = gyv - hgt * 180;
+            ctx.fillStyle = `rgba(230,150,100,${0.35 - hgt * 0.15})`;
+            ctx.beginPath(); ctx.ellipse(x, y, 10 + hgt * 8, 5, 0, 0, Math.PI * 2); ctx.fill();
+          }
+        } else if (z.k === 'geyser') {
+          const ph = (time + z.ph) % z.period;
+          const on = ph > z.period - 1.6, warn = ph > z.period - 2.6 && !on;
+          ctx.fillStyle = '#4a3a2a'; ctx.beginPath(); ctx.ellipse(z.x, z.y, 16, 6, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#2a1a10'; ctx.beginPath(); ctx.ellipse(z.x, z.y, 9, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+          if (warn && Math.random() < 0.3) parts.push({ x: z.x + (Math.random() - 0.5) * 10, y: z.y - 4, vx: (Math.random() - 0.5) * 20, vy: -30 - Math.random() * 30, life: 0.7, max: 0.7, r: 4, col: '#f0f0f0', kind: 'smoke' });
+          if (on) {
+            const k2 = clamp((ph - (z.period - 1.6)) / 0.25, 0, 1) * clamp((z.period - ph) / 0.3, 0, 1);
+            const hgt = 300 * k2;
+            const gg = ctx.createLinearGradient(0, z.y, 0, z.y - hgt);
+            gg.addColorStop(0, 'rgba(255,255,255,0.85)'); gg.addColorStop(1, 'rgba(220,240,255,0)');
+            ctx.fillStyle = gg;
+            ctx.beginPath(); ctx.moveTo(z.x - 8, z.y); ctx.quadraticCurveTo(z.x - 30 + Math.sin(time * 20) * 4, z.y - hgt * 0.6, z.x - 22, z.y - hgt); ctx.lineTo(z.x + 22, z.y - hgt); ctx.quadraticCurveTo(z.x + 30 + Math.sin(time * 17) * 4, z.y - hgt * 0.6, z.x + 8, z.y); ctx.fill();
+          }
+        } else if (z.k === 'rock') {
+          ctx.save(); ctx.translate(z.x, z.y); ctx.rotate(time * z.spin);
+          const rg = ctx.createRadialGradient(-z.r * 0.3, -z.r * 0.3, 2, 0, 0, z.r);
+          rg.addColorStop(0, '#b8a8c8'); rg.addColorStop(1, '#4a3e5e');
+          ctx.fillStyle = rg; ctx.beginPath();
+          for (let k = 0; k < 9; k++) { const a = (k / 9) * Math.PI * 2, rr2 = z.r * (0.85 + 0.15 * Math.sin(k * 2.7 + z.ph)); ctx.lineTo(Math.cos(a) * rr2, Math.sin(a) * rr2); }
+          ctx.closePath(); ctx.fill();
+          ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.arc(z.r * 0.3, z.r * 0.1, z.r * 0.22, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(-z.r * 0.25, z.r * 0.4, z.r * 0.15, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        } else if (z.k === 'well') {
+          const rg = ctx.createRadialGradient(z.x, z.y, 2, z.x, z.y, z.R);
+          rg.addColorStop(0, 'rgba(200,120,255,0.35)'); rg.addColorStop(1, 'rgba(200,120,255,0)');
+          ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(z.x, z.y, z.R, 0, Math.PI * 2); ctx.fill();
+          for (let k = 0; k < 4; k++) {
+            const r = ((time * -40 + k * z.R / 4) % z.R + z.R) % z.R;
+            ctx.strokeStyle = `rgba(230,180,255,${0.5 * (1 - r / z.R)})`; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(z.x, z.y, r, 0, Math.PI * 2); ctx.stroke();
+          }
+          ctx.save(); ctx.translate(z.x, z.y); ctx.rotate(time * 2);
+          ctx.strokeStyle = '#f0c8ff'; ctx.lineWidth = 3;
+          for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.arc(0, 0, 14, k * 2.1, k * 2.1 + 1.2); ctx.stroke(); }
+          ctx.restore();
+          ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(z.x, z.y, 5, 0, Math.PI * 2); ctx.fill();
+        } else if (z.k === 'icicle' && z.state !== 'gone') {
+          const sx = z.state === 'shake' ? Math.sin(time * 60) * 2 : 0;
+          const y = z.y + (z.dy || 0);
+          const ig = ctx.createLinearGradient(z.x - 8, 0, z.x + 8, 0);
+          ig.addColorStop(0, '#9ed6ff'); ig.addColorStop(0.5, '#ffffff'); ig.addColorStop(1, '#7ab8e8');
+          ctx.fillStyle = ig;
+          ctx.beginPath(); ctx.moveTo(z.x - 8 + sx, y - 2); ctx.lineTo(z.x + sx, y + z.len); ctx.lineTo(z.x + 8 + sx, y - 2); ctx.fill();
+        }
+      }
+    }
+    function drawWorld() {
+      const L = LV, P = PLANETS[L.p];
+      drawSky(L, P);
+      ctx.save();
+      ctx.translate(W / 2, H / 2);
+      if (S.shake > 0) ctx.translate((Math.random() - 0.5) * S.shake, (Math.random() - 0.5) * S.shake);
+      ctx.scale(cam.z, cam.z);
+      ctx.translate(-cam.x, -cam.y);
+      drawCaveBacks(L, P);
+      drawHazards(P);
+      drawTerrain(L, P);
+      for (const pd of L.pads) drawPad(pd, P);
+      for (const a of S.astros) {
+        if (a.state === 'in') continue;
+        drawAstronaut(a, a.x, a.pad.y - 4, time, 1);
+        if (a.state === 'wait' && Math.sin(time * 2 + a.wave) > 0.2) {
+          ctx.fillStyle = 'rgba(255,255,255,0.92)'; rr(ctx, a.x - 18, a.pad.y - 70, 36, 18, 8); ctx.fill();
+          ctx.beginPath(); ctx.moveTo(a.x - 3, a.pad.y - 53); ctx.lineTo(a.x + 3, a.pad.y - 53); ctx.lineTo(a.x, a.pad.y - 46); ctx.fill();
+          ctx.fillStyle = '#2a3a8a'; ctx.font = '700 11px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Help!', a.x, a.pad.y - 61);
+        }
+      }
+      for (const c of L.crystals) drawCrystal(c);
+      // particles behind the ship
+      for (const p of parts) {
+        const a = clamp(p.life / p.max, 0, 1);
+        if (p.kind === 'debris') {
+          ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.globalAlpha = Math.min(1, a * 2);
+          ctx.fillStyle = p.col; ctx.fillRect(-p.r, -p.r * 0.6, p.r * 2, p.r * 1.2);
+          ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.strokeRect(-p.r, -p.r * 0.6, p.r * 2, p.r * 1.2);
+          ctx.restore(); continue;
+        }
+        ctx.globalAlpha = p.kind === 'smoke' || p.kind === 'dust' ? a * 0.5 : a;
+        ctx.fillStyle = p.col;
+        const r = p.kind === 'smoke' || p.kind === 'dust' ? p.r * (1.6 - a * 0.6) : p.r * (p.kind === 'fire' ? a : 1);
+        if (p.kind === 'star' || p.kind === 'spark') { starPath(ctx, p.x, p.y, r * 1.5, 4, 0.4); ctx.fill(); }
+        else { ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.5, r), 0, Math.PI * 2); ctx.fill(); }
+      }
+      ctx.globalAlpha = 1;
+      const sh = S.ship;
+      if (sh.state !== 'dead') {
+        if (sh.inv > 0 && Math.sin(time * 40) > 0) ctx.globalAlpha = 0.5;
+        drawShip(sh, ctx, curSkin(), { shield: S.shields > 0 });
+        ctx.globalAlpha = 1;
+        // docking ring
+        if (S.dock > 0 && !S.over) {
+          ctx.strokeStyle = '#3ee08f'; ctx.lineWidth = 4;
+          ctx.beginPath(); ctx.arc(sh.x, sh.y - 4, 30, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clamp(S.dock / 1.1, 0, 1)); ctx.stroke();
+        }
+        // boarding progress for astronauts
+      }
+      for (const f of floaters) {
+        ctx.globalAlpha = clamp(f.life, 0, 1);
+        ctx.font = `700 ${f.size}px Fredoka, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,20,0.7)'; ctx.strokeText(f.text, f.x, f.y);
+        ctx.fillStyle = f.col; ctx.fillText(f.text, f.x, f.y);
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+      // wind streaks in screen space
+      if (Math.abs(S.wind) > 2) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1.5;
+        const n = Math.min(30, Math.abs(S.wind) * 1.5);
+        for (let k = 0; k < n; k++) {
+          const sp = S.wind * 14;
+          const x = (((k * 137 + time * sp) % (W + 80)) + W + 80) % (W + 80) - 40, y = (k * 71) % H;
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - Math.sign(S.wind) * (16 + Math.abs(S.wind)), y); ctx.stroke();
+        }
+      }
+    }
+
+    // ---------- HUD ----------
+    function drawHud() {
+      const sh = S.ship, st = S.st, P = PLANETS[LV.p];
+      const small = W < 560;
+      const pad = 12;
+      ctx.textBaseline = 'middle';
+      // top-left: mission name + objectives
+      ctx.fillStyle = 'rgba(8,12,36,0.72)'; rr(ctx, pad, pad, small ? Math.min(W - 80, 230) : 210, 54, 12); ctx.fill();
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#fff'; ctx.font = `700 ${small ? 14 : 16}px Fredoka, sans-serif`;
+      ctx.fillText(S.daily ? 'Daily Mission' : `${LV.p + 1}-${LV.l + 1} ${LV.name}`, pad + 10, pad + 16);
+      ctx.font = '800 13px Nunito, sans-serif';
+      let x = pad + 10;
+      ctx.fillStyle = '#8af0ff'; ctx.fillText(`◆ ${S.crys}/${LV.nCrys}`, x, pad + 38); x += 58;
+      if (LV.nAstro) { ctx.fillStyle = '#ffd43b'; ctx.fillText(`👨‍🚀 ${S.rescued}/${LV.nAstro}`, x, pad + 38); x += 60; }
+      if (S.shields > 0) { ctx.fillStyle = '#8af0ff'; ctx.fillText(`🛡${S.shields}`, x, pad + 38); }
+      // fuel bar (top centre, below the pause button on small screens)
+      const fw = small ? W - 2 * pad - 16 : Math.min(260, W * 0.3), fx = small ? pad + 8 : (W - fw) / 2, fy = small ? pad + 62 : pad + 4;
+      ctx.fillStyle = 'rgba(8,12,36,0.72)'; rr(ctx, fx - 8, fy - 4, fw + 16, 34, 12); ctx.fill();
+      const fr = clamp(S.fuel / st.fuel, 0, 1);
+      ctx.fillStyle = 'rgba(255,255,255,0.12)'; rr(ctx, fx, fy + 10, fw, 12, 6); ctx.fill();
+      const fcol = fr > 0.4 ? '#3ee08f' : fr > 0.2 ? '#ffb020' : '#ff5d6c';
+      if (fr > 0) { ctx.fillStyle = fcol; rr(ctx, fx, fy + 10, Math.max(12, fw * fr), 12, 6); ctx.fill(); }
+      ctx.fillStyle = '#fff'; ctx.font = '800 11px Nunito, sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText('FUEL', fx, fy + 3);
+      ctx.textAlign = 'right'; ctx.fillText(Math.round(fr * 100) + '%', fx + fw, fy + 3);
+      if (fr < 0.2 && fr > 0 && Math.sin(time * 8) > 0) { ctx.fillStyle = '#ff5d6c'; ctx.textAlign = 'center'; ctx.fillText('LOW FUEL', fx + fw / 2, fy + 3); }
+      // landing gauge (bottom-left on big screens, top under the mission on phones)
+      const gw = 150, gh = 86;
+      const gx = pad, gy2 = small ? pad + 106 : H - gh - pad;
+      ctx.fillStyle = 'rgba(8,12,36,0.72)'; rr(ctx, gx, gy2, gw, gh, 12); ctx.fill();
+      const vy = sh.state === 'fly' ? sh.vy : 0, vx = sh.state === 'fly' ? sh.vx : 0;
+      const rows = [
+        ['↓', 'Fall', vy, Math.max(0, vy) <= st.safeV, Math.round(Math.max(0, vy))],
+        ['↔', 'Side', vx, Math.abs(vx) <= st.safeH, Math.round(Math.abs(vx))],
+        ['∠', 'Tilt', sh.a, Math.abs(sh.a) <= st.safeA, Math.round(Math.abs(sh.a) * 57.3) + '°'],
+      ];
+      rows.forEach((r, k) => {
+        const yy = gy2 + 16 + k * 25;
+        ctx.textAlign = 'left'; ctx.font = '800 13px Nunito, sans-serif';
+        ctx.fillStyle = '#9ea8d6'; ctx.fillText(r[1], gx + 10, yy);
+        ctx.fillStyle = r[3] ? '#3ee08f' : '#ff5d6c';
+        ctx.font = '700 17px Fredoka, sans-serif'; ctx.textAlign = 'right'; ctx.fillText(r[4], gx + gw - 34, yy);
+        ctx.beginPath(); ctx.arc(gx + gw - 18, yy, 6, 0, Math.PI * 2); ctx.fill();
+      });
+      // wind indicator
+      if (Math.abs(S.wind) > 1) {
+        const wx2 = small ? W - 66 : W - 90, wy2 = small ? pad + 124 : H - 40;
+        ctx.fillStyle = 'rgba(8,12,36,0.72)'; rr(ctx, wx2 - 54, wy2 - 16, 108, 32, 12); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.font = '800 12px Nunito, sans-serif'; ctx.textAlign = 'left'; ctx.fillText('WIND', wx2 - 46, wy2);
+        ctx.strokeStyle = '#8af0ff'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+        const len = clamp(Math.abs(S.wind) * 2, 6, 34) * Math.sign(S.wind);
+        ctx.beginPath(); ctx.moveTo(wx2 + 18 - len / 2, wy2); ctx.lineTo(wx2 + 18 + len / 2, wy2); ctx.lineTo(wx2 + 18 + len / 2 - Math.sign(len) * 6, wy2 - 5); ctx.moveTo(wx2 + 18 + len / 2, wy2); ctx.lineTo(wx2 + 18 + len / 2 - Math.sign(len) * 6, wy2 + 5); ctx.stroke();
+      }
+      // "too fast" warning near the ground
+      const alt = gyAt(sh.x) - sh.y;
+      if (sh.state === 'fly' && alt < 130 && sh.vy > st.safeV) {
+        ctx.font = '700 28px Fredoka, sans-serif'; ctx.textAlign = 'center';
+        ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(0,0,20,0.7)';
+        const yy = H * 0.3;
+        if (Math.sin(time * 14) > -0.3) { ctx.strokeText('TOO FAST!', W / 2, yy); ctx.fillStyle = '#ff5d6c'; ctx.fillText('TOO FAST!', W / 2, yy); }
+        if (S.tut >= 0 && S.tut < 3 && Math.random() < 0.01) sfx.warn();
+      }
+      // arrows to things off screen
+      const targets = [];
+      const base = LV.pads.find((pd) => pd.type === 'base');
+      const waiting = S.astros.filter((a) => a.state !== 'in');
+      targets.push({ x: base.x, y: base.y - 20, col: '#3ee08f', label: 'BASE' });
+      if (save.ups.radar || LV.p === 0) waiting.forEach((a) => targets.push({ x: a.pad.x, y: a.pad.y - 20, col: '#ffd43b', label: '' }));
+      if (save.ups.radar) LV.crystals.filter((c) => !c.got).forEach((c) => targets.push({ x: c.x, y: c.y, col: '#8af0ff', label: '', small: true }));
+      for (const t of targets) {
+        const sx = wx(t.x), sy = wy(t.y);
+        if (sx > 20 && sx < W - 20 && sy > 20 && sy < H - 20) continue;
+        const cx = W / 2, cy = H / 2;
+        const ang = Math.atan2(sy - cy, sx - cx);
+        const m = 34;
+        const ex = clamp(cx + Math.cos(ang) * 2000, m, W - m), ey = clamp(cy + Math.sin(ang) * 2000, m + 60, H - m - (small ? 110 : 0));
+        ctx.save(); ctx.translate(ex, ey); ctx.rotate(ang);
+        ctx.fillStyle = t.col; ctx.globalAlpha = 0.9;
+        const s = t.small ? 0.65 : 1;
+        ctx.beginPath(); ctx.moveTo(14 * s, 0); ctx.lineTo(-8 * s, -10 * s); ctx.lineTo(-4 * s, 0); ctx.lineTo(-8 * s, 10 * s); ctx.fill();
+        ctx.restore();
+        if (t.label) { ctx.fillStyle = t.col; ctx.font = '800 11px Nunito, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(t.label, ex - Math.cos(ang) * 22, ey - Math.sin(ang) * 22); }
+      }
+      ctx.globalAlpha = 1;
+      // messages
+      if (msgs.length) {
+        const m = msgs[0];
+        ctx.globalAlpha = clamp(m.t * 2, 0, 1);
+        ctx.font = `700 ${small ? 17 : 21}px Fredoka, sans-serif`; ctx.textAlign = 'center';
+        const yy = small ? H * 0.42 : H * 0.2;
+        const tw = Math.min(W - 24, ctx.measureText(m.text).width + 30);
+        ctx.fillStyle = 'rgba(8,12,36,0.78)'; rr(ctx, W / 2 - tw / 2, yy - 20, tw, 40, 14); ctx.fill();
+        ctx.fillStyle = m.col;
+        wrapText(m.text, W / 2, yy, W - 40);
+        ctx.globalAlpha = 1;
+      }
+    }
+    function wrapText(text, x, y, maxW) {
+      if (ctx.measureText(text).width <= maxW) { ctx.fillText(text, x, y); return; }
+      const words = text.split(' ');
+      let line = '', lines = [];
+      for (const w of words) { const t = line ? line + ' ' + w : w; if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = w; } else line = t; }
+      lines.push(line);
+      lines.forEach((l, i) => ctx.fillText(l, x, y + (i - (lines.length - 1) / 2) * 20));
+    }
+
+    // title backdrop: a ship hovering over the moon
+    function drawTitleScene() {
+      if (!titleLv) titleLv = genLevel(0, 1, 4242);
+      const L = titleLv, P = PLANETS[0];
+      const saveLV = LV; LV = L;
+      cam.z = baseZoom() * 1.1; cam.x = 700 + Math.sin(time * 0.05) * 200; cam.y = 640;
+      drawSky(L, P);
+      ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(cam.z, cam.z); ctx.translate(-cam.x, -cam.y);
+      drawCaveBacks(L, P);
+      drawTerrain(L, P);
+      for (const pd of L.pads) drawPad(pd, P);
+      const tsx = W > H ? cam.x - (W / 2 / cam.z) * 0.68 : cam.x;
+      const sh = { x: tsx, y: (W > H ? gyAt(tsx) - 190 : cam.y - (H / 2 / cam.z) * 0.62) + Math.sin(time * 1.4) * 14, a: Math.sin(time * 0.9) * 0.15, legs: 0, flame: 0.6 + Math.sin(time * 9) * 0.2 };
+      if (Math.random() < 0.5) parts.push({ x: sh.x - Math.sin(sh.a) * 16, y: sh.y + 16, vx: (Math.random() - 0.5) * 30, vy: 120, life: 0.35, max: 0.35, r: 3, col: '#ffcf6a', kind: 'fire' });
+      for (const p of parts) { ctx.globalAlpha = clamp(p.life / p.max, 0, 1); ctx.fillStyle = p.col; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (p.life / p.max), 0, Math.PI * 2); ctx.fill(); }
+      ctx.globalAlpha = 1;
+      drawShip(sh, ctx, curSkin());
+      ctx.restore();
+      LV = saveLV;
+    }
+
+    function frame() {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (!S || scene === 'title' || scene === 'map' || scene === 'hangar' || scene === 'intro' && !S) { drawTitleScene(); return; }
+      drawWorld();
+      if (scene === 'play' || scene === 'paused') drawHud();
+    }
+
+    // =====================================================================
+    // Menus
+    // =====================================================================
+    const OVERLAYS = ['title', 'map', 'intro', 'results', 'fail', 'hangar', 'pause'];
+    function showOverlay(id) { OVERLAYS.forEach((o) => { $(o).hidden = o !== id; }); }
+    function todayKey() { const d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
+    function confetti(n) {
+      const cols = ['#ffb020', '#4fe3ff', '#3ee08f', '#ff5d6c', '#ffd43b', '#c084fc'];
+      for (let i = 0; i < n; i++) {
+        const c = document.createElement('div'); c.className = 'confetti';
+        c.style.left = Math.random() * 100 + 'vw'; c.style.background = cols[i % cols.length];
+        c.style.animationDuration = 1.6 + Math.random() * 1.8 + 's'; c.style.animationDelay = Math.random() * 0.4 + 's';
+        document.body.appendChild(c); setTimeout(() => c.remove(), 4000);
+      }
+    }
+    function syncToggles() {
+      ['tg-sound', 'p-sound'].forEach((id) => { $(id).classList.toggle('on', !save.muted); $(id).textContent = save.muted ? '🔇 Sound off' : '🔊 Sound on'; });
+      ['tg-assist', 'p-assist'].forEach((id) => $(id).classList.toggle('on', save.assist));
+    }
+    function leavePlay() { $('b-pause').hidden = true; updateTouch(); setEngineSound(0, 0); }
+    function showTitle() {
+      scene = 'title'; leavePlay(); S = null;
+      $('t-stars').textContent = totalStars() + ' ★';
+      $('t-crys').textContent = save.crystals + ' crystals';
+      syncToggles();
+      showOverlay('title');
+    }
+    let mapPlanet = save.planet;
+    function planetIcon(cv, P) {
+      const g = cv.getContext('2d'); const s = 64 * dpr; cv.width = s; cv.height = s; g.scale(dpr, dpr);
+      const gr = g.createRadialGradient(24, 22, 4, 32, 32, 28); gr.addColorStop(0, P.ground[0]); gr.addColorStop(0.6, P.ground[1]); gr.addColorStop(1, P.ground[2]);
+      g.fillStyle = gr; g.beginPath(); g.arc(32, 32, 26, 0, Math.PI * 2); g.fill();
+      g.fillStyle = 'rgba(0,0,0,0.18)'; g.beginPath(); g.arc(40, 38, 6, 0, Math.PI * 2); g.fill(); g.beginPath(); g.arc(24, 42, 4, 0, Math.PI * 2); g.fill();
+      if (P.id === 'storm' || P.id === 'jungle') { g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 2.5; g.beginPath(); g.ellipse(32, 32, 31, 8, -0.35, 0, Math.PI * 2); g.stroke(); }
+      if (P.id === 'crystal') { g.fillStyle = '#f0d0ff'; g.beginPath(); g.moveTo(30, 18); g.lineTo(34, 10); g.lineTo(38, 18); g.fill(); }
+      g.fillStyle = 'rgba(255,255,255,0.25)'; g.beginPath(); g.arc(24, 22, 8, 0, Math.PI * 2); g.fill();
+    }
+    function showMap(p) {
+      scene = 'map'; leavePlay(); S = null;
+      if (p != null) mapPlanet = p;
+      if (!planetOpen(mapPlanet)) mapPlanet = 0;
+      save.planet = mapPlanet; persist();
+      $('m-stars').textContent = totalStars() + ' / 108 ★';
+      $('m-crys').textContent = '◆ ' + save.crystals;
+      const pl = $('planets'); pl.innerHTML = '';
+      PLANETS.forEach((P, i) => {
+        const open = planetOpen(i);
+        const b = document.createElement('button');
+        b.className = 'planet' + (i === mapPlanet ? ' on' : '') + (open ? '' : ' locked');
+        const cv = document.createElement('canvas');
+        b.appendChild(cv);
+        const st = [0, 1, 2, 3, 4, 5].reduce((s, l) => s + starsOf(i, l), 0);
+        b.insertAdjacentHTML('beforeend', `<b>${P.name}</b><small>${open ? st + '/18 ★' : '🔒 ' + P.req + ' ★'}</small>`);
+        b.onclick = () => { if (open) { sfx.click(); showMap(i); } else { tone(200, 0.1, 'square', 0.04); } };
+        pl.appendChild(b);
+        planetIcon(cv, P);
+      });
+      const P = PLANETS[mapPlanet];
+      $('pdesc').textContent = `${P.name}: ${P.desc}`;
+      const lv = $('levels'); lv.innerHTML = '';
+      for (let l = 0; l < 6; l++) {
+        const open = levelOpen(mapPlanet, l), st = starsOf(mapPlanet, l);
+        const next = open && st === 0;
+        const b = document.createElement('button');
+        b.className = 'lvl' + (open ? '' : ' locked') + (next ? ' next' : '');
+        b.innerHTML = `<b>${open ? mapPlanet + 1 + '-' + (l + 1) : '🔒'}</b><span>${LEVEL_NAMES[mapPlanet][l]}</span><span><i>${'★'.repeat(st)}</i><em>${'★'.repeat(3 - st)}</em></span>`;
+        if (open) b.onclick = () => { audio(); sfx.click(); showIntro(mapPlanet, l); };
+        lv.appendChild(b);
+      }
+      showOverlay('map');
+    }
+    let introP = 0, introL = 0, dailyLevel = null;
+    function showIntro(p, l, daily) {
+      scene = 'intro'; S = null;
+      introP = p; introL = l;
+      const L = daily ? dailyLevel : genLevel(p, l);
+      $('i-title').textContent = daily ? 'Daily Mission' : `${p + 1}-${l + 1}: ${L.name}`;
+      $('i-sub').textContent = `${PLANETS[L.p].name}` + (L.caves.length ? ' · caves ahead!' : '');
+      const best = daily ? 0 : starsOf(p, l);
+      $('i-goals').innerHTML = goalsFor(L).map((g, k) => `<div><span class="s ${k < best ? 'on' : ''}">★</span>${g.text}</div>`).join('');
+      const tips = {
+        moon: ['Tap the engine gently. Small bursts are easier!', 'Fly over to the astronaut and land on their orange pad.', 'Grab every crystal: they buy upgrades in the Hangar.', 'Long trip! Glide to save fuel.', 'Lots of hills. Stay high, then come down slowly.', 'A cave! Fly through it slowly and carefully.'],
+      }[PLANETS[L.p].id];
+      const hz = { devil: 'Spinning dust devils push you around. Fly around them!', icicle: 'Icicles fall when you fly under them. Zip past quickly!', geyser: 'Steam geysers puff you upwards. Use them, or wait for them to stop.', rock: 'Space rocks drift in circles. Time your flight between them.', well: 'Purple gravity wells pull your ship. Thrust away from them!' }[PLANETS[L.p].hazard];
+      $('i-tip').textContent = daily ? 'A new mission every day. Good luck!' : tips ? tips[l] : (l <= 1 && hz ? hz : L.caves.length ? 'There is a tunnel to fly through. Take it slow!' : hz || '');
+      $('i-go').onclick = () => { audio(); daily ? startLevel(L.p, L.l, { level: dailyLevel, daily: true }) : startLevel(p, l); };
+      showOverlay('intro');
+    }
+    function playDaily() {
+      const day = todayKey();
+      let maxP = 0; for (let p = 0; p < PLANETS.length; p++) if (planetOpen(p)) maxP = p;
+      const p = day % (maxP + 1), l = 2 + (day % 3);
+      dailyLevel = genLevel(p, l, day);
+      dailyLevel.name = 'Daily Mission';
+      showIntro(p, l, true);
+    }
+    let hangarTab = 'up', hangarFrom = 'title';
+    function showHangar(from) {
+      if (from) hangarFrom = from;
+      scene = 'hangar'; leavePlay();
+      $('h-crys').textContent = '◆ ' + save.crystals + ' crystals';
+      document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('on', t.dataset.tab === hangarTab));
+      const list = $('shop'); list.innerHTML = '';
+      if (hangarTab === 'up') {
+        UPGRADES.forEach((u) => {
+          const lvl = save.ups[u.id] || 0, max = u.costs.length;
+          const cost = u.costs[lvl];
+          const d = document.createElement('div'); d.className = 'up';
+          d.innerHTML = `<b>${u.name}</b><span class="lv">${'●'.repeat(lvl)}${'○'.repeat(max - lvl)}</span><small>${u.desc}</small>`;
+          const b = document.createElement('button'); b.className = 'btn small';
+          if (lvl >= max) { b.textContent = 'Maxed!'; b.disabled = true; }
+          else { b.textContent = `◆ ${cost}`; b.disabled = save.crystals < cost; b.onclick = () => { if (save.crystals < cost) return; save.crystals -= cost; save.ups[u.id] = lvl + 1; persist(); tone(880, 0.1, 'triangle', 0.05); tone(1320, 0.15, 'triangle', 0.05, 0.08); showHangar(); }; }
+          d.appendChild(b); list.appendChild(d);
+        });
+      } else {
+        SKINS.forEach((s) => {
+          const have = save.skins.includes(s.id), eq = save.skin === s.id;
+          const d = document.createElement('div'); d.className = 'up' + (eq ? ' eq' : '');
+          const cv = document.createElement('canvas'); d.appendChild(cv);
+          d.insertAdjacentHTML('beforeend', `<b>${s.name}</b>`);
+          const b = document.createElement('button'); b.className = 'btn small' + (have ? ' cyan' : '');
+          b.textContent = eq ? 'Flying it' : have ? 'Use' : `◆ ${s.cost}`;
+          b.disabled = eq || (!have && save.crystals < s.cost);
+          b.onclick = () => { if (!have) { if (save.crystals < s.cost) return; save.crystals -= s.cost; save.skins.push(s.id); } save.skin = s.id; persist(); tone(880, 0.1, 'triangle', 0.05); showHangar(); };
+          d.appendChild(b); list.appendChild(d);
+          requestAnimationFrame(() => {
+            const r = cv.getBoundingClientRect(); const w = Math.max(120, r.width || 180), h = 70;
+            cv.width = w * dpr; cv.height = h * dpr; const g = cv.getContext('2d'); g.scale(dpr, dpr);
+            const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#0b1230'); gr.addColorStop(1, '#2a3570'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+            g.save(); g.translate(w / 2, h / 2 + 4); g.scale(1.6, 1.6); drawShip({ x: 0, y: 0, a: 0, legs: 0, flame: 0.7 }, g, s); g.restore();
+          });
+        });
+      }
+      showOverlay('hangar');
+    }
+    function pause() { if (scene !== 'play') return; scene = 'paused'; syncToggles(); setEngineSound(0, 0); showOverlay('pause'); updateTouch(); }
+    function resume() { if (scene !== 'paused') return; scene = 'play'; showOverlay(null); updateTouch(); }
+    function retry() { if (!LV) return; const d = S && S.daily; startLevel(LV.p, LV.l, d ? { level: dailyLevel, daily: true } : null); }
+    function toggleMute() { save.muted = !save.muted; persist(); syncToggles(); }
+    function updateTouch() {
+      const show = scene === 'play' && (usingTouch || W < 700 || matchMedia('(pointer: coarse)').matches);
+      $('pad-l').hidden = !show; $('pad-r').hidden = !show;
+    }
+
+    // buttons
+    $('t-play').onclick = () => { audio(); showMap(); };
+    $('t-hangar').onclick = () => { audio(); showHangar('title'); };
+    $('t-daily').onclick = () => { audio(); playDaily(); };
+    $('tg-sound').onclick = $('p-sound').onclick = () => { audio(); toggleMute(); };
+    $('tg-assist').onclick = $('p-assist').onclick = () => { save.assist = !save.assist; persist(); syncToggles(); if (S) S.st = Object.assign(shipStats(), { fuel: S.st.fuel }); };
+    $('m-back').onclick = showTitle;
+    $('m-hangar').onclick = () => showHangar('map');
+    $('i-back').onclick = () => showMap();
+    $('r-next').onclick = () => { let p = LV.p, l = LV.l + 1; if (l > 5) { p++; l = 0; } if (p < PLANETS.length && levelOpen(p, l)) showIntro(p, l); else showMap(Math.min(p, PLANETS.length - 1)); };
+    $('r-retry').onclick = retry;
+    $('r-hangar').onclick = () => showHangar('map');
+    $('r-map').onclick = () => showMap(LV.p);
+    $('f-retry').onclick = retry;
+    $('f-hangar').onclick = () => showHangar('map');
+    $('f-map').onclick = () => showMap(LV.p);
+    $('h-back').onclick = () => (hangarFrom === 'map' ? showMap() : showTitle());
+    document.querySelectorAll('.tab').forEach((t) => (t.onclick = () => { hangarTab = t.dataset.tab; showHangar(); }));
+    $('b-pause').onclick = pause;
+    $('p-resume').onclick = resume;
+    $('p-retry').onclick = retry;
+    $('p-map').onclick = () => showMap(LV ? LV.p : 0);
+
+    // keyboard
+    const KEYS = { arrowup: 'thrust', w: 'thrust', ' ': 'thrust', arrowleft: 'left', a: 'left', arrowright: 'right', d: 'right', arrowdown: 'straight', s: 'straight' };
+    window.addEventListener('keydown', (e) => {
+      const k = e.key.toLowerCase();
+      if (KEYS[k]) { input[KEYS[k]] = true; e.preventDefault(); audio(); usingTouch = false; updateTouch(); }
+      if (e.repeat) return;
+      if (k === 'm') toggleMute();
+      else if (k === 'p' || k === 'escape') { if (scene === 'play') pause(); else if (scene === 'paused') resume(); }
+      else if (k === 'r' && (scene === 'play' || scene === 'fail' || scene === 'paused')) retry();
+      else if (k === 'enter' && scene === 'results' && !$('r-next').hidden) $('r-next').click();
+      else if (k === 'enter' && scene === 'intro') $('i-go').click();
+    });
+    window.addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); if (KEYS[k]) input[KEYS[k]] = false; });
+    window.addEventListener('blur', () => { input.thrust = input.left = input.right = input.straight = false; });
+    // touch buttons
+    [['t-left', 'left'], ['t-right', 'right'], ['t-thrust', 'thrust']].forEach(([id, key]) => {
+      const el = $(id);
+      const on = (e) => { e.preventDefault(); audio(); usingTouch = true; input[key] = true; el.classList.add('on'); try { el.setPointerCapture(e.pointerId); } catch (er) {} };
+      const off = (e) => { input[key] = false; el.classList.remove('on'); };
+      el.addEventListener('pointerdown', on);
+      el.addEventListener('pointerup', off); el.addEventListener('pointercancel', off); el.addEventListener('lostpointercapture', off);
+      el.addEventListener('contextmenu', (e) => e.preventDefault());
+    });
+    window.addEventListener('touchstart', () => { if (!usingTouch) { usingTouch = true; updateTouch(); } }, { passive: true });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+
+    // =====================================================================
+    // Loop
+    // =====================================================================
+    function resize() {
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      W = window.innerWidth; H = window.innerHeight;
+      canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+      updateTouch();
+    }
+    window.addEventListener('resize', resize);
+    let last = performance.now();
+    function loop(now) {
+      requestAnimationFrame(loop);
+      const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+      last = now;
+      update(dt);
+      frame();
+    }
+
+    // Handy for testing: MoonLander.play(1, 2), MoonLander.step(3), MoonLander.bot = true, MoonLander.selftest()
+    window.MoonLander = {
+      get state() { return { scene, S, LV, save, cam }; },
+      play: (p, l) => startLevel(p, l),
+      input,
+      set bot(v) { bot = !!v; }, get bot() { return bot; },
+      step(sec) { for (let k = 0; k < Math.round(sec * 60); k++) update(1 / 60); frame(); },
+      map: showMap, hangar: showHangar, title: showTitle, daily: playDaily,
+      genLevel, retry,
+      selftest() {
+        // the autopilot flies every level; reports which ones it could finish and how much fuel was left
+        const out = []; let okAll = 0;
+        const old = bot; bot = true; testing = true;
+        for (let p = 0; p < PLANETS.length; p++) for (let l = 0; l < 6; l++) {
+          startLevel(p, l);
+          let t = 0;
+          while (!S.over && S.ship.state !== 'dead' && t < 240) { for (let k = 0; k < 6; k++) step(1 / 120); t += 0.05; if (S.over) break; }
+          const ok = !!S.won;
+          if (ok) okAll++;
+          out.push(`${p + 1}-${l + 1} ${ok ? 'OK' : S.ship.state === 'dead' ? 'CRASH(' + (S.crashWhat || '') + ')' : 'TIMEOUT'} t=${t.toFixed(0)} fuel=${Math.round((S.fuel / S.st.fuel) * 100)}% astro=${S.rescued}/${LV.nAstro} x=${Math.round(S.ship.x)}/${LV.width}`);
+        }
+        bot = old; testing = false;
+        return { ok: okAll, out };
+      },
+    };
+
+    resize();
+    if (params.get('assist')) save.assist = true;
+    if (params.get('skin')) save.skin = params.get('skin');
+    if (params.get('crys')) save.crystals = Number(params.get('crys'));
+    if (params.get('ups')) params.get('ups').split(',').forEach((kv) => { const [k, v] = kv.split(':'); save.ups[k] = Number(v); });
+    const pl = params.get('level');
+    if (params.get('selftest')) {
+      const r = window.MoonLander.selftest();
+      const pre = document.createElement('pre'); pre.id = 'selftest'; pre.textContent = 'ok ' + r.ok + '/36\n' + r.out.join('\n');
+      document.body.appendChild(pre);
+      showTitle();
+    } else if (pl) {
+      const [p, l] = pl.split('-').map(Number);
+      startLevel(p, l);
+      if (params.get('bot')) bot = true;
+      if (params.get('sim')) window.MoonLander.step(Number(params.get('sim')));
+      if (params.get('bot') === 'stop') bot = false;
+      if (params.get('thrust')) { input.thrust = true; window.MoonLander.step(Number(params.get('thrust'))); input.thrust = false; }
+      if (params.get('crash')) { hit('the ground'); window.MoonLander.step(Number(params.get('crash'))); }
+    } else if (params.get('scene') === 'map') showMap(Number(params.get('planet') || 0));
+    else if (params.get('scene') === 'hangar') { hangarTab = params.get('tab') || 'up'; showHangar('title'); }
+    else if (params.get('scene') === 'intro') showIntro(Number(params.get('planet') || 0), Number(params.get('lv') || 0));
+    else showTitle();
+    requestAnimationFrame(loop);
+    if (params.get("dump")) { const pre = document.createElement("pre"); pre.id = "selftest"; pre.textContent = JSON.stringify({ ship: S && { x: S.ship.x, y: S.ship.y, st: S.ship.state, vx: S.ship.vx, vy: S.ship.vy }, haz: LV && LV.haz.map((h) => ({ k: h.k, x: Math.round(h.x), y: Math.round(h.y || 0), st: h.state })), caves: LV && LV.caves, pads: LV && LV.pads.map((p) => p.type + "@" + Math.round(p.x)) }); document.body.appendChild(pre); }
+  })();
+  </script>
+</body>
+</html>

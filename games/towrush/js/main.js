@@ -38,13 +38,16 @@
     }
   });
   window.addEventListener('keyup', (e) => { if (KEYMAP[e.code]) keys[KEYMAP[e.code]] = false; });
-  window.addEventListener('blur', () => {
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { for (const k in keys) keys[k] = false; if (mode === "playing") togglePause(); }
+  });
+  window.addEventListener("blur", () => {
     for (const k in keys) keys[k] = false;
     if (mode === 'playing') togglePause();
   });
 
   // ---------- on-screen buttons for touch screens ----------
-  const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0 || /[?&]touch/.test(location.search);
   document.querySelectorAll('#touch button').forEach((b) => {
     const k = b.dataset.k;
     const down = (e) => {
@@ -61,6 +64,7 @@
     b.addEventListener('pointercancel', up);
     b.addEventListener('pointerleave', up);
   });
+  Render.setTouch(isTouch);
   function syncTouch() { $('touch').classList.toggle('hidden', !(isTouch && mode === 'playing')); }
 
   // ---------- steering sensitivity (saved in this browser) ----------
@@ -82,6 +86,11 @@
   // ---------- game state ----------
   let mode = 'title';
   let game = makeGame();
+  let upcoming = Extras.pickContracts(); // the contracts for your next shift (shown on the menus)
+  function showUpcoming() {
+    const html = upcoming.map((c) => `<div class="ct"><i>★</i><span>${c.text}</span><b>+${Render.money(c.reward)}</b></div>`).join("");
+    document.querySelectorAll(".next-contracts").forEach((el) => (el.innerHTML = html));
+  }
 
   function makeGame() {
     const y = W.yard;
@@ -95,7 +104,12 @@
     };
     g.toast = (title, sub, color) => { g.banner = { title, sub, color, life: 3 }; };
     g.float = (x, y, text, color) => g.floaters.push({ x, y, text, color, life: 1.4 });
-    g.notice = (text, color) => { g.notices.push({ text, color, life: 3 }); if (g.notices.length > 3) g.notices.shift(); };
+    g.notice = (text, color) => {
+      const same = g.notices.find((n) => n.text === text);
+      if (same) { same.life = 3; return; } // no stacks of the same message
+      g.notices.push({ text, color, life: 3 });
+      if (g.notices.length > 3) g.notices.shift();
+    };
     g.stats = Garage.stats(); // your upgrades
     Object.assign(g.stats.truck, C.steering[steering]);
     g.bankAtStart = Garage.bank;
@@ -103,6 +117,7 @@
     Jobs.reset(g);
     Police.reset(g);
     Drift.reset(g);
+    Extras.reset(g);
     return g;
   }
 
@@ -110,7 +125,10 @@
 
   function start() {
     Sound.init();
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); // so Space (handbrake) can't press a menu button
     game = makeGame();
+    game.contracts = upcoming;
+    upcoming = Extras.pickContracts();
     mode = 'playing';
     show('title', false);
     show('over', false);
@@ -138,12 +156,13 @@
   function payBail() {
     const g = game;
     if (!(g.jail > 0)) return;
-    if (g.money + g.bankAtStart < C.bail) { g.notice(`Bail is ${Render.money(C.bail)} - you can't afford it`, '#ff6b5a'); return; }
-    g.money -= C.bail;
-    g.bailPaid += C.bail;
+    const bail = g.stats.bail || C.bail;
+    if (g.money + g.bankAtStart < bail) { g.notice(`Bail is ${Render.money(bail)} - you can't afford it`, "#ff6b5a"); return; }
+    g.money -= bail;
+    g.bailPaid += bail;
     g.jail = 0.001;
     Sound.cash();
-    g.notice(`Paid ${Render.money(C.bail)} bail`, '#ffd23f');
+    g.notice(`Paid ${Render.money(bail)} bail`, '#ffd23f');
   }
 
   function togglePause() {
@@ -165,7 +184,8 @@
 
   function endShift() {
     const g = game;
-    mode = 'over';
+    mode = "over";
+    Extras.finishContracts(g);
     Sound.engine(0, false);
     Sound.siren(0);
     Sound.screech(0);
@@ -187,24 +207,29 @@
     $('ov-drift').textContent = Render.money(g.drift.cash);
     $('ov-best-drift').textContent = g.drift.best.toLocaleString();
     $('ov-bail').textContent = g.bailPaid ? '-' + Render.money(g.bailPaid) : '$0';
+    $('ov-streak').textContent = g.track.bestStreak ? g.track.bestStreak + ' in a row' : '-';
+    $('ov-pickups').textContent = g.track.pickups;
+    $("ov-contracts").innerHTML = g.contracts.map((c) => `<div class="ct${c.done ? " done" : ""}"><i>${c.done ? "✔" : "✖"}</i><span>${c.text}</span><b>${c.done ? "+" : ""}${Render.money(c.reward)}</b></div>`).join("");
     $('ov-best').textContent = isBest ? 'New personal best!' : `Best shift: ${Render.money(best.money)}`;
     $('ov-best').classList.toggle('new-best', isBest);
     Garage.deposit(g.money);
     $('ov-bank').textContent = Render.money(Garage.bank);
     // Potato hub: report the shift as a score and pay out Spuds (1 per $50 earned).
-    const spuds = Math.floor(Math.max(0, g.money) / 50);
+    const spuds = Math.min(40, Math.floor(Math.max(0, g.money) / 50));
     if (window.Potato) {
       Potato.score(Math.round(g.money));
       if (spuds > 0) Potato.earn(spuds);
     }
     $('ov-spuds').textContent = window.Potato && Potato.inHub ? `+${spuds} Spuds` : '';
-    show('over', true);
+    showUpcoming();
+    show("over", true);
   }
 
   function showBankOnTitle() {
     const best = loadBest();
     $('title-best').textContent = best ? `Best shift: ${Render.money(best.money)} (${best.jobs} jobs)` : '';
     $('title-bank').textContent = `Bank: ${Render.money(Garage.bank)}`;
+    showUpcoming();
   }
   // Playing from the Potato hub: greet the driver and earn Spuds.
   if (window.Potato && Potato.inHub) {
@@ -253,6 +278,7 @@
     if (!jailed) {
       // bumping into things
       for (const f of g.traffic) {
+        if (f.fadeOut) continue; // rush-hour cars that are leaving
         const D = W.DIRS[f.dir];
         const hit = Vehicles.collideTruckCar(t, f, D.x * f.speed, D.y * f.speed);
         if (!hit) continue;
@@ -279,14 +305,24 @@
       if (g.owner && !g.owner.leaving) Vehicles.collideTruckCar(t, g.owner, g.owner.vx, g.owner.vy); // the owner shoving you is free
       if (t.towing) Vehicles.updateTowed(t.towing, t, dt);
 
+      if (playing && impact > C.crashMinSpeed && t.crashCd <= 0 && t.shield) {
+        // The bumper shield soaks up one crash: no repair bill, no lost drift, no VIP damage.
+        t.shield = false;
+        t.crashCd = 0.6;
+        g.shake = Math.min(8, impact / 40);
+        g.float(t.x, t.y - 30, "SHIELD!", "#9fd8ff");
+        Sound.shieldPop();
+        addParticle(g, { type: "ring", color: "#9fd8ff", x: t.x, y: t.y, vx: 0, vy: 0, life: 0.5, max: 0.5 });
+      }
       if (playing && impact > C.crashMinSpeed && t.crashCd <= 0) {
-        const cost = Math.round(impact * C.crashCostPerSpeed);
+        const cost = Math.round(impact * C.crashCostPerSpeed * (g.stats.repairMul ?? 1));
         g.money -= cost;
         g.repairs += cost;
         g.crashes++;
-        g.float(t.x, t.y - 30, `-$${cost}`, '#ff6b5a');
+        g.float(t.x, t.y - 30, `-$${cost}`, "#ff6b5a");
         Sound.crash(impact);
         t.crashCd = 0.5;
+        t.bump = 1;
         g.shake = Math.min(14, impact / 28);
         if (impact > 160) g.flash = Math.min(0.5, impact / 600);
         Drift.crash(g);
@@ -313,7 +349,8 @@
       Drift.update(g, dt);
     }
 
-    // jobs and the shift clock
+    // jobs, pickups, contracts and the shift clock
+    Extras.update(g, dt, playing);
     if (playing) {
       Jobs.update(g, dt);
       if (g.time <= 0) {
@@ -422,6 +459,8 @@
     const targetZoom = base * (1 - 0.18 * sp - (t.boosting ? 0.08 : 0));
     g.cam.zoom += (targetZoom - g.cam.zoom) * Math.min(1, dt * 2);
 
+    t.braking = playing && keys.down && t.speed > 5;
+    if (t.bump > 0) t.bump = Math.max(0, t.bump - dt * 4);
     Sound.engine(sp, playing && g.jail <= 0);
     Sound.siren(playing ? Police.sirenLevel(g) : 0);
   }
@@ -432,19 +471,205 @@
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     // Small fixed-size steps keep the physics smooth even when the frame rate dips.
-    if (mode !== 'paused') {
+    if (mode !== "paused" && !frozen) {
       const steps = Math.ceil(dt / (1 / 60));
-      for (let k = 0; k < steps && mode !== 'paused'; k++) update(dt / steps);
+      for (let k = 0; k < steps && mode !== 'paused'; k++) { if (auto && mode === 'playing') autopilot(); update(dt / steps); }
     }
     syncTouch();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const rt0 = performance.now();
     Render.frame(ctx, game, sw, sh, mode !== 'title');
+    if (window.__frames !== undefined) { window.__frames++; const ms = performance.now() - rt0; window.__fmax = Math.max(window.__fmax || 0, ms); const el = document.getElementById('testlog2'); if (el) el.textContent = 'frames ' + window.__frames + ' max ' + window.__fmax.toFixed(1) + 'ms last ' + ms.toFixed(1); }
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
 
+  // ---------- autopilot (for testing): follows the GPS line, hooks and delivers ----------
+  let auto = false, frozen = false;
+  function autopilot() {
+    const g = game, t = g.truck;
+    for (const k of ['up', 'down', 'left', 'right', 'handbrake', 'boost']) keys[k] = false;
+    if (g.jail > 0) { if (g.jail < 29) payBail(); return; }
+    if (!g.gps || g.gps.length < 2) { keys.down = Math.abs(t.speed) > 20; return; }
+    const ap = g.ap || (g.ap = { stuck: 0, back: 0 });
+    let tgt = g.gps[1];
+    for (let k = 1; k < g.gps.length; k++) { tgt = g.gps[k]; if (Math.hypot(tgt.x - t.x, tgt.y - t.y) > 90) break; }
+    const want = Math.atan2(tgt.y - t.y, tgt.x - t.x);
+    const diff = Math.atan2(Math.sin(want - t.angle), Math.cos(want - t.angle));
+    if (ap.back > 0) {
+      // stuck against something: back up with the wheel turned the other way
+      ap.back -= 1 / 60;
+      keys.down = true;
+      keys.left = diff > 0; keys.right = diff < 0;
+      return;
+    }
+    keys.left = diff < -0.12; keys.right = diff > 0.12;
+    const hook = Jobs.canHook(g);
+    const carD = g.job.state === 'call' ? Math.hypot(g.job.car.x - t.x, g.job.car.y - t.y) : Infinity;
+    if (hook === 'slow' || (carD < 200 && t.speed > 90)) keys.down = true;
+    else if (Math.abs(diff) > 1.0 && t.speed > 110) keys.down = true;
+    else keys.up = t.speed < (Math.abs(diff) > 0.4 ? 150 : 300);
+    if (t.nitro > 0.5 && Math.abs(diff) < 0.1 && t.speed > 150 && !g.wanted) keys.boost = true;
+    if (keys.up && Math.abs(t.speed) < 15) ap.stuck += 1 / 60; else ap.stuck = Math.max(0, ap.stuck - 1 / 30);
+    if (ap.stuck > 1.2) { ap.stuck = 0; ap.back = 0.9; }
+    if (hook === 'ok') Jobs.tryHook(g);
+  }
+
+  // A busy moment for screenshots (?demo): rush hour at sunset, a streak going, towing a VIP car.
+  function demoSetup() {
+    start();
+    const g = game, t = g.truck, y = W.yard;
+    const stop = () => { t.vx = t.vy = t.speed = 0; t.yaw = 0; };
+    for (let k = 0; k < 3; k++) {
+      g.job.state = 'waiting'; g.job.timer = 0; update(1 / 60);
+      const c = g.job.car;
+      t.x = c.x - Math.cos(c.angle) * 50; t.y = c.y - Math.sin(c.angle) * 50; stop();
+      Jobs.tryHook(g);
+      t.x = y.zone.x + y.zone.w / 2; t.y = y.zone.y + y.zone.h / 2; stop();
+      if (t.towing) { t.towing.x = t.x; t.towing.y = t.y + 40; }
+      update(1 / 60);
+    }
+    g.time = C.rushHour.at + 0.01;
+    update(1 / 60);
+    g.time = 72;
+    // hook a VIP car and put the truck on the road heading east
+    g.job.state = 'waiting'; g.job.timer = 0; update(1 / 60);
+    const c = g.job.car;
+    Object.assign(c, { vip: true, color: '#15181d', len: 48, wid: 23, parked: false });
+    g.job.type = 'vip';
+    t.x = c.x - Math.cos(c.angle) * 50; t.y = c.y - Math.sin(c.angle) * 50; stop();
+    Jobs.tryHook(g);
+    t.x = 2 * W.CELL + 150; t.y = 4 * W.CELL + C.lane; t.angle = 0; t.vx = 250; t.speed = 250;
+    t.towing.x = t.x - 60; t.towing.y = t.y; t.towing.angle = 0;
+    g.traffic = g.traffic.filter((f) => Math.hypot(f.x - t.x, f.y - t.y) > 160);
+    g.pickups.push({ x: t.x + 230, y: t.y, kind: 'cash', t: 0, born: 1 }, { x: t.x + 330, y: t.y - 70, kind: 'shield', t: 1, born: 1 }, { x: t.x + 460, y: t.y, kind: 'nitro', t: 2, born: 1 });
+    t.shield = true;
+    g.jammer = 9;
+    t.nitro = 0.7;
+    g.track.pickups = 4;
+    g.camSnap = true;
+    for (let k = 0; k < 40; k++) { keys.up = true; update(1 / 60); }
+    keys.up = false;
+    g.cam.x = t.x + g.look.x; g.cam.y = t.y + g.look.y;
+  }
+
+  // A quick self-check of the shift systems (used by ?unit). Teleports the truck around.
+  function unitTest() {
+    const out = [];
+    const ok = (name, cond) => out.push((cond ? 'PASS ' : 'FAIL ') + name);
+    start();
+    const g = game, t = g.truck, y = W.yard;
+    const stop = () => { t.vx = t.vy = t.speed = 0; t.yaw = 0; };
+    const doJob = () => {
+      g.job.state = 'waiting'; g.job.timer = 0; update(1 / 60);
+      const c = g.job.car;
+      t.x = c.x - Math.cos(c.angle) * 50; t.y = c.y - Math.sin(c.angle) * 50; stop();
+      Jobs.tryHook(g);
+      const hooked = g.job.state === 'towing';
+      t.x = y.zone.x + y.zone.w / 2; t.y = y.zone.y + y.zone.h / 2; t.angle = -Math.PI / 2; stop();
+      if (t.towing) { t.towing.x = t.x; t.towing.y = t.y + 40; }
+      update(1 / 60);
+      return hooked;
+    };
+    const m0 = g.money;
+    ok('first job hooked', doJob());
+    ok('first job delivered', g.jobsDone === 1 && g.streak === 1);
+    const pay1 = g.money - m0;
+    for (let k = 0; k < 3; k++) doJob();
+    ok('streak reaches 4', g.streak === 4 && g.track.bestStreak === 4);
+    ok('streak multiplier is x1.4', Math.abs(Extras.streakMul(g.streak) - 1.4) < 1e-9);
+    ok('money went up (' + pay1 + ' first job)', g.money > m0 && pay1 > 0);
+    // pickups
+    for (const kind of ['cash', 'nitro', 'shield', 'jammer', 'clock']) {
+      const before = { money: g.money, nitro: t.nitro, time: g.time };
+      g.pickups.push({ x: t.x, y: t.y, kind, t: 0, born: 1 });
+      update(1 / 60);
+      if (kind === 'cash') ok('cash pickup pays', g.money > before.money);
+      if (kind === 'nitro') ok('nitro pickup fills', t.nitro > before.nitro);
+      if (kind === 'shield') ok('shield pickup', t.shield === true);
+      if (kind === 'jammer') ok('jammer pickup', g.jammer > 10);
+      if (kind === 'clock') ok('clock pickup adds time', g.time > before.time + 5);
+    }
+    // jammer hides a red light
+    Police.violate(g, 'Ran a red light', Infinity);
+    ok('jammer stops a chase starting', !g.wanted);
+    g.jammer = 0;
+    // shield soaks one crash
+    const rep = g.repairs;
+    t.crashCd = 0;
+    const wall = W.solids[0];
+    t.x = wall.x + wall.w / 2; t.y = wall.y - 14; t.angle = Math.PI / 2; t.vx = 0; t.vy = 300;
+    update(1 / 60);
+    ok('shield used up on a crash with no repair bill', !t.shield && g.repairs === rep);
+    // a lost job resets the streak
+    g.job.state = 'waiting'; g.job.timer = 0; update(1 / 60);
+    g.job.dispatched = true;
+    Jobs.dropTow(g); // nothing to drop while not towing
+    g.streak = 3; Extras.streakLost(g); ok('streak resets', g.streak === 0);
+    // rush hour
+    g.time = C.rushHour.at; update(1 / 60);
+    ok('rush hour started', g.rush.started && g.rush.left > 0 && g.traffic.some((f) => f.rush));
+    g.rush.left = 0.01; update(1 / 60); for (let k = 0; k < 200; k++) update(1 / 60);
+    ok('rush traffic fades away', !g.traffic.some((f) => f.rush));
+    // contracts and the end of the shift
+    ok('contracts picked', g.contracts.length === 3);
+    g.time = 0; g.job.state = 'waiting'; update(1 / 60);
+    ok('shift ended', mode === 'over');
+    ok('no NaN', [t.x, t.y, t.vx, t.vy, g.money].every(isFinite));
+    return out;
+  }
+
   // Handy for poking at the game from the browser console: TowRush.game
-  window.TowRush = { get game() { return game; }, get mode() { return mode; } };
+  window.TowRush = {
+    get game() { return game; }, get mode() { return mode; }, keys,
+    start, endShift, openGarage,
+    step(n = 60, dt = 1 / 60) { for (let k = 0; k < n; k++) { if (auto && mode === 'playing') autopilot(); update(dt); } },
+    set autopilot(v) { auto = !!v; }, get autopilot() { return auto; },
+  };
+
+  // Test-only URL params, e.g. ?play&sim=40&auto  ?garage&bank=3000  ?over&sim=60
+  (() => {
+    const q = new URLSearchParams(location.search);
+    if (!['play', 'over', 'sim', 'garage', 'unit', 'demo', 'bank', 'log'].some((k) => q.has(k))) return;
+    window.__noAudio = true;
+    document.body.classList.add("test");
+    if (q.has('bank')) { Garage.deposit(+q.get('bank') - Garage.bank); }
+    if (q.has("garage")) { openGarage(); return; }
+    if (q.has("demo")) { demoSetup(); frozen = q.has("freeze"); }
+    if (q.has("unit")) { let r; try { r = unitTest(); } catch (e) { r = ["ERROR " + e.message + " " + (e.stack || "").split("\n")[1]]; } window.__unit = r; }
+    if (q.has('play') || q.has('over') || q.has('sim')) {
+      start();
+      auto = q.has('auto');
+      const sim = +q.get('sim') || 0;
+      const t0 = performance.now();
+      let k = 0;
+      for (; k < sim * 60 && mode === "playing"; k++) { if (auto) autopilot(); update(1 / 60); if (performance.now() - t0 > 4000) break; }
+      window.__simSteps = k;
+      window.__simMs = Math.round(performance.now() - t0);
+      frozen = q.has("freeze");
+      if (q.has('time')) game.time = +q.get('time');
+      if (q.has('over')) endShift();
+    }
+    if (q.has('log')) {
+      // a tiny report for automated checks (read with --dump-dom)
+      const g = game;
+      const pre = document.createElement('pre');
+      pre.id = 'testlog';
+      pre.textContent = JSON.stringify({
+        unit: window.__unit, errs: window.__errs || [], simMs: window.__simMs, steps: window.__simSteps, mode, money: Math.round(g.money), jobs: g.jobsDone, lost: g.jobsLost, arrests: g.arrests,
+        time: Math.round(g.time), pickups: g.track.pickups, streak: g.streak, contracts: g.contracts.map((c) => c.id + (c.done ? '+' : '-')),
+        card: (() => { const c = document.querySelector("#over .card").getBoundingClientRect(); return [Math.round(c.left), Math.round(c.width), innerWidth, document.documentElement.scrollWidth, [...document.querySelectorAll("#over .card *")].filter((e) => e.getBoundingClientRect().right > innerWidth).slice(0, 4).map((e) => e.tagName + "." + e.className + ":" + Math.round(e.getBoundingClientRect().width))]; })(),
+        traffic: g.traffic.length, rush: g.rush, nan: [g.truck.x, g.truck.y, g.truck.vx, g.money].some((n) => !isFinite(n)),
+      });
+      pre.style.cssText = 'position:fixed;left:8px;top:8px;z-index:99;background:#000c;color:#0f0;font:12px monospace;white-space:pre-wrap;max-width:90vw';
+      document.body.appendChild(pre);
+      const pre2 = document.createElement("pre");
+      pre2.id = "testlog2";
+      pre2.style.cssText = "position:fixed;left:8px;top:60px;z-index:99;background:#000c;color:#ff0;font:12px monospace";
+      document.body.appendChild(pre2);
+      window.__frames = 0;
+    }
+  })();
 
   $('btn-start').addEventListener('click', start);
   $('btn-again').addEventListener('click', start);

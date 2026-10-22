@@ -94,6 +94,13 @@
     .item button { align-self: flex-start; padding: 7px 16px; font-size: 15px; }
     .confetti { position: fixed; top: -12px; width: 10px; height: 14px; border-radius: 2px; pointer-events: none; animation: fall linear forwards; z-index: 50; }
     @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
+    @media (max-width: 520px) {
+      .card { padding: 16px 14px; }
+      .logo { font-size: 46px; }
+      .how { font-size: 13.5px; line-height: 1.38; }
+      .how li { padding: 3px 0 3px 24px; }
+      .btn { padding: 11px 20px; font-size: 18px; }
+    }
     #selftest { position: fixed; left: 0; top: 0; z-index: 99; background: #000; color: #0f0; font: 12px monospace; white-space: pre; max-height: 100%; overflow: auto; margin: 0; }
   </style>
 </head>
@@ -110,9 +117,11 @@
         <li><b>Land on rails and benches to grind.</b> Tap <kbd>←</kbd> <kbd>→</kbd> to keep your balance.</li>
         <li><b>Chain tricks</b> before the combo bar runs out for a huge multiplier. Finish your trick before you land or you'll bail!</li>
         <li>On the ground, hold <kbd>→</kbd> to go faster and <kbd>←</kbd> to slow down. Grab the letters <b>S-K-A-T-E</b>!</li>
+        <li>Roll through <b>power-up bubbles</b> (🛡️ shield, 🧲 magnet, 🚀 rocket), jump over obstacles for <b>Hop</b> bonuses, and fill your <b>SPECIAL</b> meter for double points!</li>
       </ul>
       <div class="row">
         <button class="btn" id="t-play">Play</button>
+        <button class="btn ghost" id="t-free">Free Skate</button>
         <button class="btn lime" id="t-shop">Skate Shop</button>
       </div>
     </div>
@@ -188,7 +197,7 @@
     // =====================================================================
     // Tuning (world units are pixels, y goes down)
     // =====================================================================
-    const VW = 1000, VH = 600;
+    let VW = 1000, VH = 600, PORTRAIT = false, ZBASE = 1; // the view takes the window shape; ZBASE zooms the world out on tall screens
     const G = 1500, OLLIE_V = 600, CRUISE = 330, FAST = 430, SLOW = 230, MAXV = 640;
     const COMBO_WINDOW = 1.4, COYOTE = 0.12, JUMP_BUFFER = 0.16;
     const LAND_OK = 0.6;            // a trick that is at least 60% done when you land counts (sketchy)
@@ -201,6 +210,14 @@
       treflip: { name: '360 Flip', dur: 0.62, pts: 800, flip: 1, turns: 1, spin: 1 },
     };
     const GRABS = ['Indy Grab', 'Melon Grab', 'Stalefish', 'Nose Grab', 'Tail Grab'];
+    // power-up bubbles along the track, the SPECIAL meter and the Free Skate clock
+    const POWERS = {
+      shield: { name: 'Shield Bubble', ico: '🛡️', color: '#74c0fc', desc: 'Saves you from one bail!' },
+      magnet: { name: 'Coin Magnet', ico: '🧲', color: '#ff6b6b', desc: 'Pulls in nearby coins!' },
+      rocket: { name: 'Rocket Board', ico: '🚀', color: '#ffa94d', desc: 'Super speed and big pops!' },
+    };
+    const SPECIAL_TIME = 10, MAGNET_TIME = 10, ROCKET_TIME = 6, FREE_TIME = 60;
+    const HAZARD_NAME = { cone: 'Cone', hydrant: 'Hydrant', trash: 'Trash Can', crab: 'Crab', ball: 'Beach Ball', vent: 'Vent', rccar: 'RC Car' };
 
     const PARKS = [
       { id: 'school', name: 'Sunny Schoolyard', stars: 0 },
@@ -259,7 +276,7 @@
         track: [
           ['flat', 700], ['rail', 320, 44, 80], ['L', 'S', 240, 95], ['flat', 600], ['cone', 200], ['cone', 290], ['flat', 600],
           ['kicker', 150, 55], ['coins', 6, 60, 130, 40, 1], ['flat', 300], ['rail', 420, 60, 60], ['L', 'K', 300, 120], ['flat', 700],
-          ['gap', 170], ['L', 'A', -85, 120], ['flat', 600], ['bench', 240, 120], ['flat', 520], ['hydrant', 120], ['flat', 400],
+          ['gap', 170], ['L', 'A', -85, 120], ['flat', 600], ['bench', 240, 120], ['flat', 520], ['hydrant', 120], ['flat', 400], ['rccar', 220], ['flat', 520],
           ['up', 200, 60], ['flat', 200], ['down', 200, 60], ['L', 'T', -40, 130], ['flat', 500], ['rail', 300, 44, 40], ['rail', 300, 70, 420], ['flat', 900],
           ['coins', 8, 60, 40, 45], ['kicker', 160, 60], ['L', 'E', 230, 230], ['flat', 600], ['cone', 300], ['flat', 500], ['finish'],
         ],
@@ -294,7 +311,7 @@
         tip: 'Jump onto the handrails on the stairs for long grinds.',
         track: [
           ['flat', 700], ['stairs', 6, true], ['flat', 500], ['L', 'S', -360, 110], ['cone', 200], ['flat', 500], ['kicker', 160, 60], ['flat', 600],
-          ['rail', 420, 55, 80], ['L', 'K', 400, 120], ['flat', 800], ['up', 260, 90], ['flat', 300], ['stairs', 6, true], ['flat', 600], ['trash', 300], ['flat', 700], ['gap', 200], ['L', 'A', -100, 140], ['flat', 500], ['bench', 260, 80], ['bench', 260, 440], ['flat', 900], ['up', 300, 110], ['flat', 250], ['stairs', 7, true],
+          ['rail', 420, 55, 80], ['L', 'K', 400, 120], ['flat', 800], ['up', 260, 90], ['flat', 300], ['stairs', 6, true], ['flat', 600], ['trash', 300], ['flat', 700], ['rccar', 250], ['flat', 620], ['gap', 200], ['L', 'A', -100, 140], ['flat', 500], ['bench', 260, 80], ['bench', 260, 440], ['flat', 900], ['up', 300, 110], ['flat', 250], ['stairs', 7, true],
           ['L', 'T', 120, 60], ['flat', 600], ['cone', 150], ['cone', 240], ['flat', 600], ['kicker', 170, 65], ['L', 'E', 250, 260], ['flat', 600], ['rail', 500, 60, 60], ['flat', 900], ['finish'],
         ],
       },
@@ -317,7 +334,7 @@
           ['flat', 600], ['kicker', 180, 70], ['L', 'S', 260, 290], ['flat', 700], ['rail', 500, 60, 60], ['flat', 800], ['gap', 205], ['flat', 500],
           ['cone', 150], ['cone', 240], ['flat', 600], ['up', 300, 110], ['flat', 100], ['kicker', 150, 50], ['L', 'K', 160, 220], ['flat', 500], ['down', 300, 110], ['flat', 500],
           ['bench', 260, 100], ['L', 'A', 200, 140], ['flat', 600], ['gap', 195], ['flat', 500], ['stairs', 7, true], ['flat', 600], ['rail', 550, 60, 80], ['L', 'T', 500, 130], ['flat', 900],
-          ['kicker', 190, 75], ['coins', 10, 80, 200, 40, 1], ['flat', 500], ['trash', 200], ['flat', 650], ['gap', 205], ['L', 'E', -102, 160], ['flat', 700], ['finish'],
+          ['kicker', 190, 75], ['coins', 10, 80, 200, 40, 1], ['flat', 500], ['trash', 200], ['flat', 650], ['rccar', 250], ['flat', 600], ['gap', 205], ['L', 'E', -102, 160], ['flat', 700], ['finish'],
         ],
       },
       {
@@ -379,6 +396,7 @@
     save.done = save.done && typeof save.done === 'object' ? save.done : {};
     save.best = save.best && typeof save.best === 'object' ? save.best : {};
     save.muted = !!save.muted;
+    save.freeBest = Number(save.freeBest) || 0;
     const persist = () => Potato.save('save', save);
     const owns = (k) => save.owned.includes(k);
     const totalStars = () => Object.values(save.stars).reduce((s, n) => s + (Number(n) || 0), 0);
@@ -455,6 +473,9 @@
       boing: () => tone(200, 0.3, 'sine', 0.09, 0, 400),
       fanfare: () => [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, 0.22, 'triangle', 0.08, i * 0.1)),
       wobble: () => tone(440, 0.05, 'sine', 0.03),
+      power: () => [523, 784, 1047, 1568].forEach((f, i) => tone(f, 0.12, 'square', 0.035, i * 0.05)),
+      special: () => { [392, 523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.2, 'triangle', 0.07, i * 0.06)); noise(0.6, 2000, 0.6, 0.05, 0.1); },
+      shieldPop: () => { tone(900, 0.15, 'sine', 0.07, 0, -600); noise(0.15, 3000, 2, 0.08); },
     };
 
     // =====================================================================
@@ -509,9 +530,9 @@
           L.blocks.push({ x0: x + dx, x1: x + dx + len, top: gy - h, gy, kind: 'crate' });
           L.surfaces.push({ pts: [[x + dx, gy - h], [x + dx + len, gy - h]], kind: 'crate' });
           L.jumps.push({ x: x + dx - 80, k: 'crate' });
-        } else if (['cone', 'hydrant', 'trash', 'crab', 'ball', 'vent'].includes(k)) {
-          const size = { cone: [26, 30], hydrant: [26, 36], trash: [32, 44], crab: [36, 22], ball: [30, 30], vent: [44, 34] }[k];
-          L.hazards.push({ x: x + c[1], w: size[0], h: size[1], gy, kind: k, t: Math.random() * 6 });
+        } else if (['cone', 'hydrant', 'trash', 'crab', 'ball', 'vent', 'rccar'].includes(k)) {
+          const size = { cone: [26, 30], hydrant: [26, 36], trash: [32, 44], crab: [36, 22], ball: [30, 30], vent: [44, 34], rccar: [44, 26] }[k];
+          L.hazards.push({ x: x + c[1], x0: x + c[1], w: size[0], h: size[1], gy, kind: k, t: Math.random() * 6, dir: -1 });
           L.jumps.push({ x: x + c[1] - 62, k: 'hazard' });
         } else if (k === 'L') {
           let lx = x + c[2], ly = gy - c[3];
@@ -550,6 +571,23 @@
       close();
       L.jumps.sort((a, b) => a.x - b.x);
       L.endX = x;
+      // power-up bubbles on calm, flat stretches (you roll right through them)
+      const kinds = ['shield', 'magnet', 'rocket'];
+      let pn = (def.name || '').length % 3;
+      const lastX = (L.finishX || x) - 700;
+      for (let px = 1500; px < lastX; px += def.free ? 2600 : 2400) {
+        for (let tries = 0, tx = px; tries < 16; tries++, tx += 80) {
+          let gy = null, flat = false;
+          for (const s of L.surfaces) { if (s.kind !== 'ground') continue; const q = surfY(s, tx); if (q) { gy = q.y; flat = Math.abs(q.slope) < 0.01 && !!surfY(s, tx - 120) && !!surfY(s, tx + 120); } }
+          if (gy == null || !flat) continue;
+          const near = (a, b) => tx > a - 170 && tx < b + 170;
+          if (L.hazards.some((h) => near(h.x - 200, h.x + 200)) || L.gaps.some((g) => near(g.x0, g.x1)) || L.kickers.some((k) => near(k.x0, k.x1)) ||
+            L.stairs.some((s) => near(s.x0, s.x1)) || L.blocks.some((b) => near(b.x0, b.x1)) || L.rails.some((r) => near(r.x0, r.x1)) ||
+            L.pickups.some((p) => Math.abs(p.x - tx) < 90)) continue;
+          L.pickups.push({ x: tx, y: gy - 46, kind: 'power', p: kinds[pn++ % 3], got: false, t: Math.random() * 6 });
+          break;
+        }
+      }
       return L;
     }
 
@@ -582,14 +620,36 @@
     let introLevel = 0;
     const input = { left: false, right: false, up: false, down: false, jump: false, jumpPressedT: -1 };
 
-    function startLevel(li) {
+    // Free Skate: a brand new random track every time, 60 seconds to score as much as you can
+    function makeFreeDef() {
+      const open = PARKS.filter((p) => totalStars() >= p.stars);
+      const park = pick(open).id;
+      const hz = { school: ['cone', 'hydrant', 'rccar'], beach: ['crab', 'ball', 'crab'], city: ['cone', 'trash', 'rccar'], neon: ['cone', 'trash', 'rccar'], roof: ['vent', 'cone', 'vent'] }[park];
+      const rnd = Math.random;
+      const t = [['flat', 900]];
+      for (let i = 0; i < 64; i++) {
+        const r = rnd();
+        if (r < 0.18) t.push(['kicker', Math.round(150 + rnd() * 40), Math.round(50 + rnd() * 25)], ['coins', 6, 60, 120, 40, 1], ['flat', 680]);
+        else if (r < 0.34) { const len = Math.round(300 + rnd() * 220); t.push(['rail', len, Math.round(44 + rnd() * 18), 60], ['coins', 5, 90, 90, 55], ['flat', len + 320]); }
+        else if (r < 0.46) t.push(['gap', Math.round(150 + rnd() * 45)], ['flat', 560]);
+        else if (r < 0.6) { const h = pick(hz); t.push(['flat', 220], [h, 120], ['flat', h === 'rccar' ? 600 : 460]); }
+        else if (r < 0.7) t.push(['bench', 240, 90], ['flat', 640]);
+        else if (r < 0.8) t.push(['up', 240, 70], ['flat', 300], ['down', 240, 70], ['flat', 440]);
+        else if (r < 0.88 && park !== 'school' && park !== 'beach') t.push(['stairs', 6, true], ['flat', 560]);
+        else t.push(['coins', 8, 60, 40, 45], ['flat', 640]);
+      }
+      t.push(['finish']);
+      return { name: 'Free Skate', park, balance: park !== 'school', free: true, goals: [{ k: 'score', n: 4000 }, { k: 'score', n: 10000 }, { k: 'score', n: 20000 }], tip: 'Score as much as you can in 60 seconds!', track: t };
+    }
+    const freeOpen = () => !!save.done[0];
+    function startLevel(li, defOverride) {
       audio();
-      const def = LEVELS[li];
+      const def = defOverride || LEVELS[li];
       const L = buildLevel(def);
       const board = BOARD[save.board];
       run = {
         li, def, L, board, outfit: OUTFIT[save.outfit],
-        t: 0, cam: { x: -300, y: -380 }, shake: 0,
+        t: 0, cam: { x: -300, y: -380, zk: 1, gy: null }, shake: 0,
         sk: null,
         score: 0, coins: 0, letters: {}, bails: 0,
         combo: null, bestMult: 0, bestCombo: 0, grindsSet: new Set(), bestGrind: 0, bestAir: 0,
@@ -597,12 +657,15 @@
         parts: [], floats: [], banner: null, flyBoard: null,
         finished: false, finishT: 0, safe: { x: -300, y: 0 },
         hint: null,
+        special: 0, specialT: 0, shield: false, magnetT: 0, rocketT: 0, hops: 0, powersGot: 0,
       };
       spawn(-300);
+      { const v = worldView(); run.cam.x = -300 - v.w * 0.3; run.cam.y = run.sk.y - v.h * 0.66; run.cam.gy = run.sk.y; }
       run.sk.inv = 0;
       mode = 'play';
       hideOverlays();
-      showBanner(def.name, PARKS[PARK_OF(li)].name, '#ffb020');
+      const parkName = (PARKS.find((p) => p.id === def.park) || PARKS[0]).name;
+      showBanner(def.name, def.free ? `${parkName} · 60 seconds. GO!` : parkName, '#ffb020');
       for (const k of Object.keys(input)) input[k] = typeof input[k] === 'boolean' ? false : input[k];
     }
     function spawn(x) {
@@ -619,7 +682,7 @@
       if (!run.combo) run.combo = { pts: 0, mult: 0, names: [], timer: COMBO_WINDOW, used: {} };
       const c = run.combo;
       const rep = c.used[name] || 0;
-      const val = Math.round(pts * Math.pow(0.5, rep));
+      const val = Math.round(pts * Math.pow(0.5, rep) * (run.specialT > 0 ? 2 : 1)); // SPECIAL doubles trick points
       c.used[name] = rep + 1;
       c.pts += val;
       c.mult += multAdd;
@@ -642,6 +705,16 @@
       floatText(s.x, s.y, `+${fmt(total)}`, c.mult >= 3 ? '#ffd43b' : '#7cf05a', c.mult >= 3 ? 34 : 26);
       if (c.mult >= 5) showBanner(`${c.mult}x COMBO!`, `+${fmt(total)} points`, '#ffd43b');
       sfx.bank(c.mult >= 3);
+      // landed combos fill the SPECIAL meter; when it's full you go SPECIAL for 10 seconds
+      if (run.specialT <= 0) {
+        run.special = Math.min(1, run.special + Math.min(0.45, total / 3500 + c.mult * 0.03));
+        if (run.special >= 1) {
+          run.specialT = SPECIAL_TIME; run.special = 0;
+          showBanner('SPECIAL!', 'Double points and steady grinds!', '#ffd43b');
+          sfx.special();
+          sparkle(run.sk.x, run.sk.y - 50, '#ffd43b', 30);
+        }
+      }
     }
     function loseCombo() {
       if (run.combo && run.combo.pts > 0) {
@@ -654,7 +727,7 @@
     // ---------------- moves ----------------
     function ollie(fromRail) {
       const sk = run.sk;
-      const pop = OLLIE_V * run.board.pop;
+      const pop = OLLIE_V * run.board.pop * (run.rocketT > 0 ? 1.2 : 1);
       if (sk.state === 'grind') endGrind(false);
       sk.state = 'air';
       sk.vx = sk.v * Math.cos(sk.ang);
@@ -792,6 +865,18 @@
     function bail(why) {
       const sk = run.sk;
       if (sk.state === 'bail' || sk.inv > 0) return;
+      // a Shield Bubble pops instead of you falling
+      if (run.shield) {
+        run.shield = false;
+        sk.inv = 1.1;
+        sk.trick = null; sk.queue = null;
+        const s = toScreen(sk.x, sk.y - 100);
+        floatText(s.x, s.y, 'SAVED!', '#74c0fc', 30);
+        sparkle(sk.x, sk.y - 45, '#a5d8ff', 22);
+        sfx.shieldPop();
+        run.shake = 0.15;
+        return;
+      }
       if (sk.state === 'grind') endGrind(true);
       sk.state = 'bail';
       sk.bailT = 0;
@@ -846,6 +931,30 @@
       run.shake = Math.max(0, run.shake - dt);
       if (sk.inv > 0) sk.inv -= dt;
       sk.cape += dt;
+      // power-up timers and their sparkle
+      const footX = sk.state === 'bail' ? sk.bx : sk.x, footY = sk.state === 'bail' ? sk.by : sk.y;
+      if (run.specialT > 0) {
+        run.specialT = Math.max(0, run.specialT - dt);
+        if (sk.state === 'grind') sk.bal *= 1 - dt * 3; // steady grinds while SPECIAL
+        if (Math.random() < dt * 30) run.parts.push({ x: footX - 10 + (Math.random() - 0.5) * 30, y: footY - 20 - Math.random() * 50, vx: -60 - Math.random() * 40, vy: -20, g: 0, life: 0.6, color: pick(['#ffd43b', '#fff3bf', '#ff9ef0', '#9ef0ff']), size: 3 + Math.random() * 3, glow: true });
+        if (run.specialT === 0) { const s = toScreen(footX, footY - 110); floatText(s.x, s.y, 'Special over', '#fff3bf', 16); }
+      }
+      if (run.magnetT > 0) run.magnetT = Math.max(0, run.magnetT - dt);
+      if (run.rocketT > 0) {
+        run.rocketT = Math.max(0, run.rocketT - dt);
+        if (sk.state !== 'bail' && Math.random() < dt * 60) run.parts.push({ x: footX - 34, y: footY - 8 + (Math.random() - 0.5) * 6, vx: -160 - Math.random() * 120, vy: (Math.random() - 0.5) * 40, g: -40, life: 0.35, color: pick(['#ff922b', '#ffd43b', '#ff6b6b']), size: 5 + Math.random() * 5, glow: true });
+      }
+      // moving hazards: RC cars drive back and forth, crabs scuttle sideways
+      for (const h of run.L.hazards) {
+        if (h.kind === 'rccar') { h.x += h.dir * 85 * dt; if (h.x < h.x0 - 170) h.dir = 1; else if (h.x > h.x0 + 170) h.dir = -1; }
+        else if (h.kind === 'crab') { const ph = run.t * 1.4 + h.t; h.x = h.x0 + Math.sin(ph) * 45; h.dir = Math.cos(ph) > 0 ? 1 : -1; }
+      }
+      // Free Skate: the clock
+      if (run.def.free && !run.finished && run.t >= FREE_TIME) {
+        run.finished = true;
+        showBanner("TIME'S UP!", 'Land it to keep your combo!', '#ffd43b');
+        sfx.fanfare();
+      }
 
       if (sk.state === 'bail') {
         sk.bailT += dt;
@@ -877,6 +986,14 @@
         if (run.combo.timer <= 0) bankCombo();
       }
 
+      // the Coin Magnet pulls nearby coins in
+      if (run.magnetT > 0 && sk.state !== 'bail') {
+        for (const p of run.L.pickups) {
+          if (p.got || p.kind !== 'coin' || Math.abs(p.x - sk.x) > 300) continue;
+          const dx = sk.x - p.x, dy = sk.y - 34 - p.y, d = Math.hypot(dx, dy);
+          if (d < 280) { const k = Math.min(1, dt * (5 + (280 - d) / 25)); p.x += dx * k; p.y += dy * k; }
+        }
+      }
       // pickups
       if (sk.state !== 'bail') {
         const cx = sk.x, cy = sk.y - 34;
@@ -884,9 +1001,21 @@
           if (p.got || Math.abs(p.x - cx) > 50) continue;
           const pd = Math.hypot(p.x - cx, p.y - cy);
           if (p.kind === "letter") p.near = Math.min(p.near == null ? 1e9 : p.near, Math.round(cy - p.y));
-          if (pd < (p.kind === "letter" ? 46 : 36)) {
+          if (pd < (p.kind === "coin" ? 36 : 46)) {
             p.got = true;
             if (p.kind === 'coin') { run.coins++; run.score += 10; sfx.coin(); sparkle(p.x, p.y, '#ffd43b', 6); }
+            else if (p.kind === 'power') {
+              const pw = POWERS[p.p];
+              if (p.p === 'shield') run.shield = true;
+              else if (p.p === 'magnet') run.magnetT = MAGNET_TIME;
+              else run.rocketT = ROCKET_TIME;
+              run.powersGot++;
+              sfx.power();
+              sparkle(p.x, p.y, pw.color, 22);
+              const s = toScreen(p.x, p.y - 40);
+              floatText(s.x, s.y, `${pw.name}!`, pw.color, 26);
+              floatText(s.x, s.y + 26, pw.desc, '#fff', 15);
+            }
             else {
               run.letters[p.ch] = true;
               run.score += 250;
@@ -904,7 +1033,7 @@
       run.hint = null;
       if (run.def.tutorial) {
         const sign = run.L.signs.find((s) => s.x > sk.x - 120 && s.x < sk.x + 420);
-        if (sign) run.hint = sign.text;
+        if (sign) run.hint = (touchUser || PORTRAIT) && TOUCH_HINT[sign.text] ? TOUCH_HINT[sign.text] : sign.text;
       }
 
       // finish line
@@ -928,16 +1057,44 @@
       run.floats = run.floats.filter((f) => f.life > 0);
       for (const p of run.L.pickups) p.t += dt;
 
-      // camera
-      const lead = 300 - clamp((sk.v - CRUISE) * 0.4, -40, 60);
-      const tx = (sk.state === 'bail' ? sk.bx : sk.x) - lead;
-      const ty = (sk.state === 'bail' ? sk.by : sk.y) - 390;
-      run.cam.x += (tx - run.cam.x) * Math.min(1, dt * 6);
-      run.cam.y += (ty - run.cam.y) * Math.min(1, dt * (sk.state === 'air' ? 2.2 : 4));
+      // camera: keeps the ground in view (it used to follow big jumps right off the track),
+      // and pulls back a little on really big air
+      updateCamera(dt);
       const speed = sk.state === 'ground' ? sk.v / MAXV : sk.state === 'grind' ? 0.8 : 0;
       rollSound(speed, sk.state === 'grind');
     }
 
+    const camZ = () => ZBASE * (run && run.cam.zk ? run.cam.zk : 1);
+    const worldView = () => ({ w: VW / camZ(), h: VH / camZ() });
+    function camTarget() {
+      const sk = run.sk, cam = run.cam;
+      const px = sk.state === 'bail' ? sk.bx : sk.x, py = sk.state === 'bail' ? sk.by : sk.y;
+      // the ground under the skater (or the edge of the gap they are flying over)
+      const g = groundBelow(px, py - 6);
+      const gap = run.L.gaps.find((gp) => px > gp.x0 - 30 && px < gp.x1 + 30);
+      let gy = g ? g.y : gap ? gap.gy : cam.gy != null ? cam.gy : py;
+      if (sk.state === 'grind' || sk.state === 'ground') gy = py + (sk.state === 'grind' ? 40 : 0);
+      return { px, py, gy };
+    }
+    function updateCamera(dt) {
+      const sk = run.sk, cam = run.cam;
+      const { px, py, gy } = camTarget();
+      cam.gy = cam.gy == null ? gy : cam.gy + (gy - cam.gy) * Math.min(1, dt * 5);
+      // zoom out a bit when high above the ground
+      const height = Math.max(0, cam.gy - py);
+      const zt = clamp(1 - (height - 230) / 900, 0.7, 1);
+      cam.zk += (zt - cam.zk) * Math.min(1, dt * 2.5);
+      const v = worldView();
+      const lead = v.w * 0.3 - clamp((sk.v - CRUISE) * 0.4, -40, 60);
+      const tx = px - lead;
+      // ground sits about two thirds of the way down, but the skater never leaves the top of the screen
+      let ty = cam.gy - v.h * (PORTRAIT ? 0.7 : 0.66);
+      if (py - ty < v.h * 0.18) ty = py - v.h * 0.18;
+      cam.x += (tx - cam.x) * Math.min(1, dt * 6);
+      cam.y += (ty - cam.y) * Math.min(1, dt * (sk.state === 'air' ? 3 : 5));
+      // never let the skater slide up under the score bar
+      cam.y = Math.min(cam.y, py - 90 - (PORTRAIT ? 140 : 70) / camZ());
+    }
     function hazardHit(x, feetY, top) {
       const sk = run.sk;
       if (sk.inv > 0) return null;
@@ -951,12 +1108,13 @@
 
     function updateGround(dt) {
       const sk = run.sk;
-      const target = input.right ? FAST : input.left ? SLOW : CRUISE;
+      const rocket = run.rocketT > 0;
+      const target = (input.right ? FAST : input.left ? SLOW : CRUISE) + (rocket ? 170 : 0);
       const q = surfY(sk.surf, sk.x) || { y: sk.y, slope: 0 };
       const ang = Math.atan(q.slope);
       sk.v += G * Math.sin(ang) * dt * (ang < 0 ? 0.22 : 0.5);
-      sk.v += (target - sk.v) * Math.min(1, dt * 2);
-      sk.v = clamp(sk.v, 160, MAXV);
+      sk.v += (target - sk.v) * Math.min(1, dt * (rocket ? 3 : 2));
+      sk.v = clamp(sk.v, 160, MAXV + (rocket ? 140 : 0));
       sk.push = input.right ? sk.push + dt : 0;
       const nx = sk.x + sk.v * Math.cos(ang) * dt;
       const q2 = surfY(sk.surf, nx);
@@ -1005,6 +1163,21 @@
       sk.x += sk.vx * dt;
       sk.y += sk.vy * dt;
       sk.ang += (clamp(sk.vy / 2400, -0.25, 0.3) - sk.ang) * Math.min(1, dt * 4);
+      // hop bonuses: clear an obstacle or a gap in the air and it joins your combo
+      for (const h of run.L.hazards) {
+        if (h.hopped || px >= h.x || sk.x < h.x || sk.y > h.gy - h.h) continue;
+        h.hopped = true; run.hops++;
+        comboAdd(`${HAZARD_NAME[h.kind] || 'Obstacle'} Hop`, 120);
+        const s = toScreen(h.x, h.gy - h.h - 40);
+        floatText(s.x, s.y, `${HAZARD_NAME[h.kind] || 'Obstacle'} Hop!`, '#9ef0ff', 17);
+      }
+      for (const gp of run.L.gaps) {
+        if (gp.hopped || px >= gp.x1 || sk.x < gp.x1 || sk.y > gp.gy + 6) continue;
+        gp.hopped = true; run.hops++;
+        comboAdd('Gap Jump', 100 + Math.round(gp.x1 - gp.x0));
+        const s = toScreen(gp.x1, gp.gy - 70);
+        floatText(s.x, s.y, 'Gap Jump!', '#9ef0ff', 18);
+      }
       sk.crouch += ((sk.grab ? 1 : sk.trick ? 0.7 : 0.25) - sk.crouch) * Math.min(1, dt * 10);
       // tricks
       if (sk.trick) {
@@ -1065,8 +1238,8 @@
       spawn(x);
       run.sk.v = CRUISE + 70;
       run.sk.inv = 1.3;
-      run.cam.x = x - 300;
-      run.cam.y = run.sk.y - 390;
+      run.cam.x = x - worldView().w * 0.3;
+      run.cam.y = run.sk.y - worldView().h * 0.66; run.cam.gy = run.sk.y;
     }
 
     function updateGrind(dt) {
@@ -1143,7 +1316,34 @@
       if (g.k === 'air') return `Stay in the air for ${g.n} seconds`;
       return '';
     }
+    function finishFree() {
+      mode = 'results';
+      rollSound(0);
+      const score = run.score;
+      const got = run.def.goals.map(goalDone);
+      const prevBest = Number(save.freeBest) || 0;
+      save.freeBest = Math.max(prevBest, score);
+      save.freeRuns = (Number(save.freeRuns) || 0) + 1;
+      const coins = run.coins + Math.floor(score / 300);
+      save.coins += coins;
+      persist();
+      const spuds = Math.min(12, 1 + Math.floor(score / 3000));
+      Potato.earn(spuds);
+      $('r-title').textContent = score > prevBest && prevBest > 0 ? 'New record!' : "Time's up!";
+      [...$('r-stars').children].forEach((s, i) => { s.className = got[i] ? 'on' : ''; });
+      const stats = [['Score', fmt(score)], ['Best ever', fmt(save.freeBest)], ['Top multiplier', `${Math.max(1, run.bestMult)}x`], ['Coins', run.coins], ['Hops', run.hops], ['Bails', run.bails]];
+      $('r-stats').innerHTML = '';
+      for (const [k, v] of stats) { const d = document.createElement('div'); d.innerHTML = '<span></span><b></b>'; d.firstChild.textContent = k; d.lastChild.textContent = v; $('r-stats').appendChild(d); }
+      run.def.goals.forEach((g, i) => { const el = $(['r-n1', 'r-n2', 'r-n3'][i]); el.textContent = `${got[i] ? '★' : '☆'} ${goalText(g)}`; el.className = 'note ' + (got[i] ? 'good' : 'bad'); });
+      $('r-unlock').textContent = `+${coins} coins. ${score > prevBest ? 'That is your best Free Skate yet!' : `Your best is ${fmt(save.freeBest)}. One more go?`}`;
+      $('r-spuds').textContent = Potato.inHub && spuds > 0 ? `+${spuds} Spuds` : '';
+      $('r-next').hidden = true;
+      showOverlay('results');
+      if (got[2]) confetti();
+    }
+    function startFree() { startLevel(-1, makeFreeDef()); }
     function finishLevel() {
+      if (run.def.free) return finishFree();
       mode = 'results';
       rollSound(0);
       const li = run.li;
@@ -1225,7 +1425,13 @@
         $(p + '-stars').textContent = `${totalStars()} ★`;
       }
     }
-    function showTitle() { mode = 'title'; run = null; rollSound(0); setPills(); showOverlay('title'); }
+    function showTitle() {
+      mode = 'title'; run = null; rollSound(0); setPills();
+      const fb = $('t-free');
+      fb.disabled = !freeOpen();
+      fb.textContent = freeOpen() ? (save.freeBest ? `Free Skate (best ${fmt(save.freeBest)})` : 'Free Skate') : 'Free Skate 🔒 finish level 1';
+      showOverlay('title');
+    }
     function showMap() {
       mode = 'map';
       run = null;
@@ -1339,10 +1545,11 @@
     $('i-go').addEventListener('click', () => startLevel(introLevel));
     $('i-back').addEventListener('click', showMap);
     $('p-resume').addEventListener('click', () => pause(false));
-    $('p-restart').addEventListener('click', () => startLevel(run.li));
+    $('p-restart').addEventListener('click', () => (run && run.def.free ? startFree() : startLevel(run.li)));
     $('p-quit').addEventListener('click', showMap);
     $('r-next').addEventListener('click', () => showIntro(run.li + 1));
-    $('r-replay').addEventListener('click', () => startLevel(run.li));
+    $('r-replay').addEventListener('click', () => (run && run.def.free ? startFree() : startLevel(run.li)));
+    $('t-free').addEventListener('click', () => { audio(); sfx.click(); if (freeOpen()) startFree(); });
     $('r-map').addEventListener('click', showMap);
     $('r-shop').addEventListener('click', () => showShop('results'));
     $('s-back').addEventListener('click', () => {
@@ -1400,7 +1607,9 @@
 
     // Pointer: tap to jump, swipe in the air for tricks, hold in the air to grab
     let view = { s: 1, ox: 0, oy: 0 };
-    let touchGrab = false;
+    let touchGrab = false, touchUser = false;
+    // on phones the tutorial hints talk about taps and swipes instead of keys
+    const TOUCH_HINT = { "SPACE or TAP = OLLIE!": "TAP = OLLIE!", "IN THE AIR: ← or → = FLIP!": "IN THE AIR: SWIPE ← or → = FLIP!", "HOLD ↓ IN THE AIR = GRAB": "IN THE AIR: HOLD YOUR FINGER DOWN = GRAB", "CHAIN TRICKS = COMBO!": "CHAIN TRICKS = COMBO!" };
     let swipe = null;
     const BTN = { pause: { x: VW - 104, y: 12, w: 42, h: 36 }, mute: { x: VW - 54, y: 12, w: 42, h: 36 } };
     const toView = (e) => { const r = canvas.getBoundingClientRect(); return { x: (e.clientX - r.left - view.ox) / view.s, y: (e.clientY - r.top - view.oy) / view.s }; };
@@ -1413,6 +1622,7 @@
       if (inRect(p, BTN.mute)) { toggleMute(); return; }
       try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
       const sk = run.sk;
+      if (e.pointerType !== "mouse") touchUser = true;
       swipe = { x: p.x, y: p.y, t: performance.now(), used: false, wasAir: sk.state === 'air' && sk.coyote <= 0 };
       if (!swipe.wasAir) { input.jump = true; pressJump(); }
       else { touchGrab = true; setTimeout(() => { if (swipe && !swipe.used && touchGrab && run && run.sk.state === 'air') startGrab(); }, 140); }
@@ -1479,16 +1689,17 @@
       const vy = clamp(-cy * 0.08, -60, 80);
       if (lk.night) {
         const rnd = seeded(3);
-        for (let i = 0; i < 80; i++) { const x = ((rnd() * 2000 - cx * 0.02) % VW + VW) % VW, y = rnd() * 300; circle(x, y + vy * 0.3, rnd() * 1.5 + 0.4, `rgba(255,255,255,${0.4 + 0.4 * Math.sin(time * 2 + i)})`); }
-        circle(820, 90 + vy * 0.3, 34, '#fff7d6'); circle(806, 82 + vy * 0.3, 30, lk.sky[0]);
+        for (let i = 0; i < 120; i++) { const x = ((rnd() * 2000 - cx * 0.02) % VW + VW) % VW, y = rnd() * VH * 0.55; circle(x, y + vy * 0.3, rnd() * 1.5 + 0.4, `rgba(255,255,255,${0.4 + 0.4 * Math.sin(time * 2 + i)})`); }
+        circle(VW * 0.82, 90 + vy * 0.3, 34, '#fff7d6'); circle(VW * 0.82 - 14, 82 + vy * 0.3, 30, lk.sky[0]);
       } else if (park === 'roof') {
-        ctx.fillStyle = rad(760, 300 + vy * 0.3, 0, 260, [[0, 'rgba(255,240,180,0.9)'], [1, 'rgba(255,200,120,0)']]);
+        const sunY = VH * 0.5 + vy * 0.3;
+        ctx.fillStyle = rad(VW * 0.76, sunY, 0, 260, [[0, 'rgba(255,240,180,0.9)'], [1, 'rgba(255,200,120,0)']]);
         ctx.fillRect(0, 0, VW, VH);
-        circle(760, 300 + vy * 0.3, 54, '#fff1c2');
+        circle(VW * 0.76, sunY, 54, '#fff1c2');
       } else {
-        circle(820, 90 + vy * 0.3, 40, 'rgba(255,248,200,0.95)');
-        ctx.fillStyle = rad(820, 90 + vy * 0.3, 30, 140, [[0, 'rgba(255,250,210,0.5)'], [1, 'rgba(255,250,210,0)']]);
-        ctx.fillRect(600, 0, 400, 300);
+        circle(VW * 0.82, 90 + vy * 0.3, 40, 'rgba(255,248,200,0.95)');
+        ctx.fillStyle = rad(VW * 0.82, 90 + vy * 0.3, 30, 140, [[0, 'rgba(255,250,210,0.5)'], [1, 'rgba(255,250,210,0)']]);
+        ctx.fillRect(VW * 0.82 - 200, 0, 400, 300);
       }
       // clouds
       if (!lk.night) {
@@ -1516,7 +1727,7 @@
         ctx.closePath();
         ctx.fill();
       };
-      const baseY = 400 + vy;
+      const baseY = Math.round(VH * 0.66) + 10 + vy;
       if (park === 'school') {
         far(0.08, lk.far, baseY, 90, 'hill');
         far(0.2, lk.mid, baseY + 40, 60, 'hill');
@@ -1664,19 +1875,23 @@
           if (!started) { ctx.moveTo(px - cx, py - cy); started = true; } else ctx.lineTo(px - cx, py - cy);
         }
         ctx.lineJoin = 'round';
+        // the riding strip hangs BELOW the riding line, so its top edge is exactly where the wheels roll
+        // (it used to be centred on the line, which made wheels, hazards and props look sunk in)
+        ctx.save(); ctx.translate(0, 8);
         ctx.strokeStyle = lk.topLine; ctx.lineWidth = 16; ctx.stroke();
         ctx.strokeStyle = lk.top; ctx.lineWidth = 11; ctx.stroke();
-        ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2;
-        ctx.save(); ctx.translate(0, -4); ctx.stroke(); ctx.restore();
+        ctx.restore();
+        ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2;
+        ctx.save(); ctx.translate(0, 2); ctx.stroke(); ctx.restore();
         if (L.park === 'beach') {
           // boardwalk planks
           ctx.strokeStyle = 'rgba(80,45,15,0.5)'; ctx.lineWidth = 2;
           for (let k = Math.floor(Math.max(x0, p[0][0]) / 40); k < Math.min(x1, p[p.length - 1][0]) / 40; k++) {
             const q = surfY(s, k * 40); if (!q) continue;
-            ctx.beginPath(); ctx.moveTo(k * 40 - cx, q.y - cy - 5); ctx.lineTo(k * 40 - cx, q.y - cy + 6); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(k * 40 - cx, q.y - cy + 3); ctx.lineTo(k * 40 - cx, q.y - cy + 14); ctx.stroke();
           }
         } else if (L.park === 'neon') {
-          ctx.save(); ctx.shadowColor = '#ff4fd8'; ctx.shadowBlur = 10; ctx.strokeStyle = 'rgba(255,79,216,0.8)'; ctx.lineWidth = 2; ctx.translate(0, 7); ctx.beginPath();
+          ctx.save(); ctx.shadowColor = '#ff4fd8'; ctx.shadowBlur = 10; ctx.strokeStyle = 'rgba(255,79,216,0.8)'; ctx.lineWidth = 2; ctx.translate(0, 15); ctx.beginPath();
           started = false;
           for (let i = 0; i < p.length; i++) { const [px, py] = p[i]; if (i < p.length - 1 && p[i + 1][0] < x0) continue; if (i > 0 && p[i - 1][0] > x1) break; if (!started) { ctx.moveTo(px - cx, py - cy); started = true; } else ctx.lineTo(px - cx, py - cy); }
           ctx.stroke(); ctx.restore();
@@ -1700,10 +1915,12 @@
         if (st.x1 < x0 || st.x0 > x1) continue;
         ctx.fillStyle = lk.top;
         for (let i = 0; i < st.n; i++) {
+          // each step's top is exactly where the skater rides (see stepTopAt)
           const sx = st.x0 + i * st.sw - cx, sy = st.y0 + i * st.sh - cy;
-          ctx.fillStyle = lk.top; ctx.fillRect(sx, sy - 6, st.sw, st.sh + 6);
-          ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(sx, sy + st.sh - 4, st.sw, 4);
-          ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fillRect(sx, sy - 6, st.sw, 2);
+          ctx.fillStyle = lk.top; ctx.fillRect(sx, sy, st.sw + 0.5, st.sh + 16);
+          ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(sx, sy + st.sh - 3, st.sw + 0.5, 3);
+          ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(sx, sy, st.sw + 0.5, 2);
+          ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fillRect(sx + st.sw - 2, sy, 2, st.sh);
         }
       }
       // finish arch
@@ -1725,7 +1942,7 @@
         let gy = null;
         for (const s of L.surfaces) { if (s.kind !== 'ground') continue; const q = surfY(s, x); if (q && Math.abs(q.slope) < 0.05) gy = q.y; }
         if (gy == null) continue;
-        const sx = x - cx, sy = gy - cy - 6;
+        const sx = x - cx, sy = gy - cy + 2; // planted just behind the riding strip
         const kind = Math.floor(hash(k * 7 + 5) * 3);
         ctx.save();
         ctx.globalAlpha = 0.92;
@@ -1819,6 +2036,15 @@
           ellipse(sx, sy, w + 1.5, 13, '#b8860b');
           ellipse(sx, sy, w, 11.5, '#ffd43b');
           ellipse(sx - w * 0.3, sy - 3, w * 0.3, 4, 'rgba(255,255,255,0.7)');
+        } else if (p.kind === 'power') {
+          const pw = POWERS[p.p];
+          ctx.save();
+          ctx.fillStyle = rad(sx, sy, 4, 40, [[0, rgba(pw.color, 0.5)], [1, rgba(pw.color, 0)]]); ctx.beginPath(); ctx.arc(sx, sy, 40, 0, TAU); ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.strokeStyle = pw.color; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.arc(sx, sy, 24 + Math.sin(p.t * 4) * 1.5, 0, TAU); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.ellipse(sx - 9, sy - 11, 7, 4, -0.6, 0, TAU); ctx.fill();
+          ctx.font = '26px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff'; ctx.fillText(pw.ico, sx, sy + 1);
+          ctx.restore();
         } else {
           ctx.save();
           ctx.shadowColor = '#7cf05a'; ctx.shadowBlur = 18;
@@ -1865,6 +2091,21 @@
         ctx.fillStyle = '#4dabf7'; ctx.beginPath(); ctx.arc(x - 8, y - r - 8, 8, 0, TAU); ctx.fill();
         ctx.restore();
         ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y - r, r, 0, TAU); ctx.stroke();
+      } else if (h.kind === 'rccar') {
+        // a toy RC car zipping back and forth (it faces the way it drives)
+        ctx.save(); ctx.translate(x, y); ctx.scale(h.dir || -1, 1);
+        const bob = Math.abs(Math.sin(time * 18 + h.t)) * 1.2;
+        ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(0, 0, 24, 4, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#e03131'; rr(-20, -18 - bob, 40, 11, 5); ctx.fill();
+        ctx.fillStyle = '#ff6b6b'; rr(-10, -26 - bob, 20, 9, 4); ctx.fill();
+        ctx.fillStyle = '#a5d8ff'; rr(-6, -24 - bob, 12, 6, 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(40,10,10,0.6)'; ctx.lineWidth = 1.5; rr(-20, -18 - bob, 40, 11, 5); ctx.stroke();
+        for (const wx of [-12, 12]) { circle(wx, -6, 6.5, '#212529'); circle(wx, -6, 2.6, '#adb5bd'); }
+        ctx.strokeStyle = '#495057'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(-14, -26 - bob); ctx.lineTo(-18, -42 - bob); ctx.stroke();
+        circle(-18, -43 - bob, 2.2, Math.sin(time * 8) > 0 ? '#ffd43b' : '#fab005');
+        circle(19, -13 - bob, 2, '#fff3bf');
+        ctx.restore();
+        return;
       } else if (h.kind === 'vent') {
         ctx.fillStyle = lin(x - 22, 0, x + 22, 0, [[0, '#868e96'], [0.5, '#dee2e6'], [1, '#868e96']]);
         ctx.fillRect(x - 20, y - 26, 40, 26);
@@ -1936,6 +2177,7 @@
       c2.beginPath(); if (c2.roundRect) c2.roundRect(x, y, w, h, h / 2); else c2.rect(x, y, w, h); c2.stroke();
     }
 
+    const WHEEL_DROP = 10.5; // board centre is 4 above the feet, wheels hang 14.5 below the board centre
     function limb(x0, y0, x1, y1, len1, len2, bendDir, color, width) {
       // two-bone limb with a simple knee/elbow solve
       const dx = x1 - x0, dy = y1 - y0;
@@ -1946,8 +2188,12 @@
       const cosA = clamp((len1 * len1 + d * d - len2 * len2) / (2 * len1 * d || 1), -1, 1);
       const ang = a + bendDir * Math.acos(cosA);
       const kx = x0 + Math.cos(ang) * len1, ky = y0 + Math.sin(ang) * len1;
-      ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(kx, ky); ctx.lineTo(x1, y1); ctx.stroke();
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(kx, ky); ctx.lineTo(x1, y1);
+      ctx.strokeStyle = 'rgba(20,18,40,0.55)'; ctx.lineWidth = width + 2.6; ctx.stroke(); // cartoon outline
+      ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = Math.max(1, width * 0.3);
+      ctx.beginPath(); ctx.moveTo(x0 - 1, y0 - 1); ctx.lineTo(kx - 1, ky - 1); ctx.stroke();
       return { kx, ky, x1, y1 };
     }
     // Draws the skater with feet at (0,0) facing right. pose: { crouch, arms, grab, flip, lift, spin }
@@ -1955,6 +2201,8 @@
       const cr = clamp(pose.crouch || 0, 0, 1);
       const lift = pose.lift || 0;
       ctx.save();
+      // (0,0) is where the wheels touch: lift everything so the bottom of the wheels sits exactly there
+      if (!pose.noBoard) ctx.translate(0, -WHEEL_DROP);
       const sp = pose.spin || 0;
       const sx = Math.cos(sp);
       ctx.scale(Math.abs(sx) < 0.15 ? 0.15 * Math.sign(sx || 1) : sx, 1);
@@ -1989,8 +2237,11 @@
       ctx.fillStyle = o.shirt;
       ctx.beginPath();
       ctx.moveTo(hipX - 7, hipY + 2); ctx.lineTo(hipX + 7, hipY + 2); ctx.lineTo(shX + 7, shY + 2); ctx.lineTo(shX - 7, shY - 1); ctx.closePath();
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 11.5; ctx.strokeStyle = 'rgba(20,18,40,0.55)'; ctx.stroke();
       ctx.fill();
-      ctx.lineWidth = 9; ctx.strokeStyle = o.shirt; ctx.lineJoin = 'round'; ctx.stroke();
+      ctx.lineWidth = 9; ctx.strokeStyle = o.shirt; ctx.stroke();
+      ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.beginPath(); ctx.moveTo(hipX - 2, hipY + 2); ctx.lineTo(hipX + 7, hipY + 2); ctx.lineTo(shX + 7, shY + 2); ctx.lineTo(shX + 1, shY); ctx.closePath(); ctx.fill();
       if (o.star) { ctx.fillStyle = '#ffd43b'; star(shX - 1, shY + 10, 5); }
       if (o.patch) { circle(shX + 1, shY + 8, 4, '#1c7ed6'); circle(shX + 1, shY + 8, 2, '#fff'); }
       if (o.robot) { ctx.fillStyle = '#495057'; ctx.fillRect(shX - 4, shY + 6, 8, 6); circle(shX - 1, shY + 9, 1.5, '#69db7c'); }
@@ -2085,13 +2336,19 @@
         return;
       }
       if (sk.inv > 0 && Math.floor(sk.inv * 12) % 2 === 0) ctx.globalAlpha = 0.5;
-      const x = sk.x - run.cam.x, y = sk.y - run.cam.y;
+      const x = sk.x - run.cam.x;
+      let y = sk.y - run.cam.y, rideAng = sk.ang;
+      // going down stairs, the board rests on the step edges (noses) instead of sinking into the steps
+      if (sk.state === 'ground') {
+        const st = run.L.stairs.find((s) => sk.x >= s.x0 && sk.x < s.x1);
+        if (st) y -= st.sh * clamp((sk.x - st.x0) / st.sw, 0, 1) * clamp((st.x1 - sk.x) / st.sw, 0, 1);
+      }
       // shadow on the ground below
       const g = groundBelow(sk.x, sk.y - 2);
       if (g) {
         const d = g.y - sk.y;
         const a = clamp(0.3 - d / 1200, 0.06, 0.3);
-        ellipse(x, g.y - run.cam.y + 2, clamp(30 - d / 20, 10, 30), 5, `rgba(0,0,0,${a})`);
+        ellipse(x, (sk.state === "ground" ? y : g.y - run.cam.y) + 2, clamp(30 - d / 20, 10, 30), 5, `rgba(0,0,0,${a})`);
       }
       const pose = { crouch: sk.crouch, air: sk.state === 'air', grab: !!sk.grab };
       if (sk.trick) {
@@ -2099,13 +2356,28 @@
         if (def.flip) { pose.flip = k * TAU * def.turns * def.flip; pose.lift = Math.sin(k * Math.PI) * 14; }
         if (def.spin) pose.spin = k * TAU;
       }
+      // speed lines when you're really flying along
+      const spd = sk.state === 'air' ? Math.abs(sk.vx) : sk.v;
+      if (spd > 470 || run.rocketT > 0) {
+        const k = clamp((spd - 430) / 250, 0.3, 1);
+        ctx.strokeStyle = `rgba(255,255,255,${0.35 * k})`; ctx.lineWidth = 2; ctx.lineCap = 'round';
+        for (let i = 0; i < 6; i++) {
+          const yy = y - 12 - ((i * 37 + Math.floor(run.t * 30) * 13) % 90), len = 40 + ((i * 53) % 50);
+          const xx = x - 50 - ((run.t * 900 + i * 71) % 160);
+          ctx.beginPath(); ctx.moveTo(xx, yy); ctx.lineTo(xx - len, yy); ctx.stroke();
+        }
+      }
+      // special mode glow and rocket flames
+      if (run.specialT > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = rad(x, y - 40, 5, 70, [[0, 'rgba(255,215,90,0.45)'], [1, 'rgba(255,215,90,0)']]); ctx.beginPath(); ctx.arc(x, y - 40, 70, 0, TAU); ctx.fill(); ctx.restore(); }
+      if (run.shield) { ctx.save(); ctx.strokeStyle = `rgba(120,220,255,${0.55 + 0.25 * Math.sin(time * 6)})`; ctx.lineWidth = 3; ctx.fillStyle = 'rgba(120,220,255,0.12)'; ctx.beginPath(); ctx.ellipse(x, y - 42, 42, 54, 0, 0, TAU); ctx.fill(); ctx.stroke(); ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.ellipse(x - 16, y - 76, 9, 5, -0.6, 0, TAU); ctx.fill(); ctx.restore(); }
       ctx.save();
       ctx.translate(x, y);
-      ctx.rotate(sk.ang);
+      ctx.rotate(rideAng);
       ctx.scale(1.2, 1.2);
       if (sk.state === 'grind') {
+        // trucks rest on top of the rail (rails are drawn 8 thick, centred on the rail line)
         ctx.rotate(sk.bal * 0.35);
-        ctx.translate(0, 4);
+        ctx.translate(0, 4.6);
       }
       drawSkater(o, b, pose, time);
       ctx.restore();
@@ -2126,31 +2398,63 @@
     // ---------------- HUD ----------------
     function drawHud(time) {
       const r = run;
-      // score
-      ctx.fillStyle = 'rgba(15,20,36,0.7)'; rr(12, 12, 220, 50, 14); ctx.fill();
-      label('SCORE', 26, 28, 11, '#a3acd0', 'left', 900);
-      label(fmt(r.score), 26, 47, 24, '#fff', 'left', 700, 'Fredoka');
-      // letters
-      const lx = 248;
-      ctx.fillStyle = 'rgba(15,20,36,0.7)'; rr(lx, 12, 196, 50, 14); ctx.fill();
-      'SKATE'.split('').forEach((ch, i) => {
-        const got = r.letters[ch];
-        const cx = lx + 22 + i * 38, cy = 37;
-        circle(cx, cy, 15, got ? '#7cf05a' : 'rgba(255,255,255,0.1)');
-        label(ch, cx, cy + 1, 18, got ? '#13400a' : 'rgba(255,255,255,0.35)', 'center', 700, 'Fredoka');
-      });
+      const P = PORTRAIT;
+      const panel = (x, y, w, h) => { ctx.fillStyle = 'rgba(15,20,36,0.72)'; rr(x, y, w, h, 14); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1.5; ctx.stroke(); };
+      // score (with the SPECIAL meter under it)
+      panel(12, 12, 220, 50);
+      label('SCORE', 26, 26, 11, '#a3acd0', 'left', 900);
+      label(fmt(r.score), 26, 44, 24, '#fff', 'left', 700, 'Fredoka');
+      const spk = r.specialT > 0 ? r.specialT / SPECIAL_TIME : r.special;
+      ctx.fillStyle = 'rgba(255,255,255,0.12)'; rr(120, 22, 100, 10, 5); ctx.fill();
+      ctx.fillStyle = r.specialT > 0 ? `hsl(${(time * 300) % 360},90%,60%)` : spk >= 1 ? '#ffd43b' : lin(120, 0, 220, 0, [[0, '#ffb020'], [1, '#ffd43b']]);
+      rr(120, 22, 100 * clamp(spk, 0, 1), 10, 5); ctx.fill();
+      label(r.specialT > 0 ? 'SPECIAL!' : 'SPECIAL', 170, 44, 11, r.specialT > 0 ? '#ffd43b' : '#a3acd0', 'center', 900);
+      // letters (free skate shows the clock instead)
+      const lx = P ? 12 : 248, ly = P ? 70 : 12;
+      panel(lx, ly, 196, 50);
+      if (r.def.free) {
+        const left = Math.max(0, FREE_TIME - r.t);
+        label('TIME', lx + 16, ly + 25, 11, '#a3acd0', 'left', 900);
+        label(`${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`, lx + 60, ly + 26, 26, left < 10 ? '#ff6b6b' : '#fff', 'left', 700, 'Fredoka');
+        label(`Best ${fmt(save.freeBest || 0)}`, lx + 184, ly + 26, 12, '#ffd43b', 'right', 900);
+      } else {
+        'SKATE'.split('').forEach((ch, i) => {
+          const got = r.letters[ch];
+          const cx = lx + 22 + i * 38, cy = ly + 25;
+          circle(cx, cy, 15, got ? '#7cf05a' : 'rgba(255,255,255,0.1)');
+          label(ch, cx, cy + 1, 18, got ? '#13400a' : 'rgba(255,255,255,0.35)', 'center', 700, 'Fredoka');
+        });
+      }
       // coins
-      ctx.fillStyle = 'rgba(15,20,36,0.7)'; rr(460, 12, 96, 50, 14); ctx.fill();
-      ellipse(484, 37, 10, 11, '#ffd43b'); ellipse(481, 34, 3, 4, 'rgba(255,255,255,0.7)');
-      label(String(r.coins), 502, 38, 20, '#ffd43b', 'left', 700, 'Fredoka');
+      const cxp = P ? 244 : 460;
+      panel(cxp, 12, 96, 50);
+      ellipse(cxp + 24, 37, 10, 11, '#ffd43b'); ellipse(cxp + 21, 34, 3, 4, 'rgba(255,255,255,0.7)');
+      label(String(r.coins), cxp + 42, 38, 20, '#ffd43b', 'left', 700, 'Fredoka');
+      // power-ups you are carrying
+      let pux = P ? cxp + 106 : 572, puy = 12;
+      const pus = [];
+      if (r.shield) pus.push(['🛡️', 'Shield', 1]);
+      if (r.magnetT > 0) pus.push(['🧲', `${Math.ceil(r.magnetT)}s`, r.magnetT / MAGNET_TIME]);
+      if (r.rocketT > 0) pus.push(['🚀', `${Math.ceil(r.rocketT)}s`, r.rocketT / ROCKET_TIME]);
+      if (P && pus.length) { pux = 220; puy = 70; }
       // progress to the finish
-      const pk = clamp((r.sk.x + 300) / (r.L.finishX + 300), 0, 1);
-      ctx.fillStyle = 'rgba(15,20,36,0.7)'; rr(572, 12, 300, 50, 14); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(590, 32, 240, 10, 5); ctx.fill();
-      ctx.fillStyle = lin(590, 0, 830, 0, [[0, '#ffb020'], [1, '#7cf05a']]); rr(590, 32, 240 * pk, 10, 5); ctx.fill();
-      for (let i = 0; i < 6; i++) { ctx.fillStyle = i % 2 ? '#fff' : '#212529'; ctx.fillRect(838, 26 + i * 4, 4, 4); ctx.fillStyle = i % 2 ? '#212529' : '#fff'; ctx.fillRect(842, 26 + i * 4, 4, 4); }
-      circle(590 + 240 * pk, 37, 8, '#fff');
-      label('🛹', 590 + 240 * pk, 37, 10, '#000');
+      const px0 = P ? 220 : 572 + pus.length * 58, pw = P ? VW - 232 : Math.max(180, VW - 128 - px0 - 16);
+      const py0 = P ? (pus.length ? 128 : 70) : 12;
+      const pk = r.def.free ? clamp(r.t / FREE_TIME, 0, 1) : clamp((r.sk.x + 300) / (r.L.finishX + 300), 0, 1);
+      panel(px0, py0, pw, 50);
+      const bx0 = px0 + 18, bw = pw - 60;
+      ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(bx0, py0 + 20, bw, 10, 5); ctx.fill();
+      ctx.fillStyle = lin(bx0, 0, bx0 + bw, 0, [[0, '#ffb020'], [1, '#7cf05a']]); rr(bx0, py0 + 20, bw * pk, 10, 5); ctx.fill();
+      for (let i = 0; i < 6; i++) { ctx.fillStyle = i % 2 ? '#fff' : '#212529'; ctx.fillRect(bx0 + bw + 8, py0 + 14 + i * 4, 4, 4); ctx.fillStyle = i % 2 ? '#212529' : '#fff'; ctx.fillRect(bx0 + bw + 12, py0 + 14 + i * 4, 4, 4); }
+      circle(bx0 + bw * pk, py0 + 25, 8, '#fff');
+      label('🛹', bx0 + bw * pk, py0 + 25, 10, '#000');
+      pus.forEach(([ico, txt, k], i) => {
+        const x = pux + i * 58;
+        panel(x, puy, 52, 50);
+        ctx.font = '22px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(ico, x + 26, puy + 21);
+        label(txt, x + 26, puy + 41, 10, '#fff', 'center', 900);
+        ctx.fillStyle = '#7cf05a'; rr(x + 6, puy + 46, 40 * clamp(k, 0, 1), 3, 1.5); ctx.fill();
+      });
       // buttons
       for (const [k, b] of Object.entries(BTN)) {
         ctx.fillStyle = 'rgba(15,20,36,0.7)'; rr(b.x, b.y, b.w, b.h, 10); ctx.fill();
@@ -2169,7 +2473,7 @@
       // the combo
       const c = r.combo;
       if (c && (c.pts > 50 || c.mult > 0)) {
-        const y = 96;
+        const y = PORTRAIT ? (r.shield || r.magnetT > 0 || r.rocketT > 0 ? 214 : 156) : 96;
         const total = Math.round(c.pts * Math.max(1, c.mult));
         const mult = Math.max(1, c.mult);
         outlined(`${fmt(c.pts)} × ${mult}`, VW / 2, y, 30 + Math.min(14, mult * 2), mult >= 5 ? '#ffd43b' : '#fff', 'rgba(15,20,36,0.85)', 7);
@@ -2195,7 +2499,7 @@
         const bn = r.banner;
         const a = Math.min(1, bn.t * 5, (2.4 - bn.t) * 3);
         const sc = bn.t < 0.2 ? 0.5 + bn.t * 2.5 : 1;
-        ctx.save(); ctx.globalAlpha = Math.max(0, a); ctx.translate(VW / 2, 230); ctx.scale(sc, sc); ctx.rotate(-0.04);
+        ctx.save(); ctx.globalAlpha = Math.max(0, a); ctx.translate(VW / 2, PORTRAIT ? VH * 0.36 : 230); ctx.scale(sc, sc); ctx.rotate(-0.04);
         outlined(bn.title, 0, 0, 58, bn.color, 'rgba(15,20,36,0.9)', 10);
         if (bn.sub) outlined(bn.sub, 0, 44, 20, '#fff', 'rgba(15,20,36,0.9)', 6);
         ctx.restore();
@@ -2227,12 +2531,18 @@
     // Frame
     // =====================================================================
     let W = 0, H = 0, dpr = 1;
+    // The view used to be a fixed 1000x600 box with black bars (and tiny on phones). Now it takes the
+    // window's shape; on tall phone screens the world is zoomed out so you can still see what's coming.
     function resize() {
       dpr = Math.min(2, window.devicePixelRatio || 1);
-      W = window.innerWidth; H = window.innerHeight;
+      W = Math.max(1, window.innerWidth); H = Math.max(1, window.innerHeight);
       canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+      const asp = W / H;
+      if (asp >= 1.1) { PORTRAIT = false; VW = clamp(Math.round(600 * asp), 1000, 1400); VH = Math.max(600, Math.round(VW / asp)); ZBASE = 1; }
+      else { PORTRAIT = true; VW = 600; VH = clamp(Math.round(600 / asp), 600, 1400); ZBASE = VW / 700; }
       const s = Math.min(W / VW, H / VH);
       view = { s, ox: (W - VW * s) / 2, oy: (H - VH * s) / 2 };
+      BTN.pause.x = VW - 104; BTN.mute.x = VW - 54;
     }
     window.addEventListener('resize', resize);
     resize();
@@ -2248,35 +2558,45 @@
       ctx.beginPath(); ctx.rect(0, 0, VW, VH); ctx.clip();
       if (run) {
         const cx = run.cam.x, cy = run.cam.y;
-        drawBackground(run.L.park, cx, cy, time);
-        drawDecor(run.L, cx, cy, time);
-        drawTrack(run.L, cx, cy, time);
-        drawProps(run.L, cx, cy, time);
-        drawPlayer(time);
-        for (const p of run.parts) {
-          ctx.globalAlpha = clamp(p.life * 2, 0, 1);
-          const x = p.x - cx, y = p.y - cy;
-          if (p.puff) circle(x, y, p.size * (1.5 - p.life), p.color);
-          else if (p.star) { ctx.fillStyle = p.color; star(x, y, p.size + 2); }
-          else { ctx.fillStyle = p.color; ctx.fillRect(x - p.size / 2, y - p.size / 2, p.size, p.size); }
-        }
-        ctx.globalAlpha = 1;
-        for (const f of run.floats) { ctx.globalAlpha = clamp(f.life * 2, 0, 1); outlined(f.text, f.x, f.y, f.size, f.color); }
-        ctx.globalAlpha = 1;
+        // the world is drawn zoomed (VW/VH temporarily become the size of the visible piece of world)
+        const Z = camZ(), SVW = VW, SVH = VH;
+        ctx.save();
+        ctx.scale(Z, Z);
+        VW = SVW / Z; VH = SVH / Z;
+        try {
+          drawBackground(run.L.park, cx, cy, time);
+          drawDecor(run.L, cx, cy, time);
+          drawTrack(run.L, cx, cy, time);
+          drawProps(run.L, cx, cy, time);
+          drawPlayer(time);
+          for (const p of run.parts) {
+            ctx.globalAlpha = clamp(p.life * 2, 0, 1);
+            const x = p.x - cx, y = p.y - cy;
+            if (p.puff) circle(x, y, p.size * (1.5 - p.life), p.color);
+            else if (p.star) { ctx.fillStyle = p.color; star(x, y, p.size + 2); }
+            else if (p.glow) { ctx.globalCompositeOperation = 'lighter'; circle(x, y, p.size * clamp(p.life * 2, 0.3, 1), p.color); ctx.globalCompositeOperation = 'source-over'; }
+            else { ctx.fillStyle = p.color; ctx.fillRect(x - p.size / 2, y - p.size / 2, p.size, p.size); }
+          }
+          ctx.globalAlpha = 1;
+          for (const f of run.floats) { ctx.globalAlpha = clamp(f.life * 2, 0, 1); outlined(f.text, f.x, f.y, f.size, f.color); }
+          ctx.globalAlpha = 1;
+        } finally { VW = SVW; VH = SVH; ctx.restore(); }
         if (mode === 'play' || mode === 'paused') drawHud(time);
       } else {
         demoT = time;
         const park = PARKS[Math.floor(time / 8) % PARKS.length].id;
         const cx = time * 120;
-        drawBackground(park, cx, -380, time);
+        const gyD = Math.round(VH * 0.77);
+        drawBackground(park, cx, -380 + (gyD - 462), time);
         const lk = LOOK[park];
-        ctx.fillStyle = lin(0, 470, 0, VH, [[0, lk.fill[0]], [1, lk.fill[1]]]); ctx.fillRect(0, 470, VW, VH);
-        ctx.fillStyle = lk.topLine; ctx.fillRect(0, 462, VW, 14);
-        ctx.fillStyle = lk.top; ctx.fillRect(0, 464, VW, 9);
+        ctx.fillStyle = lin(0, gyD, 0, VH, [[0, lk.fill[0]], [1, lk.fill[1]]]); ctx.fillRect(0, gyD, VW, VH);
+        ctx.fillStyle = lk.topLine; ctx.fillRect(0, gyD, VW, 16);
+        ctx.fillStyle = lk.top; ctx.fillRect(0, gyD + 2.5, VW, 11);
+        ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(0, gyD + 3, VW, 2);
         const o = OUTFIT[save.outfit], b = BOARD[save.board];
         const ph = (time * 0.9) % 1;
         const jump = Math.max(0, Math.sin(ph * Math.PI)) * 120;
-        ctx.save(); ctx.translate(((time * 140) % (VW + 200)) - 100, 466 - jump);
+        ctx.save(); ctx.translate(((time * 140) % (VW + 200)) - 100, gyD - jump);
         drawSkater(o, b, { crouch: jump > 2 ? 0.6 : 0.2, air: jump > 2, flip: jump > 2 ? ph * TAU : 0, lift: Math.sin(ph * Math.PI) * 12 }, time);
         ctx.restore();
         ctx.fillStyle = 'rgba(10,14,28,0.35)'; ctx.fillRect(0, 0, VW, VH);
@@ -2394,12 +2714,32 @@
       const s = params.get('shot');
       if (params.get('outfit')) save.outfit = params.get('outfit');
       if (params.get('board')) save.board = params.get('board');
-      if (s === 'play') {
+      if (s === 'play' || s === 'free') {
         const li = Number(params.get('i')) || 0;
-        startLevel(li);
+        if (s === 'free') { save.done[0] = true; startFree(); } else startLevel(li);
+        if (params.has('shield')) run.shield = true;
+        if (params.has('rocket')) run.rocketT = ROCKET_TIME;
+        if (params.has('magnet')) run.magnetT = MAGNET_TIME;
+        if (params.has('special')) run.specialT = SPECIAL_TIME;
+        if (params.has('meter')) run.special = Number(params.get('meter'));
+        if (params.get('outfit')) run.outfit = OUTFIT[params.get('outfit')];
         bot.on = true; bot.style = 'good';
         const secs = Number(params.get('t')) || 3;
-        for (let i = 0; i < secs * 60 && mode === 'play'; i++) { botStep(); update(1 / 60); }
+        if (params.get('at') === 'stairs' && run.L.stairs.length) {
+          const st = run.L.stairs[0];
+          spawn(st.x0 - 90); run.sk.inv = 0;
+          const v = worldView(); run.cam.x = run.sk.x - v.w * 0.3; run.cam.y = run.sk.y - v.h * 0.66; run.cam.gy = run.sk.y;
+          bot.on = false;
+          for (let i = 0; i < Number(params.get('f') || 30); i++) update(1 / 60);
+          mode = 'paused';
+        }
+        const until = params.get('until');
+        let hold = 0;
+        for (let i = 0; i < secs * 60 && mode === 'play'; i++) {
+          botStep(); update(1 / 60);
+          const st = run.sk.state, onStairs = st === 'ground' && run.L.stairs.some((q) => run.sk.x > q.x0 + 40 && run.sk.x < q.x1);
+          if (until && i > 30 && ((until === 'grind' && st === 'grind') || (until === 'stairs' && onStairs) || (until === 'air' && st === 'air' && run.sk.airT > 0.3) || (until === 'kicker' && st === 'ground' && run.L.kickers.some((k) => run.sk.x > k.x0 + 30 && run.sk.x < k.x1)))) { if (++hold > Number(params.get('hold') || 8)) break; }
+        }
         bot.on = false;
         if (params.has('freeze')) mode = 'paused';
       }

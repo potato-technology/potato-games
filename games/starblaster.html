@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Star Blaster – Space Shooter | Potato Games</title>
-  <meta name="description" content="Pilot a star fighter through 3 galaxies! Blast swooping alien squadrons, dodge asteroid fields, grab spread shots and lasers, and defeat giant multi-part bosses. Earn crystals for new ships and upgrades. A free space shooter game on Potato.">
+  <meta name="description" content="Pilot a star fighter through 3 galaxies! Blast swooping alien squadrons, dodge asteroid fields, grab spread shots, lasers and wingman drones, unleash Overdrive, and defeat giant multi-part bosses. Earn crystals for new ships and upgrades. A free space shooter game on Potato.">
   <link rel="icon" href="starblaster-icon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
@@ -111,6 +111,7 @@
     .up .bars i s { display: block; height: 100%; background: linear-gradient(90deg, #4cc3f5, #c58aff); }
     .up button { align-self: flex-start; padding: 7px 16px; font-size: 15px; }
     .up.owned { border-color: rgba(106,215,255,0.6); }
+    @media (max-height: 640px) { .logo { font-size: 46px; } .how { font-size: 13.5px; line-height: 1.35; margin-bottom: 12px; } .how li { padding: 2px 0 2px 26px; } .card { padding: 18px 20px; } }
     .confetti { position: fixed; top: -12px; width: 10px; height: 14px; border-radius: 2px; pointer-events: none; animation: fall linear forwards; z-index: 50; }
     @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
   </style>
@@ -125,10 +126,10 @@
       <ul class="how">
         <li><b>Fly</b> with the mouse, by dragging your finger, or with <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> / arrow keys.</li>
         <li>Your ship <b>fires by itself</b>. Like pressing buttons? Turn auto-fire off and hold <kbd>Space</kbd>.</li>
-        <li>Press <kbd>B</kbd> or <b>right-click</b> for a <b>bomb</b> that wipes away every enemy bullet.</li>
-        <li>Grab <b>power-ups</b>: <b style="color:#7dffb0">S</b> spread shot, <b style="color:#7ad7ff">L</b> laser, shields, magnets and bombs.</li>
+        <li>Press <kbd>B</kbd> or <b>right-click</b> for a <b>bomb</b> that wipes away every enemy bullet. <kbd>P</kbd> pauses, <kbd>M</kbd> mutes.</li>
+        <li>Grab <b>power-ups</b>: <b style="color:#7dffb0">S</b> spread, <b style="color:#7ad7ff">L</b> laser, shields, magnets, bombs and golden <b>wingman drones</b> that block bullets for you.</li>
+        <li>Blasting enemies charges <b>Overdrive</b>: press <kbd>Shift</kbd> (or tap ⚡) for double fire and double points!</li>
         <li>Keep blasting without getting hit to grow your <b>chain</b> and score multiplier. Spend <b>crystals</b> in the Hangar.</li>
-        <li><kbd>P</kbd> or <kbd>Esc</kbd> pauses. <kbd>M</kbd> mutes.</li>
       </ul>
       <div class="row">
         <button class="btn" id="play-btn">Play</button>
@@ -229,7 +230,8 @@
     // =====================================================================
     // Tuning & data
     // =====================================================================
-    const VW = 540, VH = 800;          // the playfield (logical pixels)
+    const VW = 540;                    // the playfield width (logical pixels)
+    let VH = 800;                      // ...and height: 800, or taller (up to 1000) on phones held upright
     const TAU = Math.PI * 2;
     const PLAYER_HIT = 6;              // the ship's real hitbox is a tiny glowing dot
     const NUM_SECTORS = 12;
@@ -305,6 +307,7 @@
       magnet: { name: 'MAGNET', col: '#ff6a8a', dark: '#7a0a2a' },
       bomb: { name: 'BOMB', col: '#ffb43a', dark: '#7a3a00' },
       repair: { name: 'REPAIR', col: '#5fe0a0', dark: '#0a5a3a' },
+      drone: { name: 'WINGMAN', col: '#ffd43b', dark: '#7a5200' },
     };
 
     const $ = (id) => document.getElementById(id);
@@ -319,13 +322,14 @@
     // =====================================================================
     // Save
     // =====================================================================
-    const DEFAULT_SAVE = { unlocked: 1, stars: {}, best: {}, crystals: 0, ships: ['comet'], ship: 'comet', up: {}, surv: { time: 0, score: 0, wave: 0 }, muted: false, autofire: true, tut: false, boss: {} };
+    const DEFAULT_SAVE = { unlocked: 1, stars: {}, best: {}, crystals: 0, ships: ['comet'], ship: 'comet', up: {}, surv: { time: 0, score: 0, wave: 0 }, muted: false, autofire: true, tut: false, boss: {}, seen: {}, odTip: false };
     let save = Potato.load('save', null);
     if (!save || typeof save !== 'object') save = {};
     save = Object.assign({}, DEFAULT_SAVE, save);
     save.stars = save.stars && typeof save.stars === 'object' ? save.stars : {};
     save.best = save.best && typeof save.best === 'object' ? save.best : {};
     save.boss = save.boss && typeof save.boss === 'object' ? save.boss : {};
+    save.seen = save.seen && typeof save.seen === 'object' ? save.seen : {};
     save.up = Object.assign({ dmg: 0, rate: 0, hull: 0, shield: 0, magnet: 0, bombs: 0 }, save.up && typeof save.up === 'object' ? save.up : {});
     save.surv = Object.assign({ time: 0, score: 0, wave: 0 }, save.surv && typeof save.surv === 'object' ? save.surv : {});
     save.ships = Array.isArray(save.ships) ? save.ships : ['comet'];
@@ -416,6 +420,12 @@
       warp: () => { tone(200, 1.2, 'sawtooth', 0.04, 0, 1600); noise(1.2, 0.05, 1200, 0.2); },
       fanfare: () => [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, 0.18, 'triangle', 0.08, i * 0.11)),
       fail: () => [392, 330, 262, 196].forEach((f, i) => tone(f, 0.28, 'triangle', 0.07, i * 0.18)),
+      drop: () => ok('drop', 200) && tone(320, 0.12, 'triangle', 0.03, 0, -120),
+      beep: () => ok('beep', 120) && (tone(1400, 0.06, 'square', 0.03), tone(1400, 0.06, 'square', 0.03, 0.2), tone(1700, 0.08, 'square', 0.03, 0.4)),
+      ready: () => [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.12, 'square', 0.035, i * 0.06)),
+      overdrive: () => { tone(220, 0.9, 'sawtooth', 0.05, 0, 900); noise(0.8, 0.08, 2400, 0, 'bandpass'); [523, 784, 1047, 1568].forEach((f, i) => tone(f, 0.18, 'triangle', 0.06, 0.2 + i * 0.07)); },
+      droneLost: () => { tone(600, 0.25, 'square', 0.04, 0, -400); noise(0.2, 0.06, 1500); },
+      newFoe: () => [440, 554, 659].forEach((f, i) => tone(f, 0.16, 'triangle', 0.05, i * 0.09)),
     };
 
     // =====================================================================
@@ -441,6 +451,7 @@
         hp: maxHp, maxHp, inv: 0, shield: Math.min(4, S.shield + (save.up.shield > 0 ? 1 : 0)),
         bombs: 2 + save.up.bombs, wType: S.weapon, wLvl: S.lvl, fireT: 0.4, missT: 1, magnetT: 0,
         bank: 0, alive: true, entering: 1.1, shieldPop: 0, muzzle: 0, warpV: 0,
+        drones: [], od: 0, odT: 0,
       };
     }
 
@@ -474,7 +485,7 @@
     // =====================================================================
     // Sector scripts: a timeline of waves
     // =====================================================================
-    const WAVE_DUR = { line: 4.4, vee: 6, sweep: 4.2, cross: 5, zig: 4.6, darts: 4.6, tanks: 7.5, turrets: 6.5, rocks: 9, ring: 8, carrier: 3 };
+    const WAVE_DUR = { line: 4.4, vee: 6, sweep: 4.2, cross: 5, zig: 4.6, darts: 4.6, tanks: 7.5, turrets: 6.5, rocks: 9, ring: 8, carrier: 3, miner: 6.5, shielders: 7 };
     function sectorScript(n) {
       const out = [];
       let t = 3;
@@ -501,7 +512,8 @@
       const g = galaxyOf(n);
       const pool = ['line', 'line', 'vee', 'sweep', 'darts'];
       if (n >= 2) pool.push('turrets');
-      if (n >= 3) pool.push('tanks', 'zig');
+      if (n >= 3) pool.push('tanks', 'zig', 'miner');
+      if (n >= 5) pool.push('shielders');
       if (n >= 5) pool.push('cross', 'darts', 'vee');
       if (g === 1) pool.push('rocks', 'tanks');
       if (g === 2 || n >= 7) pool.push('ring', 'ring');
@@ -535,12 +547,18 @@
       rock: { hp: 12, r: 32, score: 120, cry: 4 },
       pebble: { hp: 3, r: 16, score: 50, cry: 1 },
       carrier: { hp: 16, r: 28, score: 800, cry: 18 },
+      miner: { hp: 20, r: 30, score: 700, cry: 10 },
+      mine: { hp: 3, r: 13, score: 120, cry: 2 },
+      shielder: { hp: 18, r: 24, score: 650, cry: 9 },
     };
     function spawn(type, o) {
       const T = ETYPES[type];
       const hp = T.hp * run.hpMul;
       const e = Object.assign({ type, id: ++uid, hp, maxHp: hp, r: T.r, x: VW / 2, y: -50, vx: 0, vy: 0, ang: 0, t: 0, flash: 0, fireT: rand(1.4, 3.2), canFire: true, group: null, carry: null, ai: 'drift', dead: false, gone: false, spin: 0 }, o || {});
       run.enemies.push(e);
+      // the first time you meet a new kind of enemy, a banner explains it
+      const NEW = { miner: ['Mine Layer!', 'Shoot its mines before they pop!'], shielder: ['Shield Bearer!', 'Hit it from the side, or wait for the shield to flicker off'] };
+      if (NEW[type] && !save.seen[type]) { save.seen[type] = 1; persist(); showBanner(NEW[type][0], NEW[type][1], '#7af0ff'); sfx.newFoe(); }
       return e;
     }
     function later(delay, fn) { if (run) run.timers.push({ t: delay, fn, run }); }
@@ -627,11 +645,29 @@
       } else if (w === 'carrier') {
         const m = !!a.mirror;
         spawn('carrier', { ai: 'carrier', x: m ? VW + 50 : -50, y: rand(110, 170), vx: m ? -70 : 70, carry: true, canFire: false });
+      } else if (w === 'miner') {
+        // a slow mine layer drifts across, dropping blinking space mines
+        const m = !!a.mirror;
+        spawn('miner', { ai: 'miner', x: m ? VW + 60 : -60, y: rand(110, 180), vx: (m ? -1 : 1) * (58 + d * 26), dropT: 0.9, carry: Math.random() < 0.6, canFire: false });
+      } else if (w === 'shielders') {
+        // shield bearers hold a glowing shield toward you; it flickers off to recharge
+        const count = a.count || (d > 0.75 ? 3 : 2);
+        for (let i = 0; i < count; i++) {
+          const x = clamp(((i + 0.5) / count) * VW + rand(-25, 25), 60, VW - 60);
+          later(i * 0.7, () => spawn('shielder', { ai: 'shielder', phase: 'in', x, y: -40, stopY: rand(120, 230), face: Math.PI / 2, shieldOn: true, shT: rand(2.4, 3.4), fireT: rand(1.6, 2.6), life: 12 }));
+        }
       }
+    }
+    // a mine goes off: a ring of bullets (shoot mines first and they just fizzle!)
+    function mineBurst(e) {
+      e.gone = true;
+      explode(e.x, e.y, 16, '#ff6a3a');
+      ringShot(e.x, e.y, 8, run.bulletSpeed * 0.62, Math.random(), { col: '#ff6a3a' });
+      sfx.pop();
     }
 
     // a few new enemies each wave in survival mode
-    const SURV_POOL = [['line', 0], ['vee', 0], ['sweep', 0], ['darts', 1], ['turrets', 2], ['tanks', 3], ['zig', 2], ['cross', 4], ['rocks', 3], ['ring', 5]];
+    const SURV_POOL = [['line', 0], ['vee', 0], ['sweep', 0], ['darts', 1], ['turrets', 2], ['tanks', 3], ['zig', 2], ['cross', 4], ['rocks', 3], ['ring', 5], ['miner', 3], ['shielders', 5]];
     function survivalTick(dt) {
       const r = run;
       if (r.boss || r.bossWarn > 0 || r.state !== 'fly') return;
@@ -798,6 +834,49 @@
         case 'carrier': {
           e.x += e.vx * dt; e.y += Math.sin(e.t * 2) * 12 * dt;
           if ((e.vx > 0 && e.x > VW + 70) || (e.vx < 0 && e.x < -70)) e.gone = true;
+          break;
+        }
+        case 'miner': {
+          e.x += e.vx * dt; e.y += Math.sin(e.t * 1.6) * 14 * dt;
+          e.dropT -= dt;
+          if (e.drop > 0) e.drop -= dt;
+          if (e.dropT <= 0 && e.x > 30 && e.x < VW - 30 && r.state === 'fly') {
+            e.dropT = 1.7 - d * 0.35;
+            e.drop = 0.3;
+            spawn('mine', { ai: 'mine', x: e.x, y: e.y + 20, vy: 90, arm: 0.9, canFire: false, t: 0 });
+            sfx.drop();
+          }
+          if ((e.vx > 0 && e.x > VW + 80) || (e.vx < 0 && e.x < -80)) e.gone = true;
+          break;
+        }
+        case 'mine': {
+          // mines sink to a hover height and bob there; after a while they fizzle out harmlessly
+          if (!e.hover) e.hover = rand(250, VH * 0.5);
+          e.vy = e.y < e.hover ? Math.max(30, e.vy - 60 * dt) : e.vy * Math.pow(0.05, dt);
+          e.y += e.vy * dt; e.x += Math.sin(e.t * 2 + e.id) * 12 * dt; e.ang += dt * 1.4;
+          if (e.t > 9 && !e.fuse) { e.gone = true; addPart({ type: 'glow', x: e.x, y: e.y, size: 40, life: 0.3, max: 0.3, col: '#ff9a6a' }); break; }
+          e.arm -= dt;
+          const dist = Math.hypot(r.p.x - e.x, r.p.y - e.y);
+          if (e.arm <= 0 && !e.fuse && r.p.alive && r.state === 'fly' && dist < 85) { e.fuse = 0.9; sfx.beep(); }
+          if (e.fuse) { e.fuse -= dt; if (e.fuse <= 0) mineBurst(e); }
+          break;
+        }
+        case 'shielder': {
+          if (e.phase === 'in') { e.y += (e.stopY - e.y) * Math.min(1, dt * 2.2) + 15 * dt; if (e.y >= e.stopY - 3) e.phase = 'hold'; }
+          else if (e.phase === 'hold') { e.x = clamp(e.x + Math.sin(e.t * 0.9 + e.id) * 55 * dt, 40, VW - 40); e.life -= dt; if (e.life <= 0) e.phase = 'out'; }
+          else e.y += 110 * dt;
+          const want = aimAt(e.x, e.y);
+          const da = ((want - e.face + Math.PI * 3) % TAU) - Math.PI;
+          e.face += clamp(da, -1.25 * dt, 1.25 * dt);
+          e.shT -= dt;
+          if (e.shFlash > 0) e.shFlash -= dt;
+          if (e.shT <= 0) {
+            e.shieldOn = !e.shieldOn;
+            e.shT = e.shieldOn ? 3.3 - d * 0.8 : 1.7;
+            if (!e.shieldOn) { addPart({ type: 'glow', x: e.x + Math.cos(e.face) * 30, y: e.y + Math.sin(e.face) * 30, size: 60, life: 0.3, max: 0.3, col: '#7af0ff' }); sfx.armor(); }
+          }
+          e.fireT -= dt;
+          if (e.fireT <= 0 && enemyMayFire(e)) { e.fireT = 2.8 - d * 0.5; fan(e.x + Math.cos(want) * 18, e.y + Math.sin(want) * 18, want, 3, 0.32, bs, {}); }
           break;
         }
         default: e.y += 80 * dt;
@@ -1034,7 +1113,7 @@
     const rateMul = () => shipDef().rate * (1 + 0.1 * save.up.rate);
 
     function firePlayer() {
-      const r = run, p = r.p, k = dmgMul();
+      const r = run, p = r.p, k = dmgMul() * (p.odT > 0 ? 1.3 : 1);
       if (p.wType === 'S') {
         for (const [dx, deg] of SPREAD[p.wLvl]) {
           const a = -Math.PI / 2 + (deg * Math.PI) / 180;
@@ -1106,14 +1185,45 @@
       p.vx = (p.x - ox) / dt; p.vy = (p.y - oy) / dt;
       p.bank = lerp(p.bank, clamp(p.vx / 520, -1, 1), Math.min(1, dt * 10));
       const firing = save.autofire || keys.Space || pointer.fire;
-      p.fireT -= dt;
+      p.fireT -= dt * (p.odT > 0 ? 1.9 : 1);
       if (firing && p.fireT <= 0 && r.state === 'fly') firePlayer();
       if (p.fireT < -0.1) p.fireT = 0;
-      if (p.wLvl >= 3 && firing && r.state === 'fly') {
+      if ((p.wLvl >= 3 || p.odT > 0) && firing && r.state === 'fly') {
         p.missT -= dt;
-        if (p.missT <= 0) { p.missT = [0, 0, 0, 1.1, 0.85, 0.65][p.wLvl]; fireMissiles(); }
+        if (p.missT <= 0) { p.missT = p.odT > 0 ? 0.5 : [0, 0, 0, 1.1, 0.85, 0.65][p.wLvl]; fireMissiles(); }
       }
+      // overdrive counts down
+      if (p.odT > 0) {
+        p.odT -= dt;
+        if (Math.random() < 0.7) addPart({ type: 'trail', x: p.x + rand(-22, 22), y: p.y + rand(-10, 30), vx: rand(-20, 20), vy: 260, size: 5, life: 0.3, max: 0.3, col: '#ffd43b' });
+        if (p.odT <= 0) float(p.x, p.y - 50, 'Overdrive over', '#ffe08a', 15);
+      }
+      // wingman drones follow on each side, fire along with you and soak up enemy bullets
+      p.drones.forEach((dr, i) => {
+        const tx = p.x + dr.side * 42, ty = p.y + 16 + Math.sin(r.time * 3 + i) * 5;
+        dr.x = lerp(dr.x, tx, Math.min(1, dt * 9)); dr.y = lerp(dr.y, ty, Math.min(1, dt * 9));
+        if (dr.flash > 0) dr.flash -= dt;
+        dr.fireT -= dt * (p.odT > 0 ? 1.9 : 1);
+        if (firing && dr.fireT <= 0 && r.state === 'fly') {
+          dr.fireT = 0.24 / rateMul();
+          r.pb.push({ x: dr.x, y: dr.y - 12, vx: 0, vy: -920, dmg: 0.6 * dmgMul(), kind: 'S', ang: -Math.PI / 2, drone: true });
+        }
+        if (Math.random() < 0.5) addPart({ type: 'trail', x: dr.x + rand(-1, 1), y: dr.y + 9, vx: 0, vy: 140, size: 3, life: 0.2, max: 0.2, col: '#ffd43b' });
+      });
       engineTrail(p, 1);
+    }
+    function useOverdrive() {
+      const r = run, p = r && r.p;
+      if (!r || mode !== 'play' || !p.alive || r.state !== 'fly' || p.odT > 0) return;
+      if (p.od < 1) { float(p.x, p.y - 50, 'Overdrive charging...', '#ffe08a', 14); return; }
+      p.od = 0; p.odT = 6;
+      save.odTip = true; persist();
+      sfx.overdrive();
+      r.shake = Math.max(r.shake, 10);
+      r.flash = -0.4;
+      clearBulletsNear(p.x, p.y, 220);
+      for (let i = 0; i < 3; i++) rings.push({ x: p.x, y: p.y, r: 10, R: 240 + i * 70, life: 0.5 + i * 0.12, max: 0.5 + i * 0.12, col: i === 1 ? '#ffffff' : '#ffd43b', w: 8 - i * 2 });
+      showBanner('OVERDRIVE!', 'Double fire, double points!', '#ffd43b');
     }
     function engineTrail(p, k) {
       const S = shipDef();
@@ -1182,7 +1292,7 @@
     // Scoring, drops & pickups
     // =====================================================================
     function addScore(pts, x, y) {
-      const v = Math.round(pts * run.mult);
+      const v = Math.round(pts * run.mult * (run.p.odT > 0 ? 2 : 1));
       run.score += v;
       if (x != null) float(x, y, '+' + v.toLocaleString(), run.mult > 1 ? '#ffd43b' : '#ffffff', v >= 1000 ? 22 : 15);
     }
@@ -1198,6 +1308,7 @@
       r.kills++;
       r.chain++;
       r.maxChain = Math.max(r.maxChain, r.chain);
+      if (r.p.odT <= 0 && r.p.od < 1) { r.p.od = Math.min(1, r.p.od + 0.028 + 0.004 * r.mult); if (r.p.od >= 1) { sfx.ready(); float(r.p.x, r.p.y - 64, save.odTip ? 'OVERDRIVE READY!' : 'OVERDRIVE READY! Press SHIFT', '#ffd43b', 18); } }
       const m = Math.min(8, 1 + Math.floor(r.chain / 10));
       if (m > r.mult) { r.mult = m; float(r.p.x, r.p.y - 50, `x${m} CHAIN!`, '#ffd43b', 22); sfx.chain(); if (m === 2) showHint('chain'); }
       addScore(T.score, e.x, e.y);
@@ -1243,6 +1354,7 @@
       opts.push(['bomb', p.bombs < 2 ? 1.6 : 0.6]);
       opts.push(['magnet', p.magnetT > 0 ? 0.3 : 1.1]);
       if (p.hp < p.maxHp) opts.push(['repair', p.hp <= 1 ? 3.5 : 1.4]);
+      opts.push(['drone', p.drones.length < 2 ? 1.1 : 0.15]);
       let tot = opts.reduce((s, o) => s + o[1], 0), x = Math.random() * tot;
       for (const [k, w] of opts) { x -= w; if (x <= 0) return k; }
       return opts[0][0];
@@ -1265,6 +1377,7 @@
       else if (k === 'magnet') { p.magnetT = 8 + save.up.magnet * 2; sfx.power(); }
       else if (k === 'bomb') { p.bombs = Math.min(6, p.bombs + 1); sfx.power(); }
       else if (k === 'repair') { if (p.hp < p.maxHp) p.hp++; else addScore(1000, p.x, p.y - 30); sfx.power(); }
+      else if (k === 'drone') { if (p.drones.length < 2) p.drones.push({ x: p.x, y: p.y + 30, hp: 4, fireT: 0.1, flash: 0, side: p.drones.length ? -p.drones[0].side : -1 }); else addScore(1000, p.x, p.y - 30); sfx.power(); }
       float(p.x, p.y - 46, name + '!', POWERS[k].col, 20);
     }
     function updatePickups(dt) {
@@ -1421,6 +1534,16 @@
           const rr2 = (e.r + br) * (e.r + br);
           const dy = b.kind === 'L' ? Math.max(0, Math.abs(e.y - b.y) - 18) : e.y - b.y;
           if ((e.x - b.x) ** 2 + dy * dy > rr2) continue;
+          if (e.type === 'shielder' && e.shieldOn) {
+            // the shield bounces off shots coming from the front: hit it from the side, or wait for it to flicker off
+            const a = Math.atan2(b.y - e.y, b.x - e.x), off = Math.abs(((a - e.face + Math.PI * 3) % TAU) - Math.PI);
+            if (off < 1.15) {
+              b.dead = true; e.shFlash = 0.15;
+              for (let i = 0; i < 3; i++) addPart({ type: 'spark', x: b.x, y: b.y, vx: rand(-220, 220), vy: rand(60, 260), life: 0.25, max: 0.25, col: '#9af6ff', len: 7 });
+              sfx.armor();
+              break;
+            }
+          }
           if (b.kind === 'L') {
             if (b.hits.includes(e.id)) continue;
             b.hits.push(e.id);
@@ -1456,7 +1579,16 @@
         b.x += b.vx * dt; b.y += b.vy * dt;
         if (b.x < -30 || b.x > VW + 30 || b.y < -40 || b.y > VH + 30) b.dead = true;
         else if (p.alive && (b.x - p.x) ** 2 + (b.y - p.y) ** 2 < (b.r * 0.8 + PLAYER_HIT) ** 2) { b.dead = true; hurtPlayer(); }
+        else if (p.alive) for (const dr of p.drones) {
+          if ((b.x - dr.x) ** 2 + (b.y - dr.y) ** 2 > (b.r * 0.8 + 11) ** 2) continue;
+          b.dead = true; dr.hp--; dr.flash = 0.12;
+          addPart({ type: 'glow', x: b.x, y: b.y, size: 26, life: 0.15, max: 0.15, col: '#ffd43b' });
+          if (dr.hp <= 0) { explode(dr.x, dr.y, 14, '#ffd43b'); sfx.droneLost(); float(dr.x, dr.y - 20, 'Wingman down!', '#ffb43a', 14); }
+          else sfx.armor();
+          break;
+        }
       }
+      p.drones = p.drones.filter((dr) => dr.hp > 0);
       r.eb = r.eb.filter((b) => !b.dead);
 
       // beams (Void Emperor)
@@ -1879,9 +2011,55 @@
       ctx.strokeStyle = rgba(hi, 0.6); ctx.lineWidth = 1.5;
       ctx.beginPath(); pts.slice(6, 10).forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke();
     }
+    // A wide mine-laying hauler with a bay full of blinking mines
+    function minerArt(P, G) {
+      ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(0, 6, 40, 13, 0, 0, TAU); ctx.fill();
+      for (const s of [-1, 1]) {
+        ctx.fillStyle = lin(s * 30, -6, s * 42, 8, [[0, P[1]], [1, P[2]]]);
+        rr(s > 0 ? 28 : -42, -7, 14, 18, 5); ctx.fill();
+        ctx.fillStyle = rgba(G.glow, 0.9); rr(s > 0 ? 31 : -39, 9, 8, 3, 1.5); ctx.fill();
+      }
+      ctx.fillStyle = lin(0, -14, 0, 14, [[0, P[0]], [0.45, P[1]], [1, P[2]]]);
+      ctx.beginPath(); ctx.ellipse(0, 0, 32, 13, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.ellipse(0, -2, 28, 9, 0, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke();
+      ctx.fillStyle = lin(0, -18, 0, -4, [[0, '#f0fdff'], [0.5, rgba(G.glow, 0.8)], [1, '#1a1030']]);
+      ctx.beginPath(); ctx.ellipse(0, -8, 11, 9, 0, Math.PI, 0); ctx.fill();
+      circle(-3, -12, 2.2, 'rgba(255,255,255,0.8)');
+      ctx.fillStyle = '#141826'; rr(-20, 4, 40, 9, 4); ctx.fill();
+      for (let i = 0; i < 4; i++) { circle(-14 + i * 9.3, 8.5, 3.3, '#3a2a2a'); circle(-14 + i * 9.3, 8.5, 1.4, '#ff6a3a'); }
+      ctx.fillStyle = '#ffd43b'; for (const s of [-1, 1]) { poly([[s * 16, -4], [s * 22, -4], [s * 20, 0], [s * 14, 0]]); ctx.fill(); }
+    }
+    function mineArt() {
+      for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; ctx.fillStyle = '#5a5e6e'; poly([[Math.cos(a - 0.2) * 9, Math.sin(a - 0.2) * 9], [Math.cos(a) * 15, Math.sin(a) * 15], [Math.cos(a + 0.2) * 9, Math.sin(a + 0.2) * 9]]); ctx.fill(); circle(Math.cos(a) * 14.5, Math.sin(a) * 14.5, 1.6, '#c8ccd8'); }
+      ctx.fillStyle = rad(-3, -3, 1, 12, [[0, '#a8acb8'], [0.6, '#4a4e5c'], [1, '#22252e']]);
+      ctx.beginPath(); ctx.arc(0, 0, 10, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, 10, 0, TAU); ctx.stroke();
+      circle(0, 0, 4, '#3a0a0a');
+    }
+    // A hexagon drone carrying a shield projector
+    function shielderArt(P, G) {
+      for (const s of [-1, 1]) { ctx.fillStyle = lin(0, 0, s * 26, 0, [[0, P[1]], [1, P[2]]]); poly([[s * 12, -10], [s * 27, -2], [s * 25, 10], [s * 12, 8]]); ctx.fill(); ctx.fillStyle = rgba(G.glow, 0.85); poly([[s * 20, 3], [s * 25, 4], [s * 24, 7], [s * 19, 6]]); ctx.fill(); }
+      const hex = (r) => { const pts = []; for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU + Math.PI / 6; pts.push([Math.cos(a) * r, Math.sin(a) * r]); } poly(pts); };
+      ctx.fillStyle = lin(-16, -16, 16, 16, [[0, P[0]], [0.5, P[1]], [1, P[2]]]); hex(17); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1.5; hex(17); ctx.stroke();
+      ctx.fillStyle = '#10142a'; hex(9.5); ctx.fill();
+      ctx.fillStyle = rad(-2, -2, 0, 8, [[0, '#ffffff'], [0.4, '#9af6ff'], [1, '#1a7aa8']]); hex(7.5); ctx.fill();
+      circle(0, 0, 2.8, G.eye);
+    }
+    function droneArt() {
+      for (const s of [-1, 1]) { ctx.fillStyle = lin(0, -4, s * 13, 6, [[0, '#fff2b0'], [1, '#b07a10']]); poly([[s * 5, -3], [s * 13, 4], [s * 12, 8], [s * 5, 6]]); ctx.fill(); }
+      ctx.fillStyle = rad(-2, -3, 1, 10, [[0, '#ffffff'], [0.35, '#ffe08a'], [1, '#a86a08']]);
+      ctx.beginPath(); ctx.ellipse(0, 0, 6.5, 9, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(80,50,0,0.6)'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = lin(0, -8, 0, 0, [[0, '#f0fdff'], [1, '#2a7ad8']]); ctx.beginPath(); ctx.ellipse(0, -3, 3, 4, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#2a2e3a'; rr(-2.5, 7, 5, 4, 1.5); ctx.fill();
+    }
     function enemySprite(e, g) {
       const G = GALAXIES[g].en;
       switch (e.type) {
+        case 'miner': return spr(`miner${g}`, 90, 48, () => minerArt(G.hull, G));
+        case 'mine': return spr('mine', 34, 34, mineArt);
+        case 'shielder': return spr(`shield${g}`, 60, 40, () => shielderArt(G.hull, G));
         case 'swoop': return spr(`swoop${g}`, 58, 42, () => swoopArt(G.swoop, G));
         case 'dart': return spr(`dart${g}`, 30, 50, () => dartArt(G.dart, G));
         case 'tank': return spr(`tank${g}`, 86, 84, () => hullArt(G.hull, G));
@@ -1925,12 +2103,36 @@
         ctx.restore();
         blit(s, e.x, e.y, e.ang);
         ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(e.x, e.y, 50, G.dart[1], 0.4 + 0.4 * Math.sin(t * 30)); ctx.restore();
+      } else if (e.type === 'mine') {
+        blit(s, e.x, e.y, e.ang);
+        const armed = e.arm <= 0, fuse = e.fuse > 0;
+        const blink = fuse ? Math.sin(t * 50) > 0 : Math.sin(t * 6 + e.id) > 0.3;
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        glow(e.x, e.y, fuse ? 70 : 34, '#ff4a2a', blink ? (armed ? 0.9 : 0.4) : 0.15);
+        if (fuse) { ctx.strokeStyle = 'rgba(255,90,60,0.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, 20 + (0.9 - e.fuse) * 80, 0, TAU); ctx.stroke(); }
+        ctx.restore();
+        circle(e.x, e.y, 3, blink ? '#ffd0a0' : '#ff4a2a');
+      } else if (e.type === 'shielder') {
+        blit(s, e.x, e.y, e.face - Math.PI / 2);
+        const R = e.r + 13, warn = !e.shieldOn && e.shT < 0.35;
+        if (e.shieldOn || warn) {
+          ctx.save(); ctx.globalCompositeOperation = 'lighter';
+          const a = e.shieldOn ? 0.75 + 0.25 * Math.sin(t * 9) + (e.shFlash > 0 ? 0.6 : 0) : (Math.sin(t * 60) > 0 ? 0.35 : 0);
+          ctx.strokeStyle = `rgba(120,240,255,${a * 0.35})`; ctx.lineWidth = 12;
+          ctx.beginPath(); ctx.arc(e.x, e.y, R, e.face - 1.15, e.face + 1.15); ctx.stroke();
+          ctx.strokeStyle = `rgba(200,252,255,${a})`; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.arc(e.x, e.y, R, e.face - 1.15, e.face + 1.15); ctx.stroke();
+          for (let i = -2; i <= 2; i++) { const aa = e.face + i * 0.48; glow(e.x + Math.cos(aa) * R, e.y + Math.sin(aa) * R, 14, '#7af0ff', a * 0.6); }
+          ctx.restore();
+        }
+
       } else {
-        blit(s, e.x, e.y, e.type === 'carrier' ? 0 : e.ang);
+        blit(s, e.x, e.y, e.type === 'carrier' || e.type === 'miner' ? 0 : e.ang);
+        if (e.type === 'miner' && e.drop > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(e.x, e.y + 12, 40, '#ff6a3a', e.drop * 2); ctx.restore(); }
       }
       if (e.flash > 0) {
         ctx.save(); ctx.globalCompositeOperation = 'lighter';
-        blit(whiteOf(key, s), e.x, e.y, e.type === 'carrier' || e.type === 'tank' || e.type === 'turret' ? 0 : e.ang, 1, 0.8);
+        blit(whiteOf(key, s), e.x, e.y, e.type === 'carrier' || e.type === 'tank' || e.type === 'turret' || e.type === 'miner' ? 0 : e.type === 'shielder' ? e.face - Math.PI / 2 : e.ang, 1, 0.8);
         ctx.restore();
       }
       if (e.carry && e.type !== 'carrier') {
@@ -1939,7 +2141,7 @@
         ctx.restore();
       }
       // health bar for the big ones
-      if ((e.type === 'tank' || e.type === 'turret' || e.type === 'carrier') && e.hp < e.maxHp) {
+      if ((e.type === 'tank' || e.type === 'turret' || e.type === 'carrier' || e.type === 'miner' || e.type === 'shielder') && e.hp < e.maxHp) {
         const w = e.r * 1.6;
         ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(e.x - w / 2, e.y - e.r - 12, w, 5, 2); ctx.fill();
         ctx.fillStyle = '#ff6b8a'; rr(e.x - w / 2, e.y - e.r - 12, (w * Math.max(0, e.hp)) / e.maxHp, 5, 2); ctx.fill();
@@ -1964,11 +2166,14 @@
       ctx.fillStyle = '#7dffb0'; rr(-3, -10, 6, 20, 3); ctx.fill();
       ctx.fillStyle = '#ffffff'; rr(-1.5, -8, 3, 14, 1.5); ctx.fill();
     });
-    const pbLaser = (wide) => spr('pbL' + (wide ? 'w' : ''), wide ? 20 : 14, 50, () => {
-      const w = wide ? 10 : 7;
-      ctx.fillStyle = lin(-w, 0, w, 0, [[0, 'rgba(90,180,255,0)'], [0.3, 'rgba(90,180,255,0.6)'], [0.5, 'rgba(200,240,255,0.9)'], [0.7, 'rgba(90,180,255,0.6)'], [1, 'rgba(90,180,255,0)']]);
-      rr(-w, -24, w * 2, 48, w); ctx.fill();
-      ctx.fillStyle = '#ffffff'; rr(-w * 0.25, -21, w * 0.5, 42, 2); ctx.fill();
+    // a tapered energy bolt: bright head, fading tail
+    const pbLaser = (wide) => spr('pbL2' + (wide ? 'w' : ''), wide ? 24 : 18, 58, () => {
+      const w = wide ? 6.2 : 4.4;
+      ctx.fillStyle = lin(0, -28, 0, 28, [[0, 'rgba(140,210,255,0)'], [0.12, 'rgba(120,200,255,0.6)'], [0.6, 'rgba(80,150,255,0.3)'], [1, 'rgba(80,150,255,0)']]);
+      ctx.beginPath(); ctx.ellipse(0, 0, w * 1.9, 28, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = lin(0, -26, 0, 26, [[0, '#ffffff'], [0.45, '#d8f4ff'], [1, 'rgba(120,200,255,0)']]);
+      ctx.beginPath(); ctx.moveTo(0, -27); ctx.quadraticCurveTo(w, -12, w * 0.75, 6); ctx.lineTo(0, 27); ctx.lineTo(-w * 0.75, 6); ctx.quadraticCurveTo(-w, -12, 0, -27); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.beginPath(); ctx.ellipse(0, -18, w * 0.45, 7, 0, 0, TAU); ctx.fill();
     });
     const missileSpr = () => spr('missile', 10, 22, () => {
       ctx.fillStyle = '#ffb43a'; poly([[-4, 8], [-6, 11], [-2, 9]]); ctx.fill(); poly([[4, 8], [6, 11], [2, 9]]); ctx.fill();
@@ -1998,6 +2203,7 @@
         else if (k === 'magnet') { ctx.beginPath(); ctx.arc(0, -1, 6, Math.PI, 0, true); ctx.stroke(); line(-6, -1, -6, -7); line(6, -1, 6, -7); ctx.lineWidth = 3; ctx.strokeStyle = '#ffd8e0'; line(-6, -5, -6, -8); line(6, -5, 6, -8); }
         else if (k === 'bomb') { circle(-1, 2, 6.5, '#ffffff'); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(3, -3); ctx.quadraticCurveTo(6, -8, 9, -7); ctx.stroke(); sparkle4(9, -8, 3.5, '#fff6a0'); }
         else if (k === 'repair') { ctx.lineWidth = 4; line(-7, 0, 7, 0); line(0, -7, 0, 7); }
+        else if (k === 'drone') { for (const s of [-1, 1]) { circle(s * 6, 2, 4, '#ffffff'); ctx.fillStyle = '#ffffff'; poly([[s * 6, -6], [s * 8.5, -1], [s * 3.5, -1]]); ctx.fill(); } circle(0, -3, 2.2, '#ffffff'); }
         ellipse(-5, -7, 5, 3, 'rgba(255,255,255,0.55)', -0.5);
       });
     }
@@ -2537,6 +2743,23 @@
       }
       ctx.restore();
       for (const b of r.pb) if (b.kind === 'M') blit(missileSpr(), b.x, b.y, b.ang + Math.PI / 2);
+      // wingman drones
+      if (p.alive) for (const dr of p.drones) {
+        const ds = spr('drone', 30, 30, droneArt);
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(dr.x, dr.y, 40, '#ffd43b', 0.35 + 0.1 * Math.sin(t * 7)); ctx.restore();
+        blit(ds, dr.x, dr.y, p.bank * 0.3);
+        if (dr.flash > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; blit(whiteOf('drone', ds), dr.x, dr.y, p.bank * 0.3, 1, 0.9); ctx.restore(); }
+        for (let i = 0; i < 4; i++) circle(dr.x - 6 + i * 4, dr.y + 15, 1.4, i < dr.hp ? '#ffd43b' : 'rgba(255,255,255,0.2)');
+      }
+      // overdrive aura
+      if (p.alive && p.odT > 0) {
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        const k = Math.min(1, p.odT / 0.6);
+        glow(p.x, p.y, 120 + Math.sin(t * 20) * 10, '#ffd43b', 0.45 * k);
+        ctx.strokeStyle = `rgba(255,220,120,${0.55 * k})`; ctx.lineWidth = 2.5;
+        for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(p.x, p.y, 34 + i * 6, t * (4 + i) + i, t * (4 + i) + i + 1.6); ctx.stroke(); }
+        ctx.restore();
+      }
       // the ship
       if (p.alive) {
         const blink = p.inv > 0 && p.shieldPop <= 0 && Math.floor(t * 16) % 2 ? 0.35 : 1;
@@ -2581,6 +2804,8 @@
     const PAUSE_BTN = { x: VW - 46, y: 10, w: 36, h: 32 };
     const MUTE_BTN = { x: VW - 88, y: 10, w: 36, h: 32 };
     const BOMB_BTN = { x: VW - 52, y: VH - 120, r: 34 };
+    const OD_BTN = { x: VW - 52, y: VH - 200, r: 30 };
+    const OD_GAUGE = { x: 10, y: 0, w: 168, h: 28 };
     let touchUsed = false;
     function hudPanel(x, y, w, h) {
       ctx.fillStyle = 'rgba(8,10,30,0.62)'; rr(x, y, w, h, 12); ctx.fill();
@@ -2659,6 +2884,28 @@
           ctx.fillStyle = '#b49aff'; const pts = []; for (let k = 0; k < 6; k++) { const a = (k / 6) * TAU + Math.PI / 6; pts.push([x + Math.cos(a) * 7, y + Math.sin(a) * 7]); } poly(pts); ctx.fill();
           circle(x - 2, y - 2, 2, 'rgba(255,255,255,0.7)');
         }
+      }
+      // overdrive gauge (above the hull)
+      OD_GAUGE.y = hy - 44;
+      const og = OD_GAUGE, full = p.od >= 1, on = p.odT > 0;
+      hudPanel(og.x, og.y, og.w, og.h);
+      const bolt = (x, y, s, col) => { ctx.fillStyle = col; poly([[x + 2 * s, y - 7 * s], [x - 4 * s, y + 1 * s], [x, y + 1 * s], [x - 2 * s, y + 7 * s], [x + 4 * s, y - 1 * s], [x, y - 1 * s]]); ctx.fill(); };
+      bolt(og.x + 14, og.y + 14, 1, on || full ? '#ffd43b' : '#6a6a8a');
+      ctx.fillStyle = 'rgba(255,255,255,0.1)'; rr(og.x + 26, og.y + 9, og.w - 36, 10, 5); ctx.fill();
+      const frac = on ? p.odT / 6 : p.od;
+      if (frac > 0) { ctx.fillStyle = on ? lin(og.x + 26, 0, og.x + og.w - 10, 0, [[0, '#ffffff'], [1, '#ffd43b']]) : full ? `rgba(255,212,59,${0.75 + 0.25 * Math.sin(t * 8)})` : lin(og.x + 26, 0, og.x + og.w - 10, 0, [[0, '#b07a10'], [1, '#ffd43b']]); rr(og.x + 26, og.y + 9, (og.w - 36) * clamp(frac, 0, 1), 10, 5); ctx.fill(); }
+      outlined(on ? 'OVERDRIVE!' : full ? (touchUsed ? 'TAP ⚡ NOW' : 'PRESS SHIFT') : 'OVERDRIVE', og.x + 26 + (og.w - 36) / 2, og.y + 14.5, 10, '#ffffff', 'rgba(20,14,40,0.85)', 3);
+      if (touchUsed && r.state === 'fly') {
+        ctx.fillStyle = full ? `rgba(255,212,59,${0.3 + 0.15 * Math.sin(t * 8)})` : 'rgba(255,255,255,0.06)';
+        ctx.beginPath(); ctx.arc(OD_BTN.x, OD_BTN.y, OD_BTN.r, 0, TAU); ctx.fill();
+        ctx.strokeStyle = full ? 'rgba(255,230,150,0.8)' : 'rgba(255,255,255,0.25)'; ctx.lineWidth = 2; ctx.stroke();
+        bolt(OD_BTN.x, OD_BTN.y - 3, 1.6, full ? '#ffd43b' : '#6a6a8a');
+      }
+      // low hull warning: the screen edges pulse red
+      if (p.alive && p.hp === 1 && r.state === 'fly') {
+        const a = 0.25 + 0.15 * Math.sin(t * 7);
+        ctx.fillStyle = rad(VW / 2, VH / 2, Math.min(VW, VH) * 0.42, Math.max(VW, VH) * 0.75, [[0, 'rgba(255,40,60,0)'], [1, `rgba(255,40,60,${a})`]]);
+        ctx.fillRect(0, 0, VW, VH);
       }
       // weapon + bombs (bottom right)
       const P = POWERS[p.wType];
@@ -3035,10 +3282,12 @@
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
       if ((e.code === 'Escape' || e.code === 'KeyP') && !e.repeat) { pause(true); return; }
       if ((e.code === 'KeyB' || e.code === 'KeyX') && !e.repeat) useBomb();
+      if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyV') && !e.repeat) useOverdrive();
       keys[e.code] = true;
     });
     window.addEventListener('keyup', (e) => { keys[e.code] = false; });
     window.addEventListener('blur', () => { for (const k of Object.keys(keys)) keys[k] = false; pointer.fire = false; if (mode === 'play' && run && run.state === 'fly') pause(true); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden && mode === 'play' && run && run.state === 'fly') pause(true); });
 
     let view = { s: 1, ox: 0, oy: 0 };
     const toView = (e) => {
@@ -3055,6 +3304,8 @@
       if (inRect(p, MUTE_BTN)) { toggleMute(); return; }
       if (e.pointerType !== 'mouse') touchUsed = true;
       if (touchUsed && Math.hypot(p.x - BOMB_BTN.x, p.y - BOMB_BTN.y) < BOMB_BTN.r + 8) { useBomb(); return; }
+      if (touchUsed && Math.hypot(p.x - OD_BTN.x, p.y - OD_BTN.y) < OD_BTN.r + 8) { useOverdrive(); return; }
+      if (inRect(p, OD_GAUGE) && run.p.od >= 1) { useOverdrive(); return; }
       if (e.button === 2) { useBomb(); return; }
       try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
       ctrl = 'pointer';
@@ -3085,6 +3336,8 @@
       W = window.innerWidth; H = window.innerHeight;
       canvas.width = Math.max(1, Math.round(W * dpr));
       canvas.height = Math.max(1, Math.round(H * dpr));
+      VH = clamp(Math.round(VW * H / Math.max(1, W)), 800, 1000);
+      BOMB_BTN.y = VH - 120; OD_BTN.y = VH - 200;
       const s = Math.min(W / VW, H / VH) || 1;
       view = { s, ox: (W - VW * s) / 2, oy: (H - VH * s) / 2 };
       viewB = { x0: -view.ox / s, x1: (W - view.ox) / s, y0: -view.oy / s, y1: (H - view.oy) / s };
@@ -3139,6 +3392,7 @@
       win() { if (run) startClear(); },
       giveCrystals(n) { save.crystals += n; persist(); },
       power(k) { if (run) collectPower(k); },
+      fillOverdrive() { if (run) run.p.od = 1; }, overdrive: () => useOverdrive(), wave: (w, a) => run && launchWave(w, a || {}),
       moveTo(x, y) { if (run) { ctrl = "pointer"; run.p.tx = x; run.p.ty = y; } },
       sprites: () => cache,
       manual(b) { manualStep = !!b; },

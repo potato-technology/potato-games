@@ -93,6 +93,29 @@
     .up button { align-self: flex-start; padding: 7px 16px; font-size: 15px; box-shadow: 0 3px 0 #a8730f; }
     .up.owned { border-color: rgba(62,207,142,0.5); }
     .up.owned b { color: var(--good); }
+    /* ---------- round 2 ---------- */
+    .overlay { animation: ovIn 0.25s ease-out; }
+    .overlay .card { animation: cardIn 0.35s cubic-bezier(.2, 1.3, .4, 1); background: radial-gradient(ellipse at 50% 0%, rgba(255, 193, 69, 0.12), transparent 60%), linear-gradient(180deg, #2a2f39, #1f232b); }
+    @keyframes ovIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes cardIn { from { transform: translateY(16px) scale(0.97); opacity: 0; } to { transform: none; opacity: 1; } }
+    body.test .overlay, body.test .overlay .card, body.test .bigstars span.on { animation: none !important; }
+    .title-card { width: min(900px, 100%); }
+    .title-grid { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 20px; align-items: center; }
+    #hero-art { width: 100%; max-width: 360px; height: auto; display: block; border-radius: 18px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), inset 0 0 0 2px rgba(255, 255, 255, 0.06); }
+    .logo { text-shadow: 0 4px 0 #8a5a0e, 0 12px 26px rgba(0, 0, 0, 0.45); }
+    details.howto { text-align: left; margin-top: 14px; }
+    details.howto summary { cursor: pointer; list-style: none; font: 700 17px var(--display); color: var(--accent); display: inline-block; padding: 4px 12px; border-radius: 10px; background: var(--panel-2); }
+    details.howto summary::-webkit-details-marker { display: none; }
+    details.howto summary::before { content: '\25B8  '; }
+    details.howto[open] summary::before { content: '\25BE  '; }
+    details.howto .how { margin: 10px 0 0; font-size: 14px; }
+    #shop .card, #results .card { padding-bottom: 0; }
+    #shop .card > .row, #results .card > .row { position: sticky; bottom: 0; padding: 12px 0 18px; background: linear-gradient(180deg, rgba(31, 35, 43, 0), #1f232b 40%); }
+    @media (max-width: 760px) {
+      .title-grid { grid-template-columns: 1fr; gap: 10px; }
+      #hero-art { max-width: 300px; margin: 0 auto; }
+      .logo { font-size: 44px; }
+    }
     .confetti { position: fixed; top: -12px; width: 10px; height: 14px; border-radius: 2px; pointer-events: none; animation: fall linear forwards; z-index: 50; }
     @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
   </style>
@@ -101,21 +124,32 @@
   <canvas id="game"></canvas>
 
   <div class="overlay" id="title">
-    <div class="card">
+    <div class="card title-card">
+     <div class="title-grid">
+      <div class="title-hero"><canvas id="hero-art" width="360" height="300" aria-hidden="true"></canvas></div>
+      <div class="title-main">
       <h1 class="logo">Goblin Gate<small>Build towers. Stop the horde. Save the castle!</small></h1>
-      <div class="pills"><span class="pill stars" id="t-stars">0 ★</span></div>
+      <div class="pills"><span class="pill stars" id="t-stars">0 ★</span><span class="pill good" id="t-progress">Level 1</span></div>
+      <div class="row">
+        <button class="btn" id="play-btn">Play</button>
+        <button class="btn ghost" id="t-shop-btn">Upgrades</button>
+      </div>
+      <details class="howto" id="t-how">
+      <summary>How to play</summary>
       <ul class="how">
         <li><b>Click a stone pad</b> to build a tower. Each tower is good at something different.</li>
         <li><b>Press Start</b> (or <b>Space</b>) to send the goblins. Your towers shoot all by themselves!</li>
         <li><b>Every enemy you stop gives gold.</b> Spend it on more towers, or click a tower to <b>upgrade</b> it.</li>
         <li>Each goblin that gets through the gate costs a <b>life</b>. Keep 18+ lives for <b>3 stars</b>.</li>
         <li>Spend your stars on <b>Upgrades</b> to make every tower stronger.</li>
+        <li><b>Sir Pip the knight</b> (from level 2): click him or press <b>H</b>, then click the road to send him into battle. He gets stronger as he fights.</li>
+        <li><b>Treasure chests</b> pop up near the road. Click them fast for gold or a spell recharge!</li>
+        <li><b>Watch out</b> for goblin balloons (pop them and two goblins drop out) and shield goblins (magic towers smash shields).</li>
         <li><b>Keys:</b> <b>F</b> changes the speed (1x, 2x, 3x), <b>P</b> pauses, <b>M</b> mutes. The little pictures by the Next button show who's coming next.</li>
       </ul>
-      <div class="row">
-        <button class="btn" id="play-btn">Play</button>
-        <button class="btn ghost" id="t-shop-btn">Upgrades</button>
+      </details>
       </div>
+     </div>
     </div>
   </div>
 
@@ -198,6 +232,7 @@
     </div>
   </div>
 
+  <script>window.__errs = []; addEventListener("error", (e) => __errs.push(e.message + " :" + e.lineno));</script>
   <script src="potato-sdk.js"></script>
   <script>
   (() => {
@@ -206,6 +241,7 @@
     // =====================================================================
     const VW = 1000, VH = 640;            // the battlefield is drawn at this size, then scaled to fit
     const HUD_H = 44;
+    const HALF_W = 540, RIGHT_X0 = 1000 - 540; // the two halves used on tall phone screens
     const START_LIVES = 20;
     const PAD_R = 30;
 
@@ -232,8 +268,10 @@
       boss: { name: 'Troll King', hp: 2600, speed: 19, gold: 200, armor: 0.3, lives: 20, threat: 60, hy: 74, bar: 70 },
       slime: { name: 'Slime', hp: 95, speed: 38, gold: 7, armor: 0, lives: 1, threat: 2.4, hy: 16, bar: 28, splits: true },
       slimelet: { name: 'Little Slime', hp: 34, speed: 58, gold: 3, armor: 0, lives: 1, threat: 0.8, hy: 10, bar: 20 },
+      balloon: { name: 'Goblin Balloon', hp: 70, speed: 40, gold: 8, armor: 0, lives: 2, threat: 3.2, hy: 60, bar: 30, fly: true, drops: true },
+      shield: { name: 'Shield Goblin', hp: 80, speed: 40, gold: 9, armor: 0, lives: 1, threat: 2.6, hy: 26, bar: 28, shield: 3 },
     };
-    const ENEMY_INTRO = { goblin: 1, wolf: 2, bat: 3, orc: 4, shaman: 5, troll: 6, boss: 8, slime: 9 };
+    const ENEMY_INTRO = { goblin: 1, wolf: 2, bat: 3, orc: 4, shaman: 5, troll: 6, boss: 8, slime: 9, balloon: 10, shield: 11 };
     const ENEMY_TIPS = {
       wolf: 'Wolves are fast! Frost towers slow them down.',
       bat: 'Bats fly over everything. Cannons can\'t hit them!',
@@ -242,6 +280,8 @@
       troll: 'A troll is coming in the last wave. It\'s huge and super tough.',
       boss: 'The Troll King himself! If he reaches the gate, the castle falls.',
       slime: 'Slimes are squishy! Pop one and it splits into two speedy little slimes.',
+      balloon: 'Goblin balloons float over everything. Pop one and two goblins drop out!',
+      shield: 'Shield goblins block 3 arrows or cannonballs. Magic towers smash a shield in one hit!',
     };
 
     // Star upgrades (bought with the stars you earn on levels).
@@ -257,6 +297,8 @@
       { id: 'gold2', tag: 'Castle', name: 'Bounty Hunter', desc: 'Enemies drop 20% more gold.', cost: 3, needs: 'gold1' },
       { id: 'walls', tag: 'Castle', name: 'Stone Walls', desc: 'Start every battle with 5 extra lives.', cost: 3 },
       { id: 'meteor1', tag: 'Spells', name: 'Bigger Meteors', desc: 'Meteors are 30% bigger and recharge faster.', cost: 2 },
+      { id: 'hero1', tag: 'Sir Pip', name: 'Steel Armor', desc: 'Sir Pip has 30% more health.', cost: 2 },
+      { id: 'hero2', tag: 'Sir Pip', name: 'Second Wind', desc: 'Sir Pip gets back up in 7 seconds instead of 12.', cost: 2, needs: 'hero1' },
     ];
 
     const THEMES = {
@@ -326,6 +368,11 @@
       paths: [[[-40, 140], [860, 140], [860, 330], [140, 330], [140, 510], [1040, 510]]],
       pads: [[220, 235], [360, 235], [500, 235], [640, 235], [780, 235], [260, 420], [400, 420], [540, 420], [680, 420], [820, 420]] };
     const ENDLESS_UNLOCK = 3;
+    // Sir Pip, the hero knight: walks where you send him and fights goblins on the road.
+    const HERO = { name: 'Sir Pip', unlock: 2, speed: 105, range: 46, rate: 0.75, dmg: [14, 20, 28, 38], hp: [180, 230, 290, 360], xp: [0, 14, 40, 80], respawn: 12 };
+    const heroMaxHp = (lv) => Math.round(HERO.hp[lv] * (owns('hero1') ? 1.3 : 1));
+    const heroRespawn = () => (owns('hero2') ? 7 : HERO.respawn);
+    const heroLevel = (kills) => HERO.xp.reduce((l, need, i) => (kills >= need ? i : l), 0);
 
     const $ = (id) => document.getElementById(id);
     const canvas = $('game');
@@ -475,15 +522,15 @@
     // =====================================================================
     function makeWave(L, w, N, nPaths, endless) {
       const rnd = seeded(L * 1009 + w * 31 + (endless ? 50000 : 7));
-      const lvl = endless ? Math.min(9, 3 + Math.floor(w / 3)) : L;
-      const pool = ['goblin', 'wolf', 'bat', 'orc', 'shaman', 'slime'].filter((t) => lvl >= ENEMY_INTRO[t]);
+      const lvl = endless ? Math.min(11, 3 + Math.floor(w / 3)) : L;
+      const pool = ['goblin', 'wolf', 'bat', 'orc', 'shaman', 'slime', 'balloon', 'shield'].filter((t) => lvl >= ENEMY_INTRO[t]);
       const newest = !endless && L > 1 ? pool.find((t) => ENEMY_INTRO[t] === L) : null;
       let budget = endless ? 6 + w * 2.6 : 4 + w * 2.0 + (L - 1) * 1.8;
       if (w === N) budget *= 1.35;
       const groups = [];
       // You meet the newest enemy on its own in wave 2.
       if (newest && w === 2) {
-        const count = newest === 'orc' ? 2 : newest === 'shaman' ? 2 : newest === 'slime' ? 3 : 4;
+        const count = newest === 'orc' ? 2 : newest === 'shaman' ? 2 : newest === 'slime' ? 3 : newest === 'balloon' ? 2 : newest === 'shield' ? 3 : 4;
         groups.push({ type: newest, count });
         budget -= count * ENEMIES[newest].threat;
       }
@@ -506,7 +553,7 @@
         if (w % 5 === 0) groups.push({ type: 'troll', count: Math.ceil(w / 10) });
         if (w % 15 === 0) groups.push({ type: 'boss', count: 1 });
       }
-      const gaps = { goblin: 1.0, wolf: 0.7, bat: 0.8, orc: 1.6, shaman: 1.5, troll: 3, boss: 1, slime: 1.3 };
+      const gaps = { goblin: 1.0, wolf: 0.7, bat: 0.8, orc: 1.6, shaman: 1.5, troll: 3, boss: 1, slime: 1.3, balloon: 1.6, shield: 1.2 };
       const hp = endless ? (1 + 0.11 * (lvl - 1)) * (1 + 0.065 * (w - 1)) : (1 + 0.09 * (L - 1)) * (1 + 0.045 * (w - 1));
       const spawns = [];
       let at = 0;
@@ -576,6 +623,15 @@
         time: 0,
       };
       run.shownGold = run.gold;
+      // the hero waits near the gate
+      if (endless || n >= HERO.unlock) {
+        const p = posAt(paths[0], paths[0].end - 150);
+        const hx = clamp(p.x - 10, 40, VW - 60), hy = clamp(p.y + 34, HUD_H + 40, VH - 40);
+        run.hero = { x: hx, y: hy, tx: hx, ty: hy, homeX: hx, homeY: hy, hp: heroMaxHp(0), max: heroMaxHp(0), lv: 0, kills: 0, cd: 0, swing: 0, hurt: 0, down: 0, face: -1, ph: 0, moving: false };
+      }
+      run.heroSel = false;
+      run.chest = null;
+      run.chestT = 24 + Math.random() * 12;
       mode = 'play';
       hideOverlays();
       last = performance.now();
@@ -609,6 +665,7 @@
         type: s.type, path: s.path, d: -10 - Math.random() * 20, x: p.x, y: p.y, f: 1,
         hp, max: hp, speed: E.speed * (0.94 + Math.random() * 0.12), ph: Math.random() * 6,
         slowT: 0, slowMul: 1, freezeT: 0, healT: 1.5, healFx: 0, hitT: 0, off: (Math.random() - 0.5) * 14,
+        shield: E.shield || 0,
       });
     }
 
@@ -718,6 +775,18 @@
 
     function damage(e, amount, kind, owner) {
       if (e.hp <= 0) return;
+      // a shield goblin's shield soaks up arrows and cannonballs; magic smashes it in one go
+      if (e.shield > 0) {
+        if (kind === 'phys') {
+          e.shield--;
+          e.hitT = 0.12;
+          e.shieldHit = 0.2;
+          for (let k = 0; k < 4; k++) sparkle(e.x + e.f * 10, e.y - 20, ['#a0703d', '#7a5230', '#d6b07a'], 0.7);
+          if (e.shield <= 0) { for (let k = 0; k < 10; k++) debris(e.x + e.f * 10, e.y - 16); float(e.x, e.y - 50, 'Shield broken!', '#ffe58a', 14); }
+          return;
+        }
+        if (kind === 'magic') { e.shield = 0; for (let k = 0; k < 10; k++) debris(e.x + e.f * 10, e.y - 16); float(e.x, e.y - 50, 'Smashed!', '#c9b8ff', 14); }
+      }
       const armor = ENEMIES[e.type].armor;
       const dmg = kind === 'phys' ? amount * (1 - armor) : amount;
       e.hp -= dmg;
@@ -739,6 +808,20 @@
       for (let k = 0; k < 8 * size; k++) smoke(e.x, e.y - E.hy * 0.6, 0.8 * size);
       for (let k = 0; k < 3 + size * 2; k++) coinPart(e.x, e.y - E.hy);
       if (run.flyCoins.length < 40) run.flyCoins.push({ x: e.x, y: e.y - E.hy, vx: (Math.random() - 0.5) * 120, vy: -140 - Math.random() * 60, t: 0 });
+      // Balloons pop and drop two goblins onto the road.
+      if (E.drops) {
+        const k = e.max / E.hp;
+        for (const side of [-1, 1]) {
+          const hp = Math.round(ENEMIES.goblin.hp * k);
+          run.pending.push({
+            type: 'goblin', path: e.path, d: e.d + side * 10, x: e.x, y: e.y, f: e.f,
+            hp, max: hp, speed: ENEMIES.goblin.speed * (0.94 + Math.random() * 0.12), ph: Math.random() * 6,
+            slowT: 0, slowMul: 1, freezeT: 0, healT: 1.5, healFx: 0, hitT: 0, off: e.off + side * 7, shield: 0, dropT: 0.5,
+          });
+        }
+        for (let q = 0; q < 14; q++) sparkle(e.x, e.y - 60, ['#ff5e5e', '#ffd43b', '#ffffff'], 1);
+        noise(0.15, 0.08, 2500);
+      }
       // Slimes pop into two little slimes.
       if (E.splits) {
         const k = e.max / E.hp;
@@ -787,6 +870,288 @@
       }
       r.spells[id] = spellCd(id);
       r.spellsCast++;
+    }
+
+    // The picture on the title card: the castle gate, a tower, Sir Pip, and goblins coming up the road.
+    const titleCanvas = document.getElementById('hero-art');
+    function drawTitleArt(time) {
+      if (!titleCanvas || !bg) return;
+      const main = ctx;
+      ctx = titleCanvas.getContext('2d');
+      const S = 360 / 440;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, 360, 300);
+      ctx.save();
+      ctx.scale(S, S);
+      ctx.translate(-560, -150);
+      ctx.drawImage(bg, 0, 0, VW, VH);
+      const endY = level.paths[0][level.paths[0].length - 1][1];
+      const fake = (type, lv, x, y) => ({ type, lv, x, y, aim: Math.PI * 0.85, recoil: 0, born: 9, fresh: false, kills: 0 });
+      const things = [
+        { y: 300, draw: () => drawTower(fake('archer', 3, 650, 300), time) },
+        { y: 490, draw: () => drawTower(fake('storm', 2, 870, 490), time) },
+      ];
+      // goblins marching along the road
+      const p0 = paths[0];
+      [0.62, 0.68, 0.73, 0.8].forEach((k, i) => {
+        const d = p0.end * k + ((time * 30) % 40);
+        const p = posAt(p0, d);
+        const type = ['goblin', 'shield', 'goblin', 'orc'][i];
+        things.push({ y: p.y, draw: () => { softShadow(p.x, p.y + 1, 14, 5, 0.28); ctx.save(); ctx.translate(p.x, p.y); ctx.scale(Math.cos(p.a) >= 0 ? 1 : -1, 1); if (type === 'shield') drawShieldGoblin(time * 8 + i, 3); else drawEnemyBody(type, time * 8 + i, time); ctx.restore(); } });
+      });
+      // Sir Pip, ready for them
+      things.push({ y: 400, draw: () => { softShadow(760, 401, 14, 5, 0.3); ctx.save(); ctx.translate(760, 400); ctx.scale(-1.15, 1.15); drawHeroBody({ moving: false, ph: 0, swing: (time % 1.4) < 0.28 ? 0.28 - (time % 1.4) : 0 }, time); ctx.restore(); } });
+      things.sort((a, b) => a.y - b.y).forEach((t) => t.draw());
+      castle(endY, time);
+      // a balloon drifting overhead
+      ctx.save();
+      ctx.translate(800 + Math.sin(time * 0.6) * 14, 236 + Math.sin(time * 1.3) * 6);
+      drawBalloon(time * 3, time);
+      ctx.restore();
+      ctx.restore();
+      // soft vignette
+      ctx.fillStyle = rad(180, 150, 90, 240, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.35)']]);
+      ctx.fillRect(0, 0, 360, 300);
+      ctx = main;
+    }
+
+    // =====================================================================
+    // Sir Pip, the hero
+    // =====================================================================
+    function updateHero(r, dt) {
+      const h = r.hero;
+      if (!h) return;
+      if (h.hurt > 0) h.hurt -= dt;
+      if (h.swing > 0) h.swing -= dt;
+      if (h.lvlFx > 0) h.lvlFx -= dt;
+      if (h.down > 0) {
+        h.down -= dt;
+        if (h.down <= 0) {
+          h.hp = h.max; h.x = h.tx = h.homeX; h.y = h.ty = h.homeY;
+          float(h.x, h.y - 60, 'Sir Pip is back!', '#9fd8ff', 16);
+          for (let k = 0; k < 12; k++) sparkle(h.x, h.y - 20, ['#9fd8ff', '#ffffff', '#ffd43b']);
+        }
+        return;
+      }
+      // walk to where you sent him
+      const dx = h.tx - h.x, dy = h.ty - h.y, d = Math.hypot(dx, dy);
+      h.moving = d > 3;
+      if (h.moving) {
+        const step = Math.min(d, HERO.speed * dt);
+        h.x += (dx / d) * step; h.y += (dy / d) * step;
+        if (Math.abs(dx) > 2) h.face = dx > 0 ? 1 : -1;
+        h.ph += dt * 10;
+      }
+      // fight the closest goblin on the ground (he can't reach flyers)
+      let foe = null, fd = HERO.range, pressure = 0;
+      for (const e of r.enemies) {
+        if (e.hp <= 0 || e.d < 0 || ENEMIES[e.type].fly || e.dropT > 0) continue;
+        const dd = Math.hypot(e.x - h.x, (e.y - h.y) * 1.3);
+        if (dd < fd) { fd = dd; foe = e; }
+        if (dd < 38) { e.engaged = 0.15; pressure += ENEMIES[e.type].lives * 5; }
+      }
+      h.cd -= dt;
+      if (foe) {
+        if (!h.moving) h.face = foe.x > h.x ? 1 : -1;
+        if (h.cd <= 0) {
+          h.cd = HERO.rate;
+          h.swing = 0.28;
+          damage(foe, HERO.dmg[h.lv], 'phys', h);
+          h.xp = (h.xp || 0) + 1;
+          for (let k = 0; k < 3; k++) sparkle(foe.x, foe.y - ENEMIES[foe.type].hy * 0.7, ['#ffffff', '#cfe8ff'], 0.6);
+          if (ok('sword', 120)) tone(700 + Math.random() * 200, 0.06, 'square', 0.025, 0, -300);
+        }
+      }
+      if (pressure > 0) { h.hp -= pressure * dt; h.hurt = 0.12; }
+      else h.hp = Math.min(h.max, h.hp + 9 * dt);
+      // level up from goblins he stops
+      const lv = heroLevel((h.xp || 0) + h.kills * 2);
+      if (lv > h.lv) {
+        h.lv = lv;
+        h.max = heroMaxHp(lv); h.hp = h.max;
+        h.lvlFx = 1.2;
+        float(h.x, h.y - 64, `Sir Pip level ${lv + 1}!`, '#ffd43b', 18);
+        sfx.upgrade();
+        for (let k = 0; k < 18; k++) sparkle(h.x, h.y - 26, ['#ffd43b', '#fff3b0', '#ffc145']);
+      }
+      if (h.hp <= 0) {
+        h.hp = 0;
+        h.down = heroRespawn();
+        r.heroSel = false;
+        float(h.x, h.y - 50, 'Sir Pip needs a rest!', '#ff8a8a', 15);
+        for (let k = 0; k < 8; k++) smoke(h.x, h.y - 16, 0.8);
+        sfx.die();
+      }
+    }
+    const heroAlive = () => run && run.hero && !(run.hero.down > 0);
+    function heroHit(p) {
+      const h = run && run.hero;
+      if (!h || h.down > 0) return false;
+      return Math.abs(p.x - h.x) < 20 && p.y < h.y + 8 && p.y > h.y - 52;
+    }
+    function sendHero(p) {
+      const h = run.hero;
+      h.tx = clamp(p.x, 30, VW - 70);
+      h.ty = clamp(p.y, HUD_H + 40, VH - 24);
+      run.flag = { x: h.tx, y: h.ty, t: 0.9 };
+      run.heroSel = false;
+      sfx.click();
+    }
+
+    // A little knight in shining armor with a blue cape and a feather on his helmet.
+    function drawHeroBody(h, time) {
+      const walk = h.moving ? h.ph : 0;
+      const sw = Math.sin(walk);
+      // cape behind
+      ctx.fillStyle = lin(-12, -30, -4, 0, [[0, '#3d7bd9'], [1, '#1f4f9a']]);
+      ctx.beginPath(); ctx.moveTo(-6, -30); ctx.quadraticCurveTo(-16 - Math.abs(sw) * 3, -14, -13, -2 + sw * 2); ctx.lineTo(-2, -4); ctx.closePath(); ctx.fill();
+      // legs
+      ctx.lineCap = 'round'; ctx.lineWidth = 5;
+      ctx.strokeStyle = '#6b737e'; line(-3, -12, -3 - sw * 4, -1);
+      ctx.strokeStyle = '#8d96a2'; line(3, -12, 3 + sw * 4, -1);
+      // body armor
+      ctx.fillStyle = lin(-9, 0, 9, 0, [[0, '#e6ebf2'], [0.5, '#aab3bf'], [1, '#6f7884']]);
+      rr(-9, -30, 18, 19, 6); ctx.fill();
+      ctx.fillStyle = '#3d7bd9'; ctx.fillRect(-9, -20, 18, 4); // sash
+      circle(0, -18, 2, '#ffd43b');
+      // shield on the near arm
+      ctx.fillStyle = lin(-12, -26, -4, -10, [[0, '#4a8ae8'], [1, '#234f99']]);
+      ctx.beginPath(); ctx.moveTo(-14, -27); ctx.lineTo(-4, -27); ctx.lineTo(-4, -16); ctx.quadraticCurveTo(-9, -9, -14, -16); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#ffd43b'; ctx.lineWidth = 1.5; ctx.stroke();
+      // sword arm: swings down when he attacks
+      const a = h.swing > 0 ? -1.9 + (1 - h.swing / 0.28) * 2.6 : -0.5 + Math.sin(time * 2) * 0.05;
+      ctx.save();
+      ctx.translate(8, -24);
+      ctx.rotate(a);
+      ctx.fillStyle = '#8b5a2b'; ctx.fillRect(-1.5, -2, 3, 6);
+      ctx.fillStyle = '#ffd43b'; ctx.fillRect(-5, -3, 10, 2.5);
+      ctx.fillStyle = lin(-2, 0, 2, 0, [[0, '#ffffff'], [1, '#b8c2cf']]);
+      ctx.beginPath(); ctx.moveTo(-2, -3); ctx.lineTo(2, -3); ctx.lineTo(1.2, -22); ctx.lineTo(0, -25); ctx.lineTo(-1.2, -22); ctx.closePath(); ctx.fill();
+      ctx.restore();
+      if (h.swing > 0.12) {
+        ctx.strokeStyle = `rgba(255,255,255,${(h.swing - 0.12) * 4})`; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(8, -24, 24, -1.6, 0.6); ctx.stroke();
+      }
+      // head in a round helmet with a visor slit and a red plume
+      ctx.fillStyle = rad(-2, -42, 1, 12, [[0, '#ffffff'], [0.5, '#c3cbd6'], [1, '#7d8794']]);
+      ctx.beginPath(); ctx.ellipse(0, -38, 10, 10.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#1d2129'; rr(0, -40, 9, 3, 1.5); ctx.fill();
+      ctx.fillStyle = '#fbd9bd'; rr(1, -36.5, 7, 4, 2); ctx.fill();
+      ctx.fillStyle = '#e8483a';
+      ctx.beginPath(); ctx.moveTo(-2, -47); ctx.quadraticCurveTo(-14, -56, -16, -44 + Math.sin(time * 6) * 1.5); ctx.quadraticCurveTo(-10, -50, -2, -44); ctx.fill();
+    }
+    function drawHero(time) {
+      const h = run && run.hero;
+      if (!h || h.down > 0) return;
+      softShadow(h.x, h.y + 1, 14, 5, 0.3);
+      if (run.heroSel) {
+        ctx.strokeStyle = `rgba(120,200,255,${0.6 + 0.3 * Math.sin(time * 8)})`; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.ellipse(h.x, h.y + 1, 22, 9, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+      if (h.lvlFx > 0) { ctx.strokeStyle = `rgba(255,212,59,${h.lvlFx / 1.2})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(h.x, h.y, 20 + (1.2 - h.lvlFx) * 40, (20 + (1.2 - h.lvlFx) * 40) * 0.4, 0, 0, Math.PI * 2); ctx.stroke(); }
+      ctx.save();
+      ctx.translate(h.x, h.y - (h.moving ? Math.abs(Math.cos(h.ph)) * 2 : 0));
+      ctx.scale(h.face * 1.05, 1.05);
+      drawHeroBody(h, time);
+      ctx.restore();
+      if (h.hurt > 0) { ctx.fillStyle = `rgba(255,80,80,${h.hurt * 2.5})`; ctx.beginPath(); ctx.ellipse(h.x, h.y - 26, 12, 22, 0, 0, Math.PI * 2); ctx.fill(); }
+      // health bar and level badge
+      const w = 30, bx = h.x - w / 2, by = h.y - 66;
+      ctx.fillStyle = 'rgba(0,0,0,0.6)'; rr(bx - 1.5, by - 1.5, w + 3, 7, 3.5); ctx.fill();
+      ctx.fillStyle = '#6fb8ff'; rr(bx, by, w * Math.max(0, h.hp / h.max), 4, 2); ctx.fill();
+      circle(bx - 7, by + 2, 6, '#1f4f9a');
+      label(String(h.lv + 1), bx - 7, by + 2.5, 9, '#ffd43b', 'center', 900);
+    }
+    // The flag that shows where Sir Pip is walking to.
+    function drawFlag() {
+      const f = run.flag;
+      if (!f || f.t <= 0) return;
+      ctx.globalAlpha = Math.min(1, f.t * 2);
+      ctx.strokeStyle = '#5a3a1a'; ctx.lineWidth = 2; line(f.x, f.y, f.x, f.y - 26);
+      ctx.fillStyle = '#3d7bd9'; ctx.beginPath(); ctx.moveTo(f.x, f.y - 26); ctx.lineTo(f.x + 14, f.y - 21); ctx.lineTo(f.x, f.y - 16); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // =====================================================================
+    // Treasure chests: they pop up near the road. Click one before it vanishes!
+    // =====================================================================
+    function updateChest(r, dt) {
+      if (r.flag) r.flag.t -= dt;
+      if (r.over || r.wave < 1) return;
+      const c = r.chest;
+      if (c) {
+        c.t += dt;
+        if (c.opened) { c.open += dt; if (c.open > 1) { r.chest = null; r.chestT = 28 + Math.random() * 18; } }
+        else if (c.t > 13) { r.chest = null; r.chestT = 20 + Math.random() * 15; }
+        return;
+      }
+      r.chestT -= dt;
+      if (r.chestT > 0) return;
+      for (let tries = 0; tries < 60; tries++) {
+        const x = 70 + Math.random() * 800, y = HUD_H + 60 + Math.random() * (VH - HUD_H - 150);
+        const road = Math.min(...paths.map((p) => distToPolyline(p.pts, x, y)));
+        if (road < 46 || road > 130) continue;
+        if (r.pads.some((p) => Math.hypot(p.x - x, p.y - y) < 60)) continue;
+        if (x < 200 && y > VH - 110) continue; // spell buttons
+        if (x > 760 && y > VH - 120) continue; // next-wave button
+        r.chest = { x, y, t: 0, open: 0, opened: false };
+        sfx.coin();
+        return;
+      }
+      r.chestT = 5;
+    }
+    function chestHit(p) {
+      const c = run && run.chest;
+      return c && !c.opened && Math.abs(p.x - c.x) < 24 && p.y > c.y - 30 && p.y < c.y + 8;
+    }
+    function openChest() {
+      const r = run, c = r.chest;
+      c.opened = true;
+      const spellsWaiting = Object.keys(r.spells).some((k) => r.spells[k] > 0 && spellReady(k));
+      if (spellsWaiting && Math.random() < 0.3) {
+        for (const k of Object.keys(r.spells)) r.spells[k] = 0;
+        float(c.x, c.y - 44, 'Spells recharged!', '#9fd8ff', 18);
+        sfx.freeze();
+      } else {
+        const gold = r.endless ? 40 + r.wave * 3 : 25 + r.level * 6;
+        r.gold += gold;
+        float(c.x, c.y - 44, `Treasure! +${gold}`, '#ffd43b', 20);
+        for (let k = 0; k < 6; k++) if (r.flyCoins.length < 40) r.flyCoins.push({ x: c.x, y: c.y - 16, vx: (Math.random() - 0.5) * 160, vy: -160 - Math.random() * 80, t: 0 });
+        sfx.upgrade();
+      }
+      for (let k = 0; k < 20; k++) sparkle(c.x, c.y - 16, ['#ffd43b', '#fff3b0', '#ffc145', '#ffffff'], 1.1);
+    }
+    function drawChest(time) {
+      const c = run && run.chest;
+      if (!c) return;
+      const blink = !c.opened && c.t > 10 && Math.floor(c.t * 6) % 2 === 0;
+      if (blink) return;
+      const pop = Math.min(1, c.t * 4);
+      const bob = c.opened ? 0 : Math.abs(Math.sin(time * 3)) * 3;
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.scale(pop, pop);
+      // glow
+      ctx.fillStyle = rad(0, -12, 2, 40, [[0, 'rgba(255,220,120,0.55)'], [1, 'rgba(255,220,120,0)']]);
+      ctx.beginPath(); ctx.arc(0, -12, 40, 0, Math.PI * 2); ctx.fill();
+      softShadow(0, 2, 20, 6, 0.3);
+      ctx.translate(0, -bob);
+      // box
+      ctx.fillStyle = lin(0, -20, 0, 0, [[0, '#a0652e'], [1, '#6e4220']]);
+      rr(-17, -20, 34, 20, 3); ctx.fill();
+      ctx.fillStyle = '#e8b62c'; ctx.fillRect(-17, -12, 34, 3); ctx.fillRect(-3, -20, 6, 20);
+      // lid (swings open)
+      const lid = c.opened ? Math.min(1, c.open * 5) * 1.9 : 0;
+      ctx.save();
+      ctx.translate(-17, -20);
+      ctx.rotate(-lid);
+      ctx.fillStyle = lin(0, -12, 0, 0, [[0, '#b8783a'], [1, '#8a5428']]);
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -6); ctx.quadraticCurveTo(17, -16, 34, -6); ctx.lineTo(34, 0); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#e8b62c'; ctx.fillRect(14, -10, 6, 10);
+      ctx.restore();
+      if (c.opened) { for (let k = 0; k < 3; k++) coin(-8 + k * 8, -22 - Math.min(1, c.open * 3) * 10 - k * 2, 5); }
+      else { circle(0, -14, 2.4, '#3a2400'); star(12 + Math.sin(time * 5) * 2, -30, 4 + Math.sin(time * 8) * 1.5, '#fff6c2'); }
+      ctx.restore();
     }
 
     // =====================================================================
@@ -906,7 +1271,10 @@
         const E = ENEMIES[e.type];
         if (e.hitT > 0) e.hitT -= dt;
         if (e.healFx > 0) e.healFx -= dt;
+        if (e.shieldHit > 0) e.shieldHit -= dt;
+        if (e.dropT > 0) e.dropT -= dt;
         let mul = 1;
+        if (e.engaged > 0) { e.engaged -= dt; mul *= 0.35; } // busy fighting Sir Pip
         if (e.slowT > 0) { e.slowT -= dt; mul = e.slowMul; }
         if (e.freezeT > 0) { e.freezeT -= dt; mul = 0; }
         e.d += e.speed * mul * dt;
@@ -958,6 +1326,9 @@
           if (t.cd <= 0) { fire(t, st, target); t.cd = st.rate; }
         }
       }
+
+      updateHero(r, dt);
+      updateChest(r, dt);
 
       // shots
       for (const s of r.shots) {
@@ -1057,7 +1428,7 @@
         $('r-stars').hidden = true;
         note.className = 'note good';
         note.textContent = record ? `New record: you survived ${survived} waves!` : `You survived ${survived} waves. Your best is ${save.endlessBest}.`;
-        spuds = Math.floor(survived * 1.5) + Math.floor(r.kills / 15);
+        spuds = Math.min(40, Math.floor(survived * 1.5) + Math.floor(r.kills / 15));
         $('r-next-btn').hidden = true;
         $('r-replay-btn').textContent = 'Try again';
         sfx.sad();
@@ -1081,7 +1452,7 @@
           ? stars === 3 ? 'All 3 stars! The king is very proud.' : `Keep ${stars === 1 ? 10 : 18}+ lives for ${stars + 1} stars.`
           : 'Try building more towers early, and upgrade the ones near corners!';
         if (newStars > 0) note.textContent += ` (+${newStars} ★ to spend on Upgrades)`;
-        spuds = won ? 5 + newStars * 4 + Math.floor(r.kills / 10) : Math.floor(r.kills / 12);
+        spuds = Math.min(40, won ? 5 + newStars * 4 + Math.floor(r.kills / 10) : Math.floor(r.kills / 12));
         $('r-next-btn').hidden = !(won && r.level < LEVELS.length && r.level + 1 <= save.unlocked);
         $('r-next-btn').textContent = `Level ${r.level + 1}`;
         if (won && stars === 3) { sfx.fanfare(); confetti(); } else if (won) sfx.fanfare(); else sfx.sad();
@@ -1116,7 +1487,14 @@
     function hideOverlays() { OVERLAYS.forEach((id) => { $(id).hidden = true; }); }
     function showOverlay(id) { hideOverlays(); $(id).hidden = false; }
 
-    function showTitle() { mode = 'title'; run = null; setLevel(LEVELS[0]); $('t-stars').textContent = `${totalStars()} ★`; showOverlay('title'); }
+    function showTitle() {
+      mode = 'title'; run = null; setLevel(LEVELS[0]);
+      $('t-stars').textContent = `${totalStars()} / ${LEVELS.length * 3} ★`;
+      $('t-progress').textContent = save.endlessBest ? `Endless best: ${save.endlessBest} waves` : `Level ${Math.min(save.unlocked, LEVELS.length)} of ${LEVELS.length}`;
+      if (window.innerWidth < 760) $('t-how').open = false;
+      showOverlay('title');
+      drawTitleArt(performance.now() / 1000);
+    }
 
     function showMap() {
       mode = 'map';
@@ -1157,6 +1535,7 @@
       for (const [k, v] of Object.entries(TOWER_UNLOCK)) if (v === n && n > 1) items.push({ draw: (c) => portraitTower(c, k), text: `New tower: ${TOWERS[k].name}! ${TOWERS[k].desc}` });
       for (const [k, s] of Object.entries(SPELLS)) if (s.unlock === n) items.push({ draw: (c) => portraitSpell(c, k), text: `New spell: ${s.name} (${s.key})! ${s.desc}` });
       for (const [k, v] of Object.entries(ENEMY_INTRO)) if (v === n && n > 1) items.push({ draw: (c) => portraitEnemy(c, k), text: ENEMY_TIPS[k] });
+      if (n === HERO.unlock) items.push({ draw: (c) => portraitWith(c, () => { ctx.save(); ctx.scale(c.width / 64, c.height / 64); ctx.translate(30, 58); ctx.scale(0.95, 0.95); drawHeroBody({ moving: false, ph: 0, swing: 0 }, 1); ctx.restore(); }), text: "New hero: Sir Pip! Click him (or press H), then click the road to send him there. He fights goblins and gets stronger." });
       for (const it of items) {
         const row = document.createElement('div');
         const c = document.createElement('canvas');
@@ -1258,6 +1637,7 @@
     const MUTE_BTN = { x: 860, y: 7, w: 40, h: 30 };
     const NEXT_BTN = { x: 790, y: 572, w: 196, h: 54 };
     const SPELL_BTNS = { meteor: { x: 52, y: 596, r: 32 }, ice: { x: 130, y: 596, r: 32 } };
+    const HERO_BTN = { x: 208, y: 596, r: 32 };
     const inRect = (p, r) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
 
     // Where the build / upgrade buttons go around the selected pad.
@@ -1279,7 +1659,7 @@
       const r = run;
       if (!r.preview || r.preview.wave !== r.wave + 1) {
         const q = makeWave(r.endless ? 1 : r.level, r.wave + 1, r.waves, paths.length, r.endless);
-        const order = ['boss', 'troll', 'slime', 'orc', 'shaman', 'bat', 'wolf', 'goblin'];
+        const order = ['boss', 'troll', 'balloon', 'shield', 'slime', 'orc', 'shaman', 'bat', 'wolf', 'goblin'];
         r.preview = { wave: r.wave + 1, types: [...new Set(q.map((s) => s.type))].sort((a, b) => order.indexOf(a) - order.indexOf(b)) };
       }
       return r.preview.types;
@@ -1293,6 +1673,9 @@
       for (const b of menuButtons()) if (Math.hypot(p.x - b.x, p.y - b.y) <= b.r + 3) return { type: 'menu', b };
       if (nextVisible() && inRect(p, NEXT_BTN)) return { type: 'next' };
       for (const [id, b] of Object.entries(SPELL_BTNS)) if (Math.hypot(p.x - b.x, p.y - b.y) <= b.r) return { type: 'spell', id };
+      if (run.hero && Math.hypot(p.x - HERO_BTN.x, p.y - HERO_BTN.y) <= HERO_BTN.r) return { type: 'herobtn' };
+      if (chestHit(p)) return { type: 'chest' };
+      if (heroHit(p)) return { type: 'hero' };
       for (let i = 0; i < run.pads.length; i++) {
         const pad = run.pads[i];
         if (Math.hypot(p.x - pad.x, (p.y - pad.y) * (pad.tower ? 0.7 : 1.2)) <= PAD_R + 4 || (pad.tower && p.x > pad.x - 26 && p.x < pad.x + 26 && p.y < pad.y && p.y > pad.y - 80)) return { type: 'pad', i };
@@ -1307,7 +1690,14 @@
         if (h && h.type === 'spell') { run.aiming = null; return; }
         if (p.y > HUD_H && !(h && ['pause', 'speed', 'mute', 'next'].includes(h.type))) { castSpell('meteor', p); return; }
       }
+      // Sir Pip is selected: tap the ground (or a pad) to send him there
+      if (run.heroSel && heroAlive() && (!h || h.type === 'pad') && p.y > HUD_H + 10) { sendHero(p); return; }
       if (!h) { run.sel = -1; return; }
+      if (h.type === 'chest') { openChest(); return; }
+      if (h.type === 'hero' || h.type === 'herobtn') {
+        if (!heroAlive()) { say(`Sir Pip is resting. Back in ${Math.ceil(run.hero.down)}s.`); return; }
+        run.heroSel = !run.heroSel; run.sel = -1; run.aiming = null; sfx.click(); return;
+      }
       if (h.type === 'pause') return pause(true);
       if (h.type === 'speed') { run.speed = run.speed >= 3 ? 1 : run.speed + 1; sfx.click(); return; }
       if (h.type === 'mute') { save.muted = !save.muted; persist(); return; }
@@ -1320,7 +1710,7 @@
         else if (b.act === 'sell') sell(run.sel);
         return;
       }
-      if (h.type === 'pad') { run.sel = run.sel === h.i ? -1 : h.i; sfx.click(); }
+      if (h.type === 'pad') { run.sel = run.sel === h.i ? -1 : h.i; run.heroSel = false; sfx.click(); }
     }
 
     let view = { s: 1, ox: 0, oy: 0 };
@@ -1328,7 +1718,9 @@
     let hover = null;
     const toView = (e) => {
       const r = canvas.getBoundingClientRect();
-      return { x: (e.clientX - r.left - view.ox) / view.s, y: (e.clientY - r.top - view.oy) / view.s };
+      const x = (e.clientX - r.left - view.ox) / view.s, y = (e.clientY - r.top - view.oy) / view.s;
+      if (view.split) return y >= VH + 5 ? { x: x + RIGHT_X0, y: y - VH - 10 } : { x, y };
+      return { x, y };
     };
     canvas.addEventListener('pointerdown', (e) => { pointer = toView(e); onClick(pointer); });
     canvas.addEventListener('pointermove', (e) => {
@@ -1344,12 +1736,13 @@
       if (mode !== 'play' || run.over) return;
       const k = e.key.toLowerCase();
       if (k === ' ') { e.preventDefault(); if (nextVisible()) sendWave(); }
-      else if (k === 'escape') { if (run.aiming) run.aiming = null; else if (run.sel >= 0) run.sel = -1; else pause(true); }
+      else if (k === 'escape') { if (run.aiming) run.aiming = null; else if (run.heroSel) run.heroSel = false; else if (run.sel >= 0) run.sel = -1; else pause(true); }
       else if (k === 'p') pause(true);
       else if (k === 'f') run.speed = run.speed >= 3 ? 1 : run.speed + 1;
       else if (k === 'm') { /* handled above */ }
       else if (k === 'q') castSpell('meteor', run.aiming === 'meteor' && pointer.y > HUD_H ? pointer : null);
       else if (k === 'e') castSpell('ice');
+      else if (k === 'h' && run.hero) { if (heroAlive()) { run.heroSel = !run.heroSel; run.sel = -1; sfx.click(); } }
       else if (k === 'tab') { e.preventDefault(); run.sel = (run.sel + 1) % run.pads.length; sfx.click(); }
       else if (run.sel >= 0) {
         const pad = run.pads[run.sel];
@@ -1965,6 +2358,60 @@
       ctx.beginPath(); ctx.arc(w * 0.3, -h * 0.28, 3.4, 0.2, Math.PI - 0.2); ctx.stroke();
     }
 
+    // A patched-up hot-air balloon with two goblins peeking out of the basket.
+    function drawBalloon(ph, time) {
+      const sway = Math.sin(ph * 0.6) * 0.06;
+      ctx.rotate(sway);
+      // ropes
+      ctx.strokeStyle = '#6b4a2a'; ctx.lineWidth = 1.3;
+      line(-8, -10, -15, -30); line(8, -10, 15, -30); line(-3, -10, -6, -28); line(3, -10, 6, -28);
+      // the two passengers
+      const skin = ['#a6e36b', '#6fb23a', '#467f24'];
+      ctx.save(); ctx.translate(-4, -12); ctx.scale(0.55, 0.55); goblinHead(skin, 0, 11); ctx.restore();
+      ctx.save(); ctx.translate(5, -11); ctx.scale(-0.5, 0.5); goblinHead(skin, 0, 11); ctx.restore();
+      // basket
+      ctx.fillStyle = lin(0, -10, 0, 0, [[0, '#c48a4a'], [1, '#7a5230']]);
+      rr(-10, -10, 20, 11, 3); ctx.fill();
+      ctx.strokeStyle = 'rgba(60,35,15,0.5)'; ctx.lineWidth = 1;
+      for (let k = -6; k <= 6; k += 4) line(k, -9, k, 0);
+      // envelope with red and yellow stripes
+      const bob = Math.sin(time * 2 + ph) * 1.5;
+      ctx.save();
+      ctx.translate(0, -52 + bob);
+      ctx.beginPath(); ctx.moveTo(-16, 18); ctx.bezierCurveTo(-30, 0, -26, -24, 0, -26); ctx.bezierCurveTo(26, -24, 30, 0, 16, 18); ctx.closePath();
+      ctx.save(); ctx.clip();
+      for (let k = -3; k <= 3; k++) { ctx.fillStyle = k % 2 ? '#ffd43b' : '#e8483a'; ctx.fillRect(k * 8 - 4, -30, 8, 52); }
+      ctx.fillStyle = rad(-8, -12, 2, 30, [[0, 'rgba(255,255,255,0.45)'], [1, 'rgba(0,0,0,0.25)']]);
+      ctx.fillRect(-30, -30, 60, 52);
+      // a patch
+      ctx.fillStyle = '#7a5230'; ctx.fillRect(6, -6, 7, 6);
+      ctx.restore();
+      ctx.strokeStyle = 'rgba(80,30,20,0.6)'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = '#7a5230'; rr(-9, 15, 18, 5, 2); ctx.fill();
+      ctx.restore();
+    }
+
+    // A goblin hiding behind a big round wooden shield (it cracks as it takes hits).
+    function drawShieldGoblin(ph, shield, hit) {
+      drawGoblin(ph, false);
+      if (!(shield > 0)) return;
+      const bob = Math.abs(Math.cos(ph)) * 2;
+      const shake = hit > 0 ? Math.sin(hit * 80) * 1.5 : 0;
+      ctx.save();
+      ctx.translate(12 + shake, -22 - bob * 0);
+      ctx.fillStyle = rad(-3, -4, 1, 14, [[0, '#d6a868'], [1, '#8a5a2a']]);
+      ctx.beginPath(); ctx.ellipse(0, 0, 8, 13, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#9aa3ae'; ctx.lineWidth = 2.5; ctx.stroke();
+      circle(0, 0, 3, '#c9ced8');
+      ctx.strokeStyle = 'rgba(60,35,15,0.5)'; ctx.lineWidth = 1;
+      line(-6, -6, 6, -6); line(-7, 5, 7, 5);
+      // cracks
+      ctx.strokeStyle = '#3a2410'; ctx.lineWidth = 1.4;
+      if (shield <= 2) { ctx.beginPath(); ctx.moveTo(-2, -12); ctx.lineTo(1, -5); ctx.lineTo(-2, 0); ctx.stroke(); }
+      if (shield <= 1) { ctx.beginPath(); ctx.moveTo(3, 12); ctx.lineTo(0, 6); ctx.lineTo(4, 2); ctx.stroke(); }
+      ctx.restore();
+    }
+
     function drawEnemyBody(type, ph, time) {
       if (type === 'slime') drawSlime(ph, false);
       else if (type === 'slimelet') drawSlime(ph, true);
@@ -1975,8 +2422,10 @@
       else if (type === 'bat') drawBat(ph, time);
       else if (type === 'troll') drawTroll(ph, false);
       else if (type === 'boss') drawTroll(ph, true);
+      else if (type === 'balloon') drawBalloon(ph, time);
+      else if (type === 'shield') drawShieldGoblin(ph, 3);
     }
-    const ENEMY_SCALE = { goblin: 1, shaman: 1, orc: 1, wolf: 1, bat: 1, troll: 1.25, boss: 1.6, slime: 1.2, slimelet: 0.72 };
+    const ENEMY_SCALE = { goblin: 1, shaman: 1, orc: 1, wolf: 1, bat: 1, troll: 1.25, boss: 1.6, slime: 1.2, slimelet: 0.72, balloon: 1, shield: 1 };
 
     function drawEnemy(e, time) {
       const E = ENEMIES[e.type];
@@ -1987,9 +2436,10 @@
       if (e.slowT > 0 && e.freezeT <= 0) { ctx.strokeStyle = 'rgba(140,220,255,0.75)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(e.x, e.y + 1, 15 * s, 5.5 * s, 0, 0, Math.PI * 2); ctx.stroke(); }
       if (e.healFx > 0) { const k = 1 - e.healFx / 0.8; ctx.strokeStyle = `rgba(120,255,150,${e.healFx})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(e.x, e.y, 20 + k * 70, (20 + k * 70) * 0.4, 0, 0, Math.PI * 2); ctx.stroke(); }
       ctx.save();
-      ctx.translate(e.x, e.y - alt);
+      ctx.translate(e.x, e.y - alt - (e.dropT > 0 ? e.dropT * 110 : 0)); // goblins dropping out of a popped balloon
       ctx.scale(e.f * s, s);
-      drawEnemyBody(e.type, e.ph, time);
+      if (e.type === 'shield') drawShieldGoblin(e.ph, e.shield, e.shieldHit);
+      else drawEnemyBody(e.type, e.ph, time);
       ctx.restore();
       if (e.hitT > 0) { ctx.fillStyle = `rgba(255,255,255,${e.hitT * 2.5})`; ctx.beginPath(); ctx.ellipse(e.x, e.y - alt - E.hy * 0.6, 12 * s, E.hy * 0.55, 0, 0, Math.PI * 2); ctx.fill(); }
       if (e.freezeT > 0) {
@@ -2338,12 +2788,13 @@
       const gb = r.goldBump > 0 ? 1 + Math.sin((r.goldBump / 0.2) * Math.PI) * 0.22 : 1;
       ctx.save(); ctx.translate(112, 22); ctx.scale(gb, gb); coin(0, 0, 10); ctx.restore();
       label(String(Math.round(r.shownGold)), 128, 23, 21, '#ffe58a', 'left', 700, 'Fredoka');
-      label(r.endless ? 'Endless Horde' : `Lv ${r.level} · ${level.name}`, 218, 23, 14, '#a3a9b6', 'left', 800);
+      if (!view.split) label(r.endless ? 'Endless Horde' : `Lv ${r.level} · ${level.name}`, 218, 23, 14, '#a3a9b6', 'left', 800);
       // wave sign
       ctx.fillStyle = lin(0, 5, 0, 39, [[0, '#ffd166'], [1, '#e8a317']]);
-      rr(VW / 2 - 88, 5, 176, 34, 10); ctx.fill();
-      ctx.fillStyle = 'rgba(0,0,0,0.15)'; rr(VW / 2 - 88, 33, 176, 6, 3); ctx.fill();
-      label(r.endless ? `WAVE ${r.wave}` : `WAVE ${r.wave} / ${r.waves}`, VW / 2, 22, 19, '#3a2400', 'center', 700, 'Fredoka');
+      const wx = view.split ? RIGHT_X0 + 175 : VW / 2;
+      rr(wx - 88, 5, 176, 34, 10); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.15)'; rr(wx - 88, 33, 176, 6, 3); ctx.fill();
+      label(r.endless ? `WAVE ${r.wave}` : `WAVE ${r.wave} / ${r.waves}`, wx, 22, 19, '#3a2400', 'center', 700, 'Fredoka');
       // buttons
       const hk = (t) => hover && hover.type === t;
       button(MUTE_BTN, hk('mute'), null, save.muted ? '🔇' : '🔊', 15);
@@ -2367,6 +2818,26 @@
         ctx.lineWidth = aiming ? 4 : 2.5;
         ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.stroke();
         if (open) { circle(b.x + b.r * 0.72, b.y - b.r * 0.72, 9, '#1f232b'); label(sp.key, b.x + b.r * 0.72, b.y - b.r * 0.72 + 1, 11, '#ffd43b', 'center', 900); }
+      }
+
+      // hero button
+      if (r.hero) {
+        const b = HERO_BTN, hh = r.hero, down = hh.down > 0;
+        circle(b.x, b.y + 3, b.r, 'rgba(0,0,0,0.4)');
+        ctx.fillStyle = rad(b.x - 8, b.y - 10, 2, b.r, [[0, '#2f5a9a'], [1, '#14223a']]);
+        ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
+        ctx.save(); ctx.beginPath(); ctx.arc(b.x, b.y, b.r - 2, 0, Math.PI * 2); ctx.clip();
+        ctx.translate(b.x - 2, b.y + 30); ctx.scale(1.2, 1.2);
+        if (down) ctx.globalAlpha = 0.35;
+        drawHeroBody({ moving: false, ph: 0, swing: 0 }, time);
+        ctx.restore(); ctx.globalAlpha = 1;
+        // health ring
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = down ? '#ff8a8a' : r.heroSel ? '#9fd8ff' : '#6fb8ff';
+        ctx.beginPath(); ctx.arc(b.x, b.y, b.r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (down ? 1 - hh.down / heroRespawn() : hh.hp / hh.max)); ctx.stroke();
+        if (down) label(String(Math.ceil(hh.down)), b.x, b.y + 1, 18, '#fff', 'center', 900);
+        circle(b.x + b.r * 0.72, b.y - b.r * 0.72, 9, '#1f232b'); label('H', b.x + b.r * 0.72, b.y - b.r * 0.72 + 1, 11, '#ffd43b', 'center', 900);
       }
 
       // next wave button
@@ -2409,12 +2880,17 @@
       let hint = r.msgT > 0 ? r.msg : '';
       if (!hint && r.level === 1) hint = tutorialHint();
       if (!hint && r.aiming === 'meteor') hint = 'Click where the meteor should land!';
+      if (!hint && r.heroSel) hint = 'Click where Sir Pip should go!';
+      if (!hint && r.hero && r.wave === 0 && !r.level2Hint && r.level === HERO.unlock) hint = 'New! Click Sir Pip (or press H), then click the road to send him into battle.';
       if (hint) {
         ctx.font = '800 15px Nunito, sans-serif';
         const w = ctx.measureText(hint).width + 32;
         ctx.fillStyle = r.msgT > 0 ? 'rgba(190,40,40,0.92)' : 'rgba(20,22,28,0.88)';
-        rr(VW / 2 - w / 2, HUD_H + 10, w, 28, 14); ctx.fill();
-        label(hint, VW / 2, HUD_H + 25, 15, '#fff');
+        const hx = view.split ? HALF_W / 2 : VW / 2;
+        const hs = view.split ? Math.min(15, Math.floor((15 * (HALF_W - 24)) / w)) : 15;
+        const hw = view.split ? Math.min(w, HALF_W - 16) : w;
+        rr(hx - hw / 2, HUD_H + 10, hw, 28, 14); ctx.fill();
+        label(hint, hx, HUD_H + 25, hs, '#fff');
       }
 
       // banner
@@ -2424,7 +2900,7 @@
         const sc = 0.8 + 0.2 * Math.min(1, b.t * 5);
         ctx.save();
         ctx.globalAlpha = Math.max(0, a);
-        ctx.translate(VW / 2, 300); ctx.scale(sc, sc);
+        ctx.translate(view.split ? HALF_W / 2 : VW / 2, 300); ctx.scale(sc * (view.split ? 0.95 : 1), sc * (view.split ? 0.95 : 1));
         ctx.fillStyle = 'rgba(16,18,24,0.84)';
         rr(-240, -50, 480, 92, 20); ctx.fill();
         ctx.font = '700 40px Fredoka, sans-serif';
@@ -2509,7 +2985,7 @@
         info = { title: `${T.name} · level ${lv}`, text: hb && hb.act === 'upgrade' && lv < 3 ? `Upgrade to level ${lv + 1}: ${statLine(pad.tower.type, lv + 1)}` : hb && hb.act === 'sell' ? 'Sell this tower to get some gold back. (S)' : `Stopped ${pad.tower.kills} enemies. Upgrade with U, sell with S.`, stats: statLine(pad.tower.type, lv) };
       }
       if (info) {
-        const w = 400, x = VW / 2 - w / 2, y = VH - 78;
+        const w = 400, x = (view.split ? (pad.x < HALF_W - 40 ? HALF_W / 2 : RIGHT_X0 + HALF_W / 2) : VW / 2) - w / 2, y = view.split && pad.x < HALF_W - 40 ? HUD_H + 50 : VH - 78;
         ctx.fillStyle = 'rgba(16,18,24,0.92)'; rr(x, y, w, 66, 14); ctx.fill();
         ctx.strokeStyle = 'rgba(255,193,69,0.5)'; ctx.lineWidth = 1.5; ctx.stroke();
         label(info.title, x + 16, y + 17, 16, '#ffc145', 'left', 700, 'Fredoka');
@@ -2534,15 +3010,33 @@
       canvas.height = Math.round(H * dpr);
       const s = Math.min(W / VW, H / VH);
       view = { s, ox: (W - VW * s) / 2, oy: (H - VH * s) / 2 };
+      const s2 = Math.min(W / HALF_W, H / (VH * 2 + 10));
+      if (H > W * 1.15 && s2 > s * 1.3) view = { s: s2, ox: (W - HALF_W * s2) / 2, oy: (H - (VH * 2 + 10) * s2) / 2, split: true };
     }
-    window.addEventListener('resize', resize);
+    window.addEventListener("resize", resize);
     resize();
 
     function frame(time) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.fillStyle = '#101216';
       ctx.fillRect(0, 0, W, H);
-      ctx.setTransform(dpr * view.s, 0, 0, dpr * view.s, dpr * view.ox, dpr * view.oy);
+      if (!view.split) { ctx.setTransform(dpr * view.s, 0, 0, dpr * view.s, dpr * view.ox, dpr * view.oy); drawScene(time); return; }
+      // Tall phone screens: the left half of the battlefield on top, the right half underneath.
+      for (const half of [0, 1]) {
+        ctx.setTransform(dpr * view.s, 0, 0, dpr * view.s, dpr * view.ox, dpr * (view.oy + half * (VH + 10) * view.s));
+        ctx.save();
+        ctx.beginPath(); ctx.rect(0, 0, HALF_W, VH); ctx.clip();
+        ctx.translate(-half * RIGHT_X0, 0);
+        drawScene(time);
+        ctx.restore();
+      }
+      // little arrows showing that the road carries on from the top half to the bottom one
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const y = view.oy + VH * view.s + 5 * view.s;
+      ctx.fillStyle = 'rgba(255,193,69,0.7)';
+      for (const x of [W * 0.3, W * 0.5, W * 0.7]) { ctx.beginPath(); ctx.moveTo(x - 7, y - 3); ctx.lineTo(x + 7, y - 3); ctx.lineTo(x, y + 4); ctx.fill(); }
+    }
+    function drawScene(time) {
       ctx.save();
       ctx.beginPath(); ctx.rect(0, 0, VW, VH); ctx.clip();
       const r = run;
@@ -2570,7 +3064,10 @@
           if (pad.tower && (r.sel === i || hot)) { ctx.strokeStyle = 'rgba(255,220,120,0.8)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(pad.x, pad.y + 2, PAD_R + 2, 15, 0, 0, Math.PI * 2); ctx.stroke(); }
         });
         // ground things back to front
+        drawChest(time);
+        drawFlag();
         const things = [];
+        if (r.hero) things.push({ y: r.hero.y, draw: () => drawHero(time) });
         for (const pad of r.pads) if (pad.tower) things.push({ y: pad.y, draw: () => drawTower(pad.tower, time) });
         for (const e of r.enemies) if (!ENEMIES[e.type].fly && e.d > -30) things.push({ y: e.y, draw: () => drawEnemy(e, time) });
         things.sort((a, b) => a.y - b.y).forEach((t) => t.draw());
@@ -2610,9 +3107,10 @@
       requestAnimationFrame(loop);
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      const steps = mode === 'play' && run ? run.speed : 1;
-      for (let i = 0; i < steps; i++) update(dt);
+      const steps = mode === "play" && run ? run.speed : 1;
+      if (!frozenTest) for (let i = 0; i < steps; i++) update(dt);
       frame(now / 1000);
+      if (mode === "title") drawTitleArt(now / 1000);
     }
 
     // Handy for poking at the game from the browser console: GoblinGate.state
@@ -2622,7 +3120,70 @@
       step(seconds) { for (let k = 0; k < Math.round(seconds * 60); k++) update(1 / 60); },
     };
 
-    showTitle();
+    // ---------- a robot general, for testing: builds, upgrades and calls waves ----------
+    function botTick() {
+      const r = run;
+      if (!r || mode !== 'play' || r.over) return;
+      if (r.chest && !r.chest.opened) openChest();
+      if (r.hero && !r.heroMoved && r.wave >= 1 && heroAlive()) { const p = posAt(paths[0], paths[0].end * 0.5); sendHero({ x: p.x, y: p.y }); r.heroMoved = true; }
+      const free = r.pads.map((p, i) => ({ p, i })).filter(({ p }) => !p.tower);
+      const types = TOWER_ORDER.filter((t) => towerOpen(t));
+      if (free.length) {
+        const type = types[(r.built) % types.length];
+        if (r.gold >= TOWERS[type].cost[0]) { build(free[0].i, type); return; }
+      }
+      const up = r.pads.map((p, i) => ({ p, i })).filter(({ p }) => p.tower && p.tower.lv < 3).sort((a, b) => a.p.tower.lv - b.p.tower.lv)[0];
+      if (up && r.gold >= TOWERS[up.p.tower.type].cost[up.p.tower.lv] + (free.length ? 60 : 0)) { upgrade(up.i); return; }
+      if (nextVisible() && (r.wave === 0 || r.enemies.length < 3)) sendWave();
+    }
+    function botRun(seconds) {
+      for (let k = 0; k < Math.round(seconds * 60); k++) {
+        update(1 / 60);
+        if (k % 30 === 0) botTick();
+        if (mode !== 'play') break;
+      }
+    }
+    window.GoblinGate.bot = botRun;
+
+    // Test-only URL params: ?test=play&level=4&secs=60  ?test=endless&secs=90  ?test=map  ?test=shop
+    let frozenTest = false;
+    const testQ = new URLSearchParams(location.search);
+    if (testQ.get('test')) {
+      document.body.classList.add('test');
+      save.muted = true;
+      const t = testQ.get('test');
+      if (testQ.has('unlocked')) save.unlocked = +testQ.get('unlocked');
+      if (testQ.has('stars')) for (let d = 1; d <= +testQ.get('stars'); d++) save.stars[d] = 3;
+      if (t === 'play' || t === 'endless') {
+        startLevel(t === 'endless' ? 'endless' : +testQ.get('level') || 1);
+        if (testQ.has('gold')) run.gold = +testQ.get('gold');
+        botRun(+testQ.get('secs') || 30);
+        if (testQ.has('sel')) run.sel = +testQ.get('sel');
+        if (testQ.has('spawn')) {
+          // drop some enemies onto the road for a picture: ?spawn=balloon,shield&at=0.45
+          const at = +testQ.get('at') || 0.45;
+          testQ.get('spawn').split(',').forEach((type, k) => {
+            spawnEnemy({ type, path: 0, hp: 1 });
+            const e = run.enemies[run.enemies.length - 1];
+            e.d = paths[0].end * at - k * 34;
+          });
+          update(1 / 60);
+          if (run.hero && testQ.has('herofight')) { const e = [...run.enemies].reverse().find((q) => !ENEMIES[q.type].fly); if (e) { run.hero.x = e.x + 24; run.hero.y = e.y + 6; run.hero.tx = run.hero.x; run.hero.ty = run.hero.y; run.hero.face = -1; run.hero.swing = 0.14; } }
+        }
+        if (testQ.has('chest')) { run.chest = null; run.chestT = 0; updateChest(run, 0.01); if (run.chest) run.chest.t = 1; }
+        if (testQ.has('herosel') && run.hero) run.heroSel = true;
+        frozenTest = testQ.has('hold');
+      } else if (t === 'map') showMap();
+      else if (t === 'shop') showShop('title');
+      else if (t === 'intro') showIntro(+testQ.get('level') || 1);
+      else showTitle();
+      if (testQ.has('log')) {
+        const d = document.createElement('pre');
+        d.style.cssText = 'position:fixed;left:0;top:0;z-index:999;background:#000c;color:#0f0;font:12px monospace;padding:6px;white-space:pre-wrap;max-width:100vw';
+        d.textContent = JSON.stringify({ errs: window.__errs, mode, wave: run && run.wave, lives: run && run.lives, gold: run && run.gold, kills: run && run.kills, towers: run && run.built, over: run && run.over });
+        document.body.appendChild(d);
+      }
+    } else showTitle();
     requestAnimationFrame(loop);
   })();
   </script>

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Word Wizard – Word Battle Adventure | Potato Games</title>
-  <meta name="description" content="Spell words from magic letter tiles to blast slimes, ghosts and dragons with fireballs, lightning and ice! Three chapters, 24 battles, bonus words, a spell shop and wizard hats. A free word game on Potato.">
+  <meta name="description" content="Spell words from magic letter tiles to blast slimes, ghosts and dragons with fireballs, lightning and ice! Three chapters, 24 battles, special spells like Meteor Shower, a Daily Spell Practice, bonus words, a spell shop and wizard hats. A free word game on Potato.">
   <link rel="icon" href="wordwizard-icon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
@@ -103,6 +103,13 @@
     .up small { color: var(--muted); margin: 6px 0 10px; flex: 1; }
     .up button { align-self: flex-start; padding: 7px 16px; font-size: 15px; }
     .up.owned { border-color: rgba(107,227,160,0.55); }
+    .daily { display: flex; align-items: center; gap: 14px; margin: 4px 0 8px; padding: 12px 14px; border-radius: 16px; text-align: left; background: linear-gradient(135deg, rgba(138,232,255,0.16), rgba(169,139,255,0.18)); border: 2px solid rgba(138,232,255,0.55); }
+    .daily .di { font-size: 32px; width: 54px; height: 54px; flex: none; display: grid; place-items: center; border-radius: 14px; background: rgba(10,8,30,0.5); }
+    .daily .dt { flex: 1; min-width: 0; }
+    .daily b { display: block; font: 700 18px var(--display); color: #bfefff; }
+    .daily small { display: block; color: var(--muted); font-size: 13px; line-height: 1.35; }
+    .daily .btn { padding: 9px 18px; font-size: 17px; flex: none; }
+    .daily.done { border-color: rgba(107,227,160,0.6); }
     .confetti { position: fixed; top: -12px; width: 10px; height: 14px; border-radius: 2px; pointer-events: none; animation: fall linear forwards; z-index: 50; }
     @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
   </style>
@@ -118,8 +125,8 @@
         <li><b>Click letter tiles</b> in any order (or just <b>type</b> them) to spell a word. <kbd>Backspace</kbd> takes a letter back, <kbd>Esc</kbd> clears.</li>
         <li>Press <b>Cast</b> or <kbd>Enter</kbd> to zap the monster. <b>Longer words</b> and rare letters like <b>Q Z X J K</b> hit much harder!</li>
         <li>Watch the <b>hourglass</b>: when it runs out, the monster attacks. Long words make <b>gem tiles</b> with fire, healing or ice magic.</li>
-        <li>Spell the <b>bonus word</b> for extra gold, and a <b>6+ letter word</b> for a star.</li>
-        <li>In battle: <kbd>1</kbd> potion, <kbd>2</kbd> hint, <kbd>3</kbd> scramble. <kbd>Esc</kbd> with no letters picked pauses.</li>
+        <li>Spell the <b>bonus word</b> for extra gold, and a <b>6+ letter word</b> for a star. Try the <b>Daily Spell Practice</b> on the map!</li>
+        <li>Casting fills your <b>mana orb</b>. When it is full, press <kbd>4</kbd> for a <b>special spell</b> like Meteor Shower! <kbd>1</kbd> potion, <kbd>2</kbd> hint, <kbd>3</kbd> scramble.</li>
       </ul>
       <div class="row">
         <button class="btn" id="play-btn">Play</button>
@@ -133,6 +140,7 @@
     <div class="card wide">
       <h2>Adventure Map</h2>
       <div class="pills"><span class="pill stars" id="m-stars">0 ★</span><span class="pill gold" id="m-gold">0 gold</span></div>
+      <div class="daily" id="daily"></div>
       <div id="chapters"></div>
       <div class="row" style="margin-top:14px">
         <button class="btn ghost" id="m-shop-btn">Spell Shop</button>
@@ -197,6 +205,7 @@
       <div class="tabs">
         <button class="tab on" data-tab="items">Potions &amp; Scrolls</button>
         <button class="tab" data-tab="upgrades">Upgrades</button>
+        <button class="tab" data-tab="specials">Specials</button>
         <button class="tab" data-tab="hats">Hats</button>
         <button class="tab" data-tab="robes">Robes</button>
       </div>
@@ -364,6 +373,7 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       potion: { x: 20, y: 588, w: 300, h: 48 },
       hint: { x: 20, y: 643, w: 300, h: 48 },
       scramble: { x: 20, y: 698, w: 300, h: 48 },
+      special: { x: 20, y: 506, w: 300, h: 74 },
       mute: { x: 906, y: 7, w: 40, h: 32 },
       pause: { x: 952, y: 7, w: 40, h: 32 },
     };
@@ -397,6 +407,12 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       brute: { name: 'Goblin Brute', kind: 'goblin', hp: 34, atk: 5, every: 2, gold: 18, ability: 'crack', n: 3, pal: ['#d0dc7c', '#8a9a3a', '#3a481a'], big: true, about: 'Big, strong, cracks 3 tiles.' },
       wyvern: { name: 'Baby Wyvern', kind: 'dragon', hp: 36, atk: 5, every: 2, gold: 20, pal: ['#ffbe8a', '#e0602a', '#6a2410'], belly: '#ffe4a6', size: 0.66, about: 'A young dragon with hot breath.' },
       emberking: { name: 'Ember King', kind: 'dragon', boss: true, hp: 105, atk: 6, every: 3, gold: 80, ability: 'crack', n: 3, pal: ['#ffbc7a', '#d8321a', '#4a0808'], belly: '#ffd98a', crown: true, size: 1.08, about: 'THE FINAL BOSS! King of all dragons.' },
+      // newer monsters with tricky letter magic
+      imp: { name: 'Letter Imp', kind: 'imp', hp: 20, atk: 3, every: 2, gold: 10, ability: 'lock', n: 2, pal: ['#ffb0d8', '#d8509a', '#6a1848'], about: 'Chains up 2 of your tiles for 2 turns!' },
+      wisp: { name: 'Fog Wisp', kind: 'wisp', hp: 26, atk: 3, every: 2, gold: 12, ability: 'fog', n: 3, pal: ['#e8fbff', '#7ad4ff', '#2a6aa8'], about: 'Hides your letters in fog. Click to peek!' },
+      fimp: { name: 'Fire Imp', kind: 'imp', hp: 30, atk: 4, every: 2, gold: 16, ability: 'lock', n: 3, pal: ['#ffd08a', '#f0602a', '#701a08'], about: 'Chains up 3 tiles at a time!' },
+      ewisp: { name: 'Ember Wisp', kind: 'wisp', hp: 34, atk: 4, every: 2, gold: 17, ability: 'fog', n: 4, pal: ['#fff2c8', '#ffaa4a', '#a83a10'], about: 'Smoky fog hides 4 letters.' },
+      dummy: { name: 'Practice Dummy', kind: 'dummy', hp: 9999, atk: 0, every: 99, gold: 0, pal: ['#f4dc9a', '#d8a858', '#7a5222'], about: 'Never fights back. Hit it as hard as you can!' },
     };
 
     const CHAPTERS = [
@@ -406,14 +422,14 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
         { name: 'Batty Hollow', mons: ['bat', 'slime'], bonus: 'berry' },
         { name: 'Toadstool Ring', mons: ['shroom', 'bat'], bonus: 'fairy' },
         { name: 'Bubbling Brook', mons: ['bslime', 'shroom', 'bat'], bonus: 'river' },
-        { name: 'Goblin Camp', mons: ['goblin', 'slime'], bonus: 'tent' },
+        { name: 'Goblin Camp', mons: ['goblin', 'slime', 'imp'], bonus: 'tent' },
         { name: 'Thorny Thicket', mons: ['goblin', 'bat', 'shroom'], bonus: 'thorn' },
         { name: 'Moss Dragon Lair', mons: ['mossdragon'], bonus: 'dragon' },
       ] },
       { name: 'Haunted Castle', color: '#c2a8ff', icon: 'moon', tip: 'Ghosts heal when they hit you. Finish them fast with long words!', battles: [
         { name: 'Castle Gate', mons: ['ghost', 'bat'], bonus: 'moat' },
-        { name: 'Dusty Hall', mons: ['nbat', 'pslime'], bonus: 'broom' },
-        { name: 'Moonlit Library', mons: ['ghost', 'nbat'], bonus: 'books' },
+        { name: 'Dusty Hall', mons: ['nbat', 'imp', 'pslime'], bonus: 'broom' },
+        { name: 'Moonlit Library', mons: ['ghost', 'wisp', 'nbat'], bonus: 'books' },
         { name: 'Creaky Stairs', mons: ['cgoblin', 'pslime'], bonus: 'candle' },
         { name: 'Ghostly Gallery', mons: ['ghost', 'phantom'], bonus: 'ghost' },
         { name: 'Old Armory', mons: ['cgoblin', 'nbat', 'phantom'], bonus: 'shield' },
@@ -423,8 +439,8 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       { name: 'Dragon Peak', color: '#ffab7a', icon: 'flame', tip: 'Rock Golems shrug off short words. Fire gems melt everything!', battles: [
         { name: 'Rocky Trail', mons: ['mslime', 'ebat'], bonus: 'rocky' },
         { name: 'Lava Falls', mons: ['mslime', 'golem'], bonus: 'magma' },
-        { name: 'Ember Caves', mons: ['ebat', 'brute'], bonus: 'ember' },
-        { name: 'Windy Ledge', mons: ['wyvern', 'ebat'], bonus: 'cloud' },
+        { name: 'Ember Caves', mons: ['ebat', 'fimp', 'brute'], bonus: 'ember' },
+        { name: 'Windy Ledge', mons: ['ewisp', 'wyvern', 'ebat'], bonus: 'cloud' },
         { name: 'Golem Gate', mons: ['golem', 'brute'], bonus: 'stone' },
         { name: 'Wyvern Nest', mons: ['wyvern', 'mslime', 'wyvern'], bonus: 'wings' },
         { name: 'Burning Bridge', mons: ['brute', 'golem', 'ebat'], bonus: 'flame' },
@@ -465,10 +481,20 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       { id: 'gold', name: 'Golden Robe', price: 0, stars: 72, c: ['#fff4b0', '#f0b82a', '#946208'], trim: '#ffffff' },
     ];
 
+    // Special spells: casting words fills the mana orb, and a full orb unleashes your special.
+    const SPECIALS = [
+      { id: 'meteor', name: 'Meteor Shower', unlock: 0, color: '#ff8a3c', desc: 'Rains meteors on the monster for big damage.' },
+      { id: 'freeze', name: 'Time Freeze', unlock: 6, color: '#7ad4ff', desc: 'Freezes the monster for 2 turns and resets its hourglass.' },
+      { id: 'shield', name: 'Crystal Shield', unlock: 12, color: '#c2a8ff', desc: 'Blocks the next 2 monster attacks and heals 6 HP.' },
+      { id: 'storm', name: 'Gem Storm', unlock: 18, color: '#6be3a0', desc: 'Swirls in fresh letters, including 3 magic gem tiles.' },
+    ];
+    const MANA_MAX = 24;
+    const DAILY_CASTS = 8;
+
     // =====================================================================
     // Save
     // =====================================================================
-    const DEFAULT_SAVE = { stars: {}, unlocked: 1, gold: 0, items: { potion: 1, hint: 2, scramble: 1 }, up: { power: 0, vital: 0, rune: 0, luck: 0 }, hats: ['classic'], hat: 'classic', robes: ['sky'], robe: 'sky', tutorial: false, muted: false, bestWord: '', bestDmg: 0, words: 0, bonus: {} };
+    const DEFAULT_SAVE = { stars: {}, unlocked: 1, gold: 0, items: { potion: 1, hint: 2, scramble: 1 }, up: { power: 0, vital: 0, rune: 0, luck: 0 }, hats: ['classic'], hat: 'classic', robes: ['sky'], robe: 'sky', tutorial: false, muted: false, bestWord: '', bestDmg: 0, words: 0, bonus: {}, special: 'meteor', daily: null, specialTip: false };
     let save = Potato.load('save', null);
     if (!save || typeof save !== 'object') save = {};
     save = Object.assign({}, DEFAULT_SAVE, save);
@@ -481,7 +507,14 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
     save.unlocked = clamp(Number(save.unlocked) || 1, 1, NUM_BATTLES);
     save.gold = Math.max(0, Number(save.gold) || 0);
     save.muted = !!save.muted;
+    const dz = save.daily && typeof save.daily === 'object' ? save.daily : {};
+    save.daily = { date: String(dz.date || ''), best: Number(dz.best) || 0, bestDate: String(dz.bestDate || ''), streak: Number(dz.streak) || 0, count: Number(dz.count) || 0, today: Number(dz.today) || 0 };
+    if (!SPECIALS.some((s) => s.id === save.special)) save.special = 'meteor';
     const persist = () => Potato.save('save', save);
+    const specialOpen = (s) => save.unlocked > s.unlock || s.unlock === 0;
+    const specialNow = () => SPECIALS.find((s) => s.id === save.special && specialOpen(s)) || SPECIALS[0];
+    function dayKey(d = new Date()) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+    function daySeed(d = new Date()) { return d.getFullYear() * 400 + (d.getMonth() + 1) * 32 + d.getDate(); }
     const starsIn = (n) => (save.stars[n] || []).filter(Boolean).length;
     const totalStars = () => Object.keys(save.stars).reduce((s, n) => s + starsIn(n), 0);
     const maxHp = () => 30 + 8 * save.up.vital;
@@ -561,6 +594,11 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       lose: () => [392, 370, 349, 311].forEach((f, i) => tone(f, 0.35, 'triangle', 0.07, i * 0.25)),
       enter: () => { tone(220, 0.2, 'square', 0.03, 0, 80); tone(330, 0.2, 'square', 0.03, 0.12, 80); },
       roar: () => { tone(90, 0.8, 'sawtooth', 0.07, 0, -30); noise(0.8, 0.07, 500); },
+      chain: () => { for (let i = 0; i < 4; i++) tone(1400 - i * 120, 0.05, 'square', 0.025, i * 0.05); noise(0.15, 0.05, 3000, 0.2, 'highpass'); },
+      ready: () => [659, 880, 1109, 1319, 1760].forEach((f, i) => tone(f, 0.14, 'triangle', 0.05, i * 0.06)),
+      block: () => { [1568, 2093, 2637].forEach((f, i) => tone(f, 0.25, 'sine', 0.05, i * 0.04)); noise(0.2, 0.05, 4000, 0, 'highpass'); },
+      meteor: () => { for (let i = 0; i < 5; i++) { tone(900 - i * 60, 0.3, 'sawtooth', 0.025, 0.15 + i * 0.16, -500); } },
+      special: () => [523, 784, 1047, 1568].forEach((f, i) => tone(f, 0.2, 'triangle', 0.06, i * 0.05)),
     };
 
     // =====================================================================
@@ -572,22 +610,35 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
     let tileId = 1;
     let hover = null;
     const SPELL_NAMES = { bolt: 'Magic Missile', fire: 'Fireball', zap: 'Lightning Bolt', ice: 'Ice Shards', star: 'Shooting Star' };
-    const MON_H = { slime: 46, bat: 122, shroom: 74, goblin: 86, ghost: 112, golem: 100, dragon: 140 };
+    const MON_H = { slime: 46, bat: 122, shroom: 74, goblin: 86, ghost: 112, golem: 100, dragon: 140, imp: 52, wisp: 88, dummy: 100 };
 
     function makeMonster(id) {
       const d = MONS[id];
       return { id, def: d, hp: d.hp, maxHp: d.hp, lagHp: d.hp, timer: d.every, frozen: 0, burn: 0, hitT: 0, atk: null, dieT: -1, enterT: 0.0001, ph: Math.random() * 10, squash: 0 };
     }
-    function newTile(c, r, dy) { return { id: tileId++, ch: 'e', kind: 'normal', crack: 0, c, r, dy: dy || 0, vy: 0, pop: 0, shake: 0, flip: 0, land: 0, glint: Math.random() * 6 }; }
+    function newTile(c, r, dy) { return { id: tileId++, ch: 'e', kind: 'normal', crack: 0, lock: 0, fog: false, c, r, dy: dy || 0, vy: 0, pop: 0, shake: 0, flip: 0, land: 0, glint: Math.random() * 6 }; }
     const later = (t, fn) => { if (B) B.events.push({ at: B.time + t, fn }); };
     const wordOf = (tiles) => tiles.map((t) => t.ch).join('');
 
-    function startBattle(n) {
+    // Letters come from this: the Daily Spell Practice uses a seeded generator so everyone gets the same letters each day.
+    const rnd = () => (B && B.rng ? B.rng() : Math.random());
+    const rpick = (a) => a[Math.floor(rnd() * a.length)];
+    function dailyDef() {
+      const NICE = 'magic charm spell stars candy tiger apple beach cloud crown dream flame frost giant happy horse jelly lemon light music ocean party pizza queen river robot shine smile snack sunny tower water whale zebra brave berry bunny comet daisy fairy globe honey juice koala mango melon night otter panda peach pearl plant shell skate sweet toast train castle'.split(' ');
+      const R = seeded(daySeed() * 7 + 13), nice = NICE.filter((w) => w.length === 5 && DICT.has(w));
+      const five = nice.length ? nice : WORD_LIST.filter((w) => w.length === 5 && !/[qzxj]/.test(w));
+      return { name: 'Daily Spell Practice', mons: ['dummy'], bonus: five[Math.floor(R() * five.length)], ch: Math.floor(R() * 3), seed: daySeed() };
+    }
+    function startBattle(n, opts = {}) {
       audio();
-      n = clamp(Math.round(n) || 1, 1, NUM_BATTLES);
-      const def = battleDef(n), ch = chapterOf(n), hp = maxHp();
+      const daily = !!opts.daily;
+      n = daily ? 0 : clamp(Math.round(n) || 1, 1, NUM_BATTLES);
+      const dd = daily ? dailyDef() : null;
+      const def = daily ? dd : battleDef(n), ch = daily ? dd.ch : chapterOf(n), hp = maxHp();
       B = {
         n, ch, def, time: 0, events: [],
+        daily: daily ? { casts: 0, score: 0, key: dayKey() } : null, rng: daily ? seeded(dd.seed) : null,
+        mana: 0, manaShow: 0, shieldHits: 0, special: specialNow(), manaParts: [],
         hp, maxHp: hp, lagHp: hp, poison: 0,
         queue: def.mons.slice(), mi: 0, mon: null,
         grid: [], sel: [], preview: null, wasValid: false,
@@ -605,7 +656,8 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       mode = 'play';
       hideOverlays();
       const boss = MONS[B.queue[0]].boss;
-      showBanner(boss ? `Boss: ${MONS[B.queue[0]].name}!` : def.name, `${CHAPTERS[ch].name} · Battle ${(n - 1) % 8 + 1} of 8`, boss ? '#ff8a7a' : CHAPTERS[ch].color);
+      if (daily) showBanner('Daily Spell Practice', `${DAILY_CASTS} spells · hit the dummy as hard as you can!`, '#8ae8ff');
+      else showBanner(boss ? `Boss: ${MONS[B.queue[0]].name}!` : def.name, `${CHAPTERS[ch].name} · Battle ${(n - 1) % 8 + 1} of 8`, boss ? '#ff8a7a' : CHAPTERS[ch].color);
       if (boss) later(0.7, () => { sfx.roar(); B.shake = 14; });
       later(1.0, () => { B.phase = 'input'; });
     }
@@ -618,18 +670,18 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
     }
     const maxOf = (l) => 'qzxj'.includes(l) ? 1 : 'kvwyfb'.includes(l) ? 2 : l === 'e' ? 4 : 3;
     function chooseLetter(counts) {
-      if (B.bonus && !B.bonusDone && Math.random() < 0.24) {
+      if (B.bonus && !B.bonusDone && rnd() < 0.24) {
         const want = {}, need = [];
         for (const c of B.bonus.replace('qu', 'q')) want[c] = (want[c] || 0) + 1;
         for (const k in want) if ((counts[k] || 0) < want[k]) need.push(k);
-        if (need.length) return pick(need);
+        if (need.length) return rpick(need);
       }
       for (let tries = 0; tries < 40; tries++) {
-        let r = Math.random() * LETTER_TOTAL, l = 'e';
+        let r = rnd() * LETTER_TOTAL, l = 'e';
         for (const k of LETTER_KEYS) { r -= LETTER_W[k]; if (r <= 0) { l = k; break; } }
         if ((counts[l] || 0) < maxOf(l)) return l;
       }
-      return pick(['a', 'e', 'i', 'o', 's', 't', 'r', 'n']);
+      return rpick(['a', 'e', 'i', 'o', 's', 't', 'r', 'n']);
     }
     function setLetter(t, l, counts) {
       if (counts) { const old = t.ch[0]; if (counts[old]) counts[old]--; counts[l] = (counts[l] || 0) + 1; }
@@ -642,17 +694,17 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       let v = B.grid.filter(isVowel).length, guard = 0;
       while (v < 5 && guard++ < 20) {
         const cons = pool.filter((t) => !isVowel(t));
-        const t = cons.length ? pick(cons) : pick(all.filter((t) => !isVowel(t)));
+        const t = cons.length ? rpick(cons) : rpick(all.filter((t) => !isVowel(t)));
         if (!t) break;
         const opts = 'aaaeeeeiiooou'.split('').filter((l) => (counts[l] || 0) < maxOf(l));
-        setLetter(t, opts.length ? pick(opts) : 'e', counts);
+        setLetter(t, opts.length ? rpick(opts) : 'e', counts);
         v++;
       }
       while (v > 8 && guard++ < 40) {
         const vs = pool.filter(isVowel);
         if (!vs.length) break;
         const opts = 'rrssttnnlldcmphgb'.split('').filter((l) => (counts[l] || 0) < maxOf(l));
-        setLetter(pick(vs), opts.length ? pick(opts) : 'r', counts);
+        setLetter(rpick(vs), opts.length ? rpick(opts) : 'r', counts);
         v--;
       }
     }
@@ -669,7 +721,7 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
     // ---------------------------------------------------------------- word finding
     function tileCounts(skipSel) {
       const a = new Int8Array(26);
-      for (const t of B.grid) if (!(skipSel && B.sel.includes(t))) a[t.ch.charCodeAt(0) - 97]++;
+      for (const t of B.grid) if (!(skipSel && B.sel.includes(t)) && !t.lock) a[t.ch.charCodeAt(0) - 97]++;
       return a;
     }
     function canMake(w, base, tmp) {
@@ -704,7 +756,7 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
     }
     const tilePriority = (t) => (t.kind !== 'normal' ? 2 : 0) + (t.crack ? 1 : 0);
     function tilesForWord(word) {
-      const avail = B.grid.filter((t) => !B.sel.includes(t));
+      const avail = B.grid.filter((t) => !B.sel.includes(t) && !t.lock);
       const out = [];
       for (let i = 0; i < word.length; i++) {
         let ch = word[i];
@@ -754,6 +806,12 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
     }
     function selectTile(t) {
       if (!canAct() || B.sel.includes(t) || B.sel.length >= 16) return;
+      if (t.lock) { t.shake = 0.35; sfx.bad(); B.msg = { text: `Chained up for ${t.lock} more turn${t.lock > 1 ? 's' : ''}!`, t: 1.4 }; return; }
+      if (t.fog) { // peek through the fog
+        t.fog = false;
+        const q = tilePos(t);
+        for (let i = 0; i < 10; i++) addPart({ type: 'smoke', x: q.x + TILE / 2 + rand(-18, 18), y: q.y + TILE / 2 + rand(-18, 18), vx: rand(-40, 40), vy: rand(-50, -10), life: 0.6, max: 0.6, size: rand(8, 14), color: '#cfe8ff' });
+      }
       B.sel.push(t);
       t.pop = 1;
       sfx.pick(B.sel.length);
@@ -773,7 +831,7 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       if (l === 'u' && B.lastKeyQ) { B.lastKeyQ = false; return; } // the Qu tile already has its U
       B.lastKeyQ = false;
       const ch = l === 'q' ? 'qu' : l;
-      const c = B.grid.filter((t) => t.ch === ch && !B.sel.includes(t)).sort((a, b) => tilePriority(b) - tilePriority(a));
+      const c = B.grid.filter((t) => t.ch === ch && !B.sel.includes(t) && !t.lock).sort((a, b) => (a.fog - b.fog) || (tilePriority(b) - tilePriority(a)));
       if (!c.length) { B.invalidT = 0.2; tone(200, 0.08, 'square', 0.03); return; }
       selectTile(c[0]);
       if (l === 'q') B.lastKeyQ = true;
@@ -830,6 +888,17 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
         const q = tilePos(t);
         burst(q.x + TILE / 2, q.y + TILE / 2, 7, t.kind === 'normal' ? '#ffe6a8' : GEM_COL[t.kind][1], 160);
       }
+      // mana: every letter cast charges the orb (rare letters and the bonus word charge extra)
+      if (!B.daily) {
+        const gain = p.L + tiles.filter((t) => RARE.includes(t.ch[0])).length + (p.bonus ? 3 : 0) + (p.L >= 7 ? 2 : 0);
+        const was = B.mana;
+        B.mana = Math.min(MANA_MAX, B.mana + gain);
+        const orb = manaOrbPos();
+        tiles.slice(0, 6).forEach((t, i) => { const q = tilePos(t); B.manaParts.push({ x: q.x + TILE / 2, y: q.y + TILE / 2, tx: orb.x, ty: orb.y, t: -i * 0.05, dur: 0.55 }); });
+        if (was < MANA_MAX && B.mana >= MANA_MAX) later(0.7, () => { sfx.ready(); if (tall) floater(VW / 2, GRID_Y - 14, `${B.special.name} ready!`, B.special.color, 22, true); else floater(orb.x + 120, orb.y - 30, `${B.special.name} ready!`, B.special.color, 20, true); });
+      } else {
+        B.daily.casts++;
+      }
       B.wiz.cast = 1;
       sfx.cast();
       launchSpell(spellKind(p), p);
@@ -850,12 +919,12 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       }
       if (!fresh.length) return;
       assignLetters(fresh);
-      let gems = len >= 7 ? 2 : len >= 5 ? 1 : (len === 4 && Math.random() < 0.15 * save.up.luck) ? 1 : 0;
+      let gems = len >= 7 ? 2 : len >= 5 ? 1 : (len === 4 && rnd() < 0.15 * save.up.luck) ? 1 : 0;
       gems = Math.min(gems, fresh.length);
-      const order = fresh.slice().sort(() => Math.random() - 0.5);
+      const order = fresh.slice().sort(() => rnd() - 0.5);
       for (let i = 0; i < gems; i++) {
         const low = B.hp < B.maxHp * 0.5;
-        order[i].kind = pick(low ? ['fire', 'heal', 'heal', 'ice'] : ['fire', 'fire', 'heal', 'ice', 'ice']);
+        order[i].kind = rpick(low ? ['fire', 'heal', 'heal', 'ice'] : ['fire', 'fire', 'heal', 'ice', 'ice']);
       }
       if (gems) later(0.4, () => sfx.gem());
     }
@@ -888,11 +957,13 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       if (p.ice && m.hp > 0) { m.frozen += 2; floater(c.x, c.y - 90, 'Frozen!', '#9ad8ff', 24, true); }
       if (p.fire && m.hp > 0) { m.burn = 3; floater(c.x + 30, c.y - 90, 'Burning!', '#ff9a3c', 22, true); }
       if (m.hp <= 0) later(0.5, monsterDefeated);
+      else if (B.daily && B.daily.casts >= DAILY_CASTS) later(1.0, finishDaily);
       else later(0.45, monsterTurn);
     }
     function dealDamage(d, color, big) {
       const m = B.mon;
       m.hp = Math.max(0, m.hp - d);
+      if (B.daily) B.daily.score += d;
       m.hitT = 0.28; m.squash = 0.3;
       const c = monCenter();
       floater(c.x + rand(-24, 24), c.y - 46, String(d), color, big ? 34 + Math.min(34, d * 0.8) : 24, true);
@@ -934,7 +1005,7 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
     }
     function monsterAttack() {
       const m = B.mon, k = m.def.kind;
-      const style = ['ghost', 'dragon', 'shroom', 'golem'].includes(k) ? 'shoot' : 'lunge';
+      const style = ['ghost', 'dragon', 'shroom', 'golem', 'wisp'].includes(k) ? 'shoot' : 'lunge';
       m.atk = { t: 0, dur: style === 'lunge' ? 0.8 : 0.9, style };
       if (k === 'dragon') sfx.roar(); else sfx.growl();
       if (style === 'lunge') later(0.4, monsterHits);
@@ -948,6 +1019,14 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
     function monsterHits() {
       if (!B || B.result) return;
       const m = B.mon, d = m.def;
+      if (B.shieldHits > 0) { // the crystal shield soaks up the whole attack
+        B.shieldHits--;
+        sfx.block();
+        B.shake = Math.max(B.shake, 6);
+        floater(WIZ_X + 10, GROUND - 190, 'Blocked!', '#c2a8ff', 30, true);
+        for (let i = 0; i < 18; i++) { const a = rand(0, TAU); addPart({ type: 'shard', x: WIZ_X + 30 + Math.cos(a) * 60, y: GROUND - 100 + Math.sin(a) * 80, vx: Math.cos(a) * 160, vy: Math.sin(a) * 160, life: 0.6, max: 0.6, size: rand(3, 7), color: pick(['#e8deff', '#c2a8ff', '#ffffff']), rot: rand(0, 6), vr: rand(-10, 10), g: 300 }); }
+        return;
+      }
       hurtWizard(d.atk);
       if (d.ability === 'drain') {
         const h = Math.min(m.maxHp - m.hp, Math.ceil(d.atk / 2));
@@ -955,6 +1034,26 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       }
       if (d.ability === 'poison') { B.poison = 3; floater(WIZ_X, GROUND - 260, 'Poisoned!', '#b6ff6a', 22, true); }
       if (d.ability === 'crack') crackTiles(d.n);
+      if (d.ability === 'lock') lockTiles(d.n);
+      if (d.ability === 'fog') fogTiles(d.n);
+    }
+    function lockTiles(n) {
+      const c = B.grid.filter((t) => !t.lock && !t.crack && !B.sel.includes(t)).sort(() => Math.random() - 0.5);
+      for (const t of c.slice(0, n)) {
+        t.lock = 2; t.lockNew = true; t.shake = 0.35;
+        const q = tilePos(t);
+        for (let i = 0; i < 8; i++) addPart({ type: 'spark', x: q.x + TILE / 2, y: q.y + TILE / 2, vx: rand(-140, 140), vy: rand(-160, 40), life: 0.5, max: 0.5, size: rand(2, 4), color: '#d8dce8', g: 400 });
+      }
+      if (c.length) { sfx.chain(); floater(VW / 2, GRID_Y - 10, 'Chained tiles! They unlock in 2 turns', '#ffb0d8', 18); }
+    }
+    function fogTiles(n) {
+      const c = B.grid.filter((t) => !t.fog && !t.lock && !B.sel.includes(t)).sort(() => Math.random() - 0.5);
+      for (const t of c.slice(0, n)) {
+        t.fog = true; t.flip = 0.6;
+        const q = tilePos(t);
+        for (let i = 0; i < 8; i++) addPart({ type: 'smoke', x: q.x + TILE / 2 + rand(-20, 20), y: q.y + TILE / 2 + rand(-20, 20), vx: rand(-30, 30), vy: rand(-40, 0), life: 0.8, max: 0.8, size: rand(10, 18), color: '#bfe4ff' });
+      }
+      if (c.length) { sfx.poof(); floater(VW / 2, GRID_Y - 10, 'Foggy tiles! Click one to peek', '#9ad8ff', 18); }
     }
     function hurtWizard(d) {
       B.hp = Math.max(0, B.hp - d);
@@ -986,6 +1085,7 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       }
       const breaking = [];
       for (const t of B.grid) if (t.crack) { t.crack--; if (t.crack <= 0) breaking.push(t); }
+      for (const t of B.grid) if (t.lock) { if (t.lockNew) { t.lockNew = false; continue; } t.lock--; if (!t.lock) { t.pop = 1; const q = tilePos(t); for (let i = 0; i < 6; i++) addPart({ type: 'spark', x: q.x + TILE / 2, y: q.y + TILE / 2, vx: rand(-120, 120), vy: rand(-140, 20), life: 0.5, max: 0.5, size: rand(2, 4), color: '#ffe8a8', g: 300 }); } }
       if (breaking.length) {
         later(delay, () => {
           for (const t of breaking) {
@@ -1011,6 +1111,9 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       const m = B.mon, c = monCenter();
       m.dieT = 0;
       sfx.poof();
+      // its magic fades away with it
+      if (m.def.ability === 'fog') for (const t of B.grid) if (t.fog) { t.fog = false; t.flip = 0.6; }
+      if (m.def.ability === 'lock') for (const t of B.grid) if (t.lock) { t.lock = 0; t.lockNew = false; t.pop = 1; }
       for (let i = 0; i < 24; i++) addPart({ type: 'smoke', x: c.x + rand(-50, 50), y: c.y + rand(-40, 40), vx: rand(-40, 40), vy: rand(-60, -10), life: rand(0.6, 1.1), max: 1.1, size: rand(14, 28), color: m.def.pal[1] });
       const g = m.def.gold;
       B.gold += g;
@@ -1036,6 +1139,16 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       for (let i = 0; i < 40; i++) addPart({ type: 'spark', x: WIZ_X + rand(-80, 80), y: GROUND - rand(0, 240), vx: rand(-60, 60), vy: rand(-140, -40), life: rand(0.8, 1.6), max: 1.6, size: rand(2, 5), color: pick(['#ffd43b', '#ffffff', '#c2a8ff']), g: 0 });
       later(2.0, () => finishBattle(true));
     }
+    const DAILY_STARS = [70, 120, 170];
+    function finishDaily() {
+      if (!B || B.result) return;
+      B.result = 'win';
+      B.wiz.joy = 1;
+      sfx.win();
+      showBanner('Practice complete!', `Total damage: ${B.daily.score}`, '#8ae8ff');
+      for (let i = 0; i < 40; i++) addPart({ type: 'spark', x: WIZ_X + rand(-80, 80), y: GROUND - rand(0, 240), vx: rand(-60, 60), vy: rand(-140, -40), life: rand(0.8, 1.6), max: 1.6, size: rand(2, 5), color: pick(['#8ae8ff', '#ffffff', '#ffd43b']), g: 0 });
+      later(2.0, () => finishBattle(true));
+    }
     function loseBattle() {
       if (!B || B.result) return;
       B.result = 'lose';
@@ -1045,6 +1158,58 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       later(2.0, () => finishBattle(false));
     }
     function finishTutorial() { if (B) B.tut = -1; if (!save.tutorial) { save.tutorial = true; persist(); } }
+
+    // ---------------------------------------------------------------- special spells (free action when the mana orb is full)
+    function useSpecial() {
+      if (!canAct()) return;
+      if (B.daily) { B.msg = { text: 'No specials in practice. Just spell your best words!', t: 1.8 }; return; }
+      if (B.mana < MANA_MAX) { sfx.bad(); B.msg = { text: `Cast more words to fill your mana orb (${B.mana}/${MANA_MAX})`, t: 1.8 }; return; }
+      const sp = B.special, m = B.mon, c = monCenter();
+      B.mana = 0;
+      B.sel = []; onSelChange(); B.hint = null;
+      B.wiz.cast = 1;
+      if (!save.specialTip) { save.specialTip = true; persist(); }
+      showBanner(sp.name + '!', 'Special spell', sp.color);
+      if (sp.id === 'meteor') {
+        B.phase = 'busy';
+        const total = 12 + 8 * B.ch + 2 * save.up.power, n = 5;
+        sfx.meteor();
+        for (let i = 0; i < n; i++) {
+          const part = i === n - 1 ? total - Math.floor(total / n) * (n - 1) : Math.floor(total / n);
+          later(0.15 + i * 0.16, () => {
+            if (!B || B.mon !== m || m.hp <= 0) return;
+            B.fx.push({ kind: 'meteor', t: 0, from: { x: c.x - 260 + rand(-80, 40), y: -60 }, to: { x: c.x + rand(-40, 40), y: c.y + rand(-30, 30) }, travel: 0.42, dur: 0.6, hit: false, power: 1.1, dmg: part, last: i === n - 1 });
+          });
+        }
+        later(0.15 + n * 0.16 + 0.6, () => { if (B && B.mon === m && m.hp > 0 && !B.result) B.phase = 'input'; });
+      } else if (sp.id === 'freeze') {
+        m.frozen += 2; m.timer = m.def.every;
+        sfx.ice();
+        impactBurst('ice', c.x, c.y, 1.6);
+        floater(c.x, c.y - 100, 'Time Freeze!', '#9ad8ff', 28, true);
+        B.flash = -0.5;
+      } else if (sp.id === 'shield') {
+        B.shieldHits = 2;
+        sfx.block();
+        healWizard(6);
+      } else {
+        sfx.scramble();
+        scrambleGrid();
+        const gems = B.grid.filter((t) => t.kind === 'normal' && !t.lock).sort(() => Math.random() - 0.5).slice(0, 3);
+        gems.forEach((t, i) => { t.kind = ['fire', 'heal', 'ice'][i]; t.pop = 1; t.flip = 1; });
+        later(0.3, () => sfx.gem());
+      }
+    }
+    function meteorHit(f) {
+      const m = B.mon, c = f.to;
+      impactBurst('fire', c.x, c.y, 1.1);
+      B.shake = Math.min(26, B.shake + 8);
+      sfx.fire();
+      if (m.hp > 0) {
+        dealDamage(f.dmg, '#ffb15a', true);
+        if (m.hp <= 0) { B.fx = B.fx.filter((q) => q.kind !== 'meteor' || q.hit); later(0.5, monsterDefeated); }
+      }
+    }
 
     // ---------------------------------------------------------------- items
     function usePotion() {
@@ -1115,9 +1280,52 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
     // =====================================================================
     // End of battle & menus
     // =====================================================================
+    function finishDailyResults() {
+      const r = B, d = save.daily, key = r.daily.key, score = r.daily.score;
+      const stars = DAILY_STARS.filter((s) => score >= s).length;
+      const first = d.date !== key;
+      let gold = r.gold;
+      if (first) {
+        const y = new Date(); y.setDate(y.getDate() - 1);
+        d.streak = d.date === dayKey(y) ? d.streak + 1 : 1;
+        d.date = key; d.count++; d.today = 0;
+        gold += 30 + 15 * stars + Math.min(5, d.streak) * 4;
+      }
+      const todayBest = score > d.today;
+      d.today = Math.max(d.today, score);
+      if (score > d.best) { d.best = score; d.bestDate = key; }
+      save.gold += gold;
+      persist();
+      const spuds = first ? 4 + stars * 2 : 1;
+      Potato.earn(spuds);
+      Potato.score(totalStars());
+      $('r-title').textContent = stars === 3 ? 'Super spelling!' : 'Practice complete!';
+      [...$('r-stars').children].forEach((s, i) => { s.className = i < stars ? 'on' : ''; });
+      $('r-goals').innerHTML = DAILY_STARS.map((g, i) => `<li class="${score >= g ? 'on' : ''}"><span>★</span>Deal ${g} total damage</li>`).join('');
+      $('r-gold').textContent = `+${gold}`;
+      $('r-word').textContent = r.best ? r.best.w.toUpperCase() : '-';
+      $('r-turns').textContent = String(score);
+      $('r-turns').previousElementSibling.textContent = 'Damage';
+      const notes = [];
+      if (first) notes.push(`Daily reward collected! Streak: ${d.streak} day${d.streak > 1 ? 's' : ''}.`);
+      else notes.push('You already got today\'s reward. Practice makes perfect!');
+      if (todayBest && !first) notes.push('New best today!');
+      notes.push(`Best ever: ${d.best}.`);
+      if (r.bonusDone) notes.push('You found the bonus word!');
+      $('r-note').textContent = notes.join(' ');
+      $('r-note').style.color = '';
+      $('r-unlock').textContent = 'New letters every day. Come back tomorrow!';
+      $('r-spuds').textContent = Potato.inHub && spuds > 0 ? `+${spuds} Spuds` : '';
+      $('r-next-btn').hidden = true;
+      $('r-replay-btn').textContent = 'Try again';
+      showOverlay('results');
+      if (stars === 3) confetti();
+    }
     function finishBattle(win) {
       const r = B;
       mode = 'results';
+      $('r-turns').previousElementSibling.textContent = 'Turns';
+      if (r.daily) { finishDailyResults(); return; }
       const n = r.n;
       const got = win ? [true, r.hp >= r.maxHp / 2, r.got6] : [false, false, false];
       const before = save.stars[n] || [false, false, false];
@@ -1194,6 +1402,18 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
     function showMap() {
       mode = 'map'; B = null;
       setPills('m');
+      // Daily Spell Practice card
+      const d = save.daily, done = d.date === dayKey(), db = $('daily');
+      db.className = 'daily' + (done ? ' done' : '');
+      db.innerHTML = '<div class="di">🎯</div><div class="dt"><b>Daily Spell Practice</b><small></small><small></small></div>';
+      const sm = db.querySelectorAll('small');
+      sm[0].textContent = `Same magic letters for everyone today. ${DAILY_CASTS} spells to deal as much damage as you can!`;
+      sm[1].textContent = done ? `✓ Done today: ${d.today} damage · streak ${d.streak} 🔥 · best ever ${d.best}` : `Reward: up to +${30 + 45 + Math.min(5, d.streak + 1) * 4} gold${d.streak ? ` · streak ${d.streak} 🔥` : ''}`;
+      const dbtn = document.createElement('button');
+      dbtn.className = 'btn';
+      dbtn.textContent = done ? 'Practice' : 'Play';
+      dbtn.addEventListener('click', () => { sfx.click(); startBattle(0, { daily: true }); });
+      db.appendChild(dbtn);
       const box = $('chapters');
       box.innerHTML = '';
       CHAPTERS.forEach((chp, ci) => {
@@ -1242,7 +1462,12 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       $('i-bonus').textContent = def.bonus.toUpperCase();
       const s = save.stars[n] || [];
       $('i-goals').innerHTML = STAR_GOALS.map((g, i) => `<li class="${s[i] ? 'on' : ''}"><span>★</span>${g}</li>`).join('');
-      $('i-tip').textContent = n === 1 && !save.tutorial ? 'Click the letter tiles to spell a word like CAT or STAR, then press Cast!' : CHAPTERS[ch].tip;
+      const tricky = def.mons.map((id) => MONS[id]).find((d) => d.ability === 'lock' || d.ability === 'fog');
+      $('i-tip').textContent = n === 1 && !save.tutorial ? 'Click the letter tiles to spell a word like CAT or STAR, then press Cast!'
+        : tricky && tricky.ability === 'lock' ? `Watch out for the ${tricky.name}! It chains up your tiles. Defeat it and the chains fall off.`
+        : tricky ? `The ${tricky.name} hides letters in fog. Click a foggy tile to peek at it!`
+        : !save.specialTip && n >= 2 ? `Casting words fills your mana orb. When it's full, unleash ${specialNow().name} with key 4!`
+        : CHAPTERS[ch].tip;
       showOverlay('intro');
     }
 
@@ -1283,6 +1508,13 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
             save.gold -= price; save.up[u.id]++; persist(); sfx.gem(); showShop();
           });
         }
+      } else if (shopTab === 'specials') {
+        for (const sp of SPECIALS) {
+          const open = specialOpen(sp), on = save.special === sp.id && open;
+          item(() => { glow(29, 29, 26, sp.color, 0.5); drawManaOrb(29, 29, 20, 0.8, sp.color, menuTime, on); specialIcon(sp.id, 29, 29, 10, menuTime); }, sp.name, open ? (on ? 'Equipped' : 'Unlocked') : `Unlocks after battle ${sp.unlock}`, `${sp.desc} Fill the mana orb by casting words, then press 4.`, on ? '✓ Equipped' : open ? 'Equip' : '🔒 Locked', on || !open, on, () => {
+            save.special = sp.id; persist(); sfx.gem(); showShop();
+          });
+        }
       } else {
         const hats = shopTab === 'hats';
         for (const h of hats ? HATS : ROBES) {
@@ -1316,10 +1548,10 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
     $('i-start-btn').addEventListener('click', () => startBattle(introN));
     $('i-back-btn').addEventListener('click', showMap);
     $('p-resume-btn').addEventListener('click', () => pause(false));
-    $('p-restart-btn').addEventListener('click', () => startBattle(B.n));
+    $('p-restart-btn').addEventListener('click', () => (B && B.daily ? startBattle(0, { daily: true }) : startBattle(B.n)));
     $('p-quit-btn').addEventListener('click', showTitle);
     $('r-next-btn').addEventListener('click', () => showIntro(B.n + 1));
-    $('r-replay-btn').addEventListener('click', () => startBattle(B.n));
+    $('r-replay-btn').addEventListener('click', () => (B && B.daily ? startBattle(0, { daily: true }) : startBattle(B.n)));
     $('r-map-btn').addEventListener('click', showMap);
     $('r-shop-btn').addEventListener('click', () => showShop('results'));
     $('s-back-btn').addEventListener('click', () => {
@@ -1343,10 +1575,33 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       if (k === '1') { usePotion(); return; }
       if (k === '2') { useHint(); return; }
       if (k === '3') { useScramble(); return; }
+      if (k === '4') { useSpecial(); return; }
       if (k.length === 1 && /[a-z]/i.test(k)) { e.preventDefault(); typeLetter(k.toLowerCase()); }
     });
 
     let view = { s: 1, ox: 0, oy: 0 };
+    // ---- tall (phone) layout: native HUD and buttons, with the scene and the letter grid cut out of the stage ----
+    let tall = false, PW = VW, PH = VH;
+    const P = {}, BTNP = {};
+    const SSRC = { x: 110, y: 40, w: 820, h: 346 };   // the part of the scene we show
+    const GSRC = { x: 330, y: 390, w: 340, h: 370 };  // word bar + letter grid
+    function layoutPortrait() {
+      P.ks = PW / SSRC.w;
+      P.scene = { x: 0, y: 46, w: PW, h: SSRC.h * P.ks };
+      P.bars = P.scene.y + P.scene.h + 2;
+      const ctrlH = 200, top = P.bars + 46, cy = PH - ctrlH - 8;
+      P.kg = Math.min((PW - 12) / GSRC.w, (cy - top - 6) / GSRC.h);
+      const gw = GSRC.w * P.kg, gh = GSRC.h * P.kg;
+      P.grid = { x: (PW - gw) / 2, y: top + Math.max(0, (cy - top - gh) / 2), w: gw, h: gh };
+      P.ctrl = cy;
+      BTNP.mute = { x: PW - 94, y: 7, w: 40, h: 32 };
+      BTNP.pause = { x: PW - 48, y: 7, w: 40, h: 32 };
+      BTNP.cast = { x: 10, y: cy + 50, w: PW * 0.62 - 15, h: 72 };
+      BTNP.clear = { x: PW * 0.62 + 5, y: cy + 50, w: PW * 0.38 - 15, h: 72 };
+      const sw = Math.round((PW - 38) * 0.34), iw = (PW - 38 - sw) / 3, iy = cy + 132;
+      BTNP.special = { x: 10, y: iy, w: sw, h: 60 };
+      ['potion', 'hint', 'scramble'].forEach((id, i) => { BTNP[id] = { x: 10 + sw + 6 + i * (iw + 6), y: iy, w: iw, h: 60 }; });
+    }
     const toView = (e) => {
       const rect = canvas.getBoundingClientRect();
       return { x: (e.clientX - rect.left - view.ox) / view.s, y: (e.clientY - rect.top - view.oy) / view.s };
@@ -1358,6 +1613,17 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       return B.sel.map((t, i) => ({ t, x: WORDBAR.x + WORDBAR.w / 2 - total / 2 + i * (s + gap), y: WORDBAR.y + (WORDBAR.h - s) / 2, s }));
     }
     function hitTest(p) {
+      if (tall) {
+        for (const id of Object.keys(BTNP)) if (inRect(p, BTNP[id])) return { k: id };
+        if (!B || !P.grid || !inRect(p, P.grid)) return null;
+        p = { x: GSRC.x + (p.x - P.grid.x) / P.kg, y: GSRC.y + (p.y - P.grid.y) / P.kg }; // into stage space
+        for (const t of B.grid) {
+          const q = tilePos(t);
+          if (p.x >= q.x - 3 && p.x <= q.x + TILE + 3 && p.y >= GRID_Y + t.r * (TILE + GAP) - 3 && p.y <= GRID_Y + t.r * (TILE + GAP) + TILE + 3) return { k: 'tile', t };
+        }
+        for (const s of wordbarSlots()) if (p.x >= s.x && p.x <= s.x + s.s && p.y >= s.y && p.y <= s.y + s.s) return { k: 'word', t: s.t };
+        return null;
+      }
       if (inRect(p, BTN.pause)) return { k: 'pause' };
       if (inRect(p, BTN.mute)) return { k: 'mute' };
       if (!B) return null;
@@ -1366,7 +1632,7 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
         if (p.x >= q.x - 3 && p.x <= q.x + TILE + 3 && p.y >= GRID_Y + t.r * (TILE + GAP) - 3 && p.y <= GRID_Y + t.r * (TILE + GAP) + TILE + 3) return { k: 'tile', t };
       }
       for (const s of wordbarSlots()) if (p.x >= s.x && p.x <= s.x + s.s && p.y >= s.y && p.y <= s.y + s.s) return { k: 'word', t: s.t };
-      for (const id of ['cast', 'clear', 'potion', 'hint', 'scramble']) if (inRect(p, BTN[id])) return { k: id };
+      for (const id of ['cast', 'clear', 'potion', 'hint', 'scramble', 'special']) if (inRect(p, BTN[id])) return { k: id };
       return null;
     }
     canvas.addEventListener('pointerdown', (e) => {
@@ -1383,6 +1649,7 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       else if (h.k === 'potion') usePotion();
       else if (h.k === 'hint') useHint();
       else if (h.k === 'scramble') useScramble();
+      else if (h.k === 'special') useSpecial();
     });
     canvas.addEventListener('pointermove', (e) => {
       if (mode !== 'play' || !B) { hover = null; return; }
@@ -1443,7 +1710,7 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
         trail(f, dt);
         if (!f.hit && f.t >= f.travel) {
           f.hit = true;
-          if (f.kind === 'enemy') { monsterHits(); impactEnemy(f); } else spellHit(f);
+          if (f.kind === 'enemy') { monsterHits(); impactEnemy(f); } else if (f.kind === 'meteor') meteorHit(f); else spellHit(f);
           if (!B) return;
         }
         if (f.t >= f.dur) B.fx.splice(i, 1);
@@ -1489,6 +1756,8 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
         m.lagHp += (m.hp - m.lagHp) * Math.min(1, dt * 3);
       }
       B.lagHp += (B.hp - B.lagHp) * Math.min(1, dt * 3);
+      B.manaShow += (B.mana - B.manaShow) * Math.min(1, dt * 4);
+      for (let i = B.manaParts.length - 1; i >= 0; i--) { const q = B.manaParts[i]; q.t += dt; if (q.t >= q.dur) { B.manaParts.splice(i, 1); if (!B.manaParts.length) sfx.valid(); } }
       B.shake = Math.max(0, B.shake - dt * 40);
       if (B.flash > 0) B.flash = Math.max(0, B.flash - dt * 1.6);
       else if (B.flash < 0) B.flash = Math.min(0, B.flash + dt * 2.5);
@@ -1501,7 +1770,7 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
     // particles left behind by flying spells
     function fxPos(f, t) {
       const k = clamp(t / f.travel, 0, 1);
-      if (f.kind === 'star') { const e = k * k; return { x: lerp(f.from.x, f.to.x, e), y: lerp(f.from.y, f.to.y, e) }; }
+      if (f.kind === 'star' || f.kind === 'meteor') { const e = k * k; return { x: lerp(f.from.x, f.to.x, e), y: lerp(f.from.y, f.to.y, e) }; }
       const arc = f.kind === 'enemy' ? -60 : f.kind === 'fire' ? -70 : -110;
       return { x: lerp(f.from.x, f.to.x, k), y: lerp(f.from.y, f.to.y, k) + Math.sin(k * Math.PI) * arc };
     }
@@ -1510,7 +1779,7 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       const p = fxPos(f, f.t);
       const n = Math.ceil(dt * 90 * (f.power || 1));
       for (let i = 0; i < n; i++) {
-        if (f.kind === 'fire' || (f.kind === 'enemy' && f.sub === 'dragon')) addPart({ type: 'flame', x: p.x + rand(-8, 8), y: p.y + rand(-8, 8), vx: rand(-30, 30), vy: rand(-40, 10), life: rand(0.25, 0.5), max: 0.5, size: rand(6, 12) * (f.power || 1.2) });
+        if (f.kind === 'fire' || f.kind === 'meteor' || (f.kind === 'enemy' && f.sub === 'dragon')) addPart({ type: 'flame', x: p.x + rand(-8, 8), y: p.y + rand(-8, 8), vx: rand(-30, 30), vy: rand(-40, 10), life: rand(0.25, 0.5), max: 0.5, size: rand(6, 12) * (f.power || 1.2) });
         else if (f.kind === 'star') addPart({ type: 'spark', x: p.x + rand(-6, 6), y: p.y + rand(-6, 6), vx: rand(-40, 40), vy: rand(-40, 40), life: rand(0.4, 0.8), max: 0.8, size: rand(2, 5), color: pick(['#ffe066', '#ff8ad8', '#8ae8ff', '#b6ff8a']), g: 40 });
         else if (f.kind === 'enemy') addPart({ type: 'spark', x: p.x + rand(-8, 8), y: p.y + rand(-8, 8), vx: rand(-20, 20), vy: rand(-20, 20), life: 0.4, max: 0.4, size: rand(2, 5), color: f.sub === 'shroom' ? '#b6ff6a' : f.sub === 'golem' ? '#a89a8a' : '#c8a8ff', g: 0 });
         else addPart({ type: 'spark', x: p.x + rand(-5, 5), y: p.y + rand(-5, 5), vx: rand(-30, 30), vy: rand(-30, 30), life: rand(0.3, 0.6), max: 0.6, size: rand(1.5, 4), color: pick(['#e8d8ff', '#b48aff', '#ffffff']), g: 0 });
@@ -2004,8 +2273,101 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       ctx.translate(x, y);
       if (o.alpha !== undefined) ctx.globalAlpha = clamp(o.alpha, 0, 1);
       if (o.flash) ctx.filter = 'brightness(2.6)';
-      ({ slime: drawSlime, bat: drawBat, shroom: drawShroom, goblin: drawGoblin, ghost: drawGhost, golem: drawGolem, dragon: drawDragon })[m.def.kind](m.def, t, o);
+      ({ slime: drawSlime, bat: drawBat, shroom: drawShroom, goblin: drawGoblin, ghost: drawGhost, golem: drawGolem, dragon: drawDragon, imp: drawImp, wisp: drawWisp, dummy: drawDummy })[m.def.kind](m.def, t, o);
       ctx.filter = 'none';
+      ctx.restore();
+    }
+    // A cheeky little imp with big ears and a sack of stolen letters
+    function drawImp(d, t, o) {
+      const atk = o.atkK || 0, hop = Math.abs(Math.sin(t * 4)) * 8;
+      ell(0, 0, 34 - hop * 0.5, 7, 'rgba(0,0,0,0.3)');
+      ctx.translate(0, -hop - atk * 20);
+      const sq = (o.squash || 0) * 0.5;
+      ctx.scale(1 + sq, 1 - sq);
+      // tail
+      ctx.strokeStyle = d.pal[2]; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(18, -16); ctx.bezierCurveTo(44, -10, 44, -44, 30 + Math.sin(t * 5) * 4, -50); ctx.stroke();
+      ctx.fillStyle = d.pal[2]; ctx.beginPath(); ctx.moveTo(30 + Math.sin(t * 5) * 4, -58); ctx.lineTo(38 + Math.sin(t * 5) * 4, -46); ctx.lineTo(24 + Math.sin(t * 5) * 4, -46); ctx.closePath(); ctx.fill();
+      // letter sack
+      ctx.save(); ctx.translate(26, -30); ctx.rotate(0.3 + Math.sin(t * 3) * 0.08);
+      ctx.fillStyle = lin(-16, -20, 16, 16, [[0, '#d8b880'], [1, '#8a6a3a']]);
+      ctx.beginPath(); ctx.ellipse(0, 0, 17, 19, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#6a4a22'; rr(-7, -22, 14, 6, 3); ctx.fill();
+      label('ABC', 0, 3, 10, '#5a3a12', 'center', 900);
+      ctx.restore();
+      // feet & body
+      ell(-12, -4, 10, 6, d.pal[2]); ell(10, -4, 10, 6, d.pal[2]);
+      ctx.fillStyle = rad(-8, -40, 3, 42, [[0, d.pal[0]], [0.6, d.pal[1]], [1, d.pal[2]]]);
+      ctx.beginPath(); ctx.ellipse(0, -30, 24, 27, 0, 0, TAU); ctx.fill();
+      ell(-4, -22, 13, 14, hexA(d.pal[0], 0.55));
+      // arms (one reaches out to grab tiles when attacking)
+      ctx.strokeStyle = d.pal[1]; ctx.lineWidth = 7;
+      ctx.beginPath(); ctx.moveTo(-18, -36); ctx.lineTo(-34 - atk * 30, -30 - atk * 10); ctx.stroke();
+      circle(-36 - atk * 30, -30 - atk * 10, 5.5, d.pal[0]);
+      // head
+      const hy = -70;
+      for (const s of [-1, 1]) { ctx.fillStyle = d.pal[1]; ctx.beginPath(); ctx.moveTo(s * 16, hy - 6); ctx.lineTo(s * 46, hy - 22 + Math.sin(t * 6 + s) * 3); ctx.lineTo(s * 18, hy + 10); ctx.closePath(); ctx.fill(); ctx.fillStyle = hexA(d.pal[0], 0.7); ctx.beginPath(); ctx.moveTo(s * 19, hy - 2); ctx.lineTo(s * 38, hy - 16); ctx.lineTo(s * 19, hy + 6); ctx.closePath(); ctx.fill(); }
+      ctx.fillStyle = rad(-6, hy - 10, 3, 32, [[0, d.pal[0]], [0.65, d.pal[1]], [1, d.pal[2]]]);
+      ctx.beginPath(); ctx.arc(0, hy, 24, 0, TAU); ctx.fill();
+      for (const s of [-1, 1]) { ctx.fillStyle = '#fff4e0'; ctx.beginPath(); ctx.moveTo(s * 8, hy - 20); ctx.lineTo(s * 14, hy - 36); ctx.lineTo(s * 16, hy - 18); ctx.closePath(); ctx.fill(); }
+      const blink = (t % 3.1) < 0.12;
+      for (const ex of [-10, 6]) { if (blink) { ctx.strokeStyle = d.pal[2]; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(ex - 6, hy - 2); ctx.lineTo(ex + 6, hy - 2); ctx.stroke(); } else { ell(ex, hy - 2, 7, 8, '#ffffff'); circle(ex - 2, hy - 1, 4, '#2a1030'); circle(ex - 3, hy - 3, 1.5, '#ffffff'); } }
+      ctx.strokeStyle = d.pal[2]; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(-3, hy + 8, 9, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+      ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(-6, hy + 15); ctx.lineTo(-2, hy + 15); ctx.lineTo(-4, hy + 19); ctx.closePath(); ctx.fill();
+      ell(-17, hy + 8, 5, 3, 'rgba(255,120,160,0.5)'); ell(12, hy + 8, 5, 3, 'rgba(255,120,160,0.5)');
+    }
+    // A floating little flame-cloud spirit that puffs fog over your letters
+    function drawWisp(d, t, o) {
+      const fl = Math.sin(t * 2.2) * 10, atk = o.atkK || 0;
+      ell(0, 0, 36, 7, 'rgba(0,0,0,0.16)');
+      ctx.translate(0, -84 + fl);
+      glow(0, -10, 100, d.pal[1], 0.45);
+      // trailing wisps
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 6; i++) { const a = t * 1.5 + i; glow(Math.sin(a) * 30, 30 + i * 9, 16 - i * 1.5, d.pal[1], 0.35); }
+      ctx.restore();
+      ctx.save(); ctx.scale(1 + (o.squash || 0) * 0.4 + atk * 0.15, 1 - (o.squash || 0) * 0.3);
+      ctx.beginPath();
+      ctx.moveTo(0, -64 - Math.sin(t * 6) * 6);
+      ctx.bezierCurveTo(26, -44, 44, -20, 40, 6);
+      ctx.bezierCurveTo(36, 34, 14, 46, 0, 44 + Math.sin(t * 5) * 6);
+      ctx.bezierCurveTo(-14, 46, -36, 34, -40, 6);
+      ctx.bezierCurveTo(-44, -20, -26, -44, 0, -64 - Math.sin(t * 6) * 6);
+      ctx.closePath();
+      ctx.fillStyle = rad(-8, -14, 4, 62, [[0, '#ffffff'], [0.35, d.pal[0]], [0.75, d.pal[1]], [1, d.pal[2]]]);
+      ctx.fill();
+      ctx.strokeStyle = hexA(d.pal[2], 0.55); ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.restore();
+      for (const s of [-1, 1]) { ctx.save(); ctx.translate(s * 38, 8); ctx.rotate(s * (0.5 + Math.sin(t * 3 + s) * 0.3)); ell(s * 8, 0, 12, 6, hexA(d.pal[1], 0.9)); ctx.restore(); }
+      const blink = (t % 3.4) < 0.12;
+      for (const ex of [-14, 8]) { if (blink) ell(ex, -6, 7, 1.6, d.pal[2]); else { ell(ex, -6, 7, 9, '#1a2a48'); circle(ex - 2, -10, 2.4, '#ffffff'); } }
+      ell(-24, 6, 6, 3.5, 'rgba(255,140,190,0.45)'); ell(18, 6, 6, 3.5, 'rgba(255,140,190,0.45)');
+      ell(-3, 14, 5 + atk * 5, 4 + atk * 6, d.pal[2]);
+      if (atk > 0.2) { ctx.save(); ctx.globalAlpha = atk; for (let i = 0; i < 4; i++) cloud(-40 - i * 26, 16 + Math.sin(i) * 6, 0.35 + i * 0.08, 'rgba(220,240,255,0.7)'); ctx.restore(); }
+    }
+    // A straw practice dummy with a bullseye target
+    function drawDummy(d, t, o) {
+      const wob = Math.sin(t * 2) * 0.03 + (o.squash || 0) * 0.5 * Math.sin(t * 30);
+      ell(0, 0, 40, 8, 'rgba(0,0,0,0.3)');
+      ctx.fillStyle = '#6a4a2a'; rr(-6, -60, 12, 60, 4); ctx.fill();
+      ctx.fillStyle = '#8a6a3a'; rr(-26, -6, 52, 8, 3); ctx.fill();
+      ctx.save(); ctx.translate(0, -60); ctx.rotate(wob);
+      ctx.fillStyle = '#6a4a2a'; rr(-58, -50, 116, 10, 4); ctx.fill();
+      for (const s of [-1, 1]) { ctx.strokeStyle = '#e8c878'; ctx.lineWidth = 3; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(s * 56, -45); ctx.lineTo(s * (62 + i * 2), -36 + i * 4); ctx.stroke(); } }
+      ctx.fillStyle = lin(-30, -80, 30, 0, [[0, d.pal[0]], [0.6, d.pal[1]], [1, d.pal[2]]]);
+      rr(-30, -70, 60, 72, 20); ctx.fill();
+      ctx.strokeStyle = 'rgba(120,80,30,0.5)'; ctx.lineWidth = 1.5;
+      for (let i = 0; i < 7; i++) { ctx.beginPath(); ctx.moveTo(-26 + i * 8, -66); ctx.lineTo(-24 + i * 8, -2); ctx.stroke(); }
+      ctx.strokeStyle = '#8a5a2a'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(-30, -20); ctx.lineTo(30, -20); ctx.stroke();
+      for (const [r, c] of [[22, '#ffffff'], [17, '#e0403a'], [11, '#ffffff'], [5, '#e0403a']]) circle(0, -40, r, c);
+      ctx.fillStyle = lin(-24, -120, 24, -76, [[0, '#f8e4a8'], [1, '#c8a058']]);
+      ctx.beginPath(); ctx.arc(0, -96, 24, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(120,80,30,0.5)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, -96, 24, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = '#5a3a1a'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      for (const ex of [-9, 9]) { ctx.beginPath(); ctx.moveTo(ex - 4, -100); ctx.lineTo(ex + 4, -92); ctx.moveTo(ex + 4, -100); ctx.lineTo(ex - 4, -92); ctx.stroke(); }
+      ctx.beginPath(); ctx.arc(0, -86, 7, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+      ctx.fillStyle = '#c8402a'; ctx.beginPath(); ctx.moveTo(-26, -112); ctx.quadraticCurveTo(0, -136, 26, -112); ctx.lineTo(26, -108); ctx.lineTo(-26, -108); ctx.closePath(); ctx.fill();
       ctx.restore();
     }
     function drawSlime(d, t, o) {
@@ -2368,6 +2730,39 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
         ctx.strokeStyle = '#ffffff'; ctx.lineWidth = s * 0.025; ctx.beginPath(); ctx.arc(x + s * 0.84, y + s * 0.16, s * 0.15, 0, TAU); ctx.stroke();
         label(String(t.crack), x + s * 0.84, y + s * 0.165, s * 0.19, '#ffffff', 'center', 900);
       }
+      if (t.fog) { // a swirl of fog hides the letter
+        ctx.save();
+        rr(x, y, s, s, r); ctx.clip();
+        ctx.fillStyle = lin(x, y, x, y + s, [[0, '#e6f6ff'], [1, '#9cc8e8']]);
+        ctx.fillRect(x, y, s, s);
+        const tt = (time || 0) * 0.8 + t.id;
+        for (let i = 0; i < 5; i++) { const a = tt + i * 1.3; ell(x + s * (0.5 + Math.cos(a) * 0.28), y + s * (0.5 + Math.sin(a * 1.3) * 0.25), s * 0.3, s * 0.2, 'rgba(255,255,255,0.55)'); }
+        ctx.restore();
+        ctx.strokeStyle = 'rgba(60,110,160,0.6)'; ctx.lineWidth = s * 0.03; rr(x, y, s, s, r); ctx.stroke();
+        outlined('?', x + s / 2, y + s / 2 + s * 0.03, s * 0.5, '#5a8ac0', 'rgba(255,255,255,0.9)', s * 0.06);
+      }
+      if (t.lock) { // chains and a little padlock
+        ctx.save();
+        ctx.fillStyle = 'rgba(30,20,50,0.35)'; rr(x, y, s, s, r); ctx.fill();
+        ctx.lineCap = 'round';
+        for (const [x0, y0, x1, y1] of [[x + s * 0.05, y + s * 0.2, x + s * 0.95, y + s * 0.8], [x + s * 0.95, y + s * 0.2, x + s * 0.05, y + s * 0.8]]) {
+          const n = 6;
+          for (let i = 0; i < n; i++) {
+            const k = (i + 0.5) / n, cx = lerp(x0, x1, k), cy = lerp(y0, y1, k), ang = Math.atan2(y1 - y0, x1 - x0);
+            ctx.save(); ctx.translate(cx, cy); ctx.rotate(ang + (i % 2 ? Math.PI / 2 : 0) * 0);
+            ctx.strokeStyle = '#3a3a48'; ctx.lineWidth = s * 0.06; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.075, s * (i % 2 ? 0.03 : 0.045), 0, 0, TAU); ctx.stroke();
+            ctx.strokeStyle = '#c8ccd8'; ctx.lineWidth = s * 0.03; ctx.stroke();
+            ctx.restore();
+          }
+        }
+        const px = x + s / 2, py = y + s / 2 + s * 0.04;
+        ctx.strokeStyle = '#a87a1a'; ctx.lineWidth = s * 0.06; ctx.beginPath(); ctx.arc(px, py - s * 0.08, s * 0.1, Math.PI, 0); ctx.stroke();
+        ctx.fillStyle = lin(px, py - s * 0.08, px, py + s * 0.16, [[0, '#ffe58a'], [1, '#c88a1a']]);
+        rr(px - s * 0.15, py - s * 0.08, s * 0.3, s * 0.24, s * 0.05); ctx.fill();
+        ctx.strokeStyle = '#7a5208'; ctx.lineWidth = s * 0.02; ctx.stroke();
+        label(String(t.lock), px, py + s * 0.045, s * 0.17, '#5a3a00', 'center', 900);
+        ctx.restore();
+      }
     }
     function drawGrid(time) {
       const hintIdx = new Map();
@@ -2559,24 +2954,117 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       circle(b.x + b.w - 24, b.y + b.h / 2, 15, count > 0 ? '#ffc94a' : '#3a3060');
       label(String(count), b.x + b.w - 24, b.y + b.h / 2 + 1, 15, count > 0 ? '#3a2200' : '#7a70a8', 'center', 900);
     }
+    function manaOrbPos() { const b = tall ? BTNP.special : BTN.special; return { x: b.x + (tall ? 30 : 38), y: b.y + b.h / 2 }; }
+    function specialIcon(id, x, y, s, time) {
+      ctx.save();
+      if (id === 'meteor') {
+        ctx.translate(x, y); ctx.rotate(-0.6);
+        ctx.fillStyle = lin(-s * 2.2, 0, 0, 0, [[0, 'rgba(255,200,80,0)'], [1, '#ffe08a']]);
+        ctx.beginPath(); ctx.moveTo(-s * 2.2, 0); ctx.lineTo(0, -s * 0.7); ctx.lineTo(0, s * 0.7); ctx.closePath(); ctx.fill();
+        circle(0, 0, s * 0.75, '#8a5a3a'); circle(-s * 0.2, -s * 0.2, s * 0.25, '#5a3a2a'); ctx.strokeStyle = '#ffb04a'; ctx.lineWidth = s * 0.15; ctx.beginPath(); ctx.arc(0, 0, s * 0.75, 0, TAU); ctx.stroke();
+      } else if (id === 'freeze') {
+        snowflake(x, y, s, '#ffffff', s * 0.22);
+        circle(x, y, s * 0.3, '#bfeaff');
+      } else if (id === 'shield') {
+        ctx.fillStyle = lin(x, y - s, x, y + s, [[0, '#ffffff'], [1, '#a88aff']]);
+        ctx.beginPath(); for (let i = 0; i < 6; i++) { const a = -Math.PI / 2 + i * Math.PI / 3; ctx.lineTo(x + Math.cos(a) * s, y + Math.sin(a) * s); } ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#5a3ab0'; ctx.lineWidth = s * 0.14; ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.moveTo(x - s * 0.4, y - s * 0.5); ctx.lineTo(x, y - s * 0.75); ctx.lineTo(x, y); ctx.closePath(); ctx.fill();
+      } else {
+        for (let i = 0; i < 3; i++) { const a = (time || 0) * 2 + i * TAU / 3; const k = ['fire', 'heal', 'ice'][i]; circle(x + Math.cos(a) * s * 0.65, y + Math.sin(a) * s * 0.65, s * 0.42, GEM_COL[k][1]); circle(x + Math.cos(a) * s * 0.65 - s * 0.12, y + Math.sin(a) * s * 0.65 - s * 0.12, s * 0.14, 'rgba(255,255,255,0.8)'); }
+      }
+      ctx.restore();
+    }
+    function drawManaOrb(x, y, r, frac, col, time, ready) {
+      if (ready) glow(x, y, r * 2.2, col, 0.45 + 0.2 * Math.sin(time * 6));
+      circle(x, y + 2, r + 3, 'rgba(0,0,0,0.45)');
+      ctx.save();
+      ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.clip();
+      ctx.fillStyle = '#1a1238'; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+      const lvl = y + r - 2 * r * frac;
+      ctx.fillStyle = lin(0, lvl - 4, 0, y + r, [[0, '#ffffff'], [0.15, col], [1, shade(col, -70)]]);
+      ctx.beginPath(); ctx.moveTo(x - r, y + r);
+      for (let i = 0; i <= 16; i++) { const xx = x - r + (2 * r * i) / 16; ctx.lineTo(xx, lvl + (frac > 0.02 && frac < 0.98 ? Math.sin(time * 4 + i * 0.7) * 2.2 : 0)); }
+      ctx.lineTo(x + r, y + r); ctx.closePath(); ctx.fill();
+      if (frac > 0.05) for (let i = 0; i < 4; i++) { const by = y + r - ((time * 18 + i * 13) % (2 * r * frac)); circle(x - r * 0.4 + i * r * 0.27, by, 1.6, 'rgba(255,255,255,0.5)'); }
+      ctx.restore();
+      ell(x - r * 0.35, y - r * 0.45, r * 0.32, r * 0.18, 'rgba(255,255,255,0.45)', -0.6);
+      ctx.strokeStyle = ready ? '#ffe58a' : '#c8a050'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
+    }
+    function specialButton(b, time) {
+      const sp = B.special;
+      if (B.daily) {
+        panelBox(b.x, b.y, b.w, b.h);
+        const left = Math.max(0, DAILY_CASTS - B.daily.casts);
+        label('PRACTICE', b.x + b.w / 2, b.y + 16, 12, '#8ae8ff', 'center', 900);
+        for (let i = 0; i < DAILY_CASTS; i++) { const x = b.x + b.w / 2 - (DAILY_CASTS - 1) * 15 + i * 30; circle(x, b.y + 42, 10, i < B.daily.casts ? '#3a3060' : '#8ae8ff'); if (i >= B.daily.casts) sparkle4(x, b.y + 42, 7, '#ffffff'); }
+        label(`${left} spell${left === 1 ? '' : 's'} left`, b.x + b.w / 2, b.y + 64, 12, '#c2b8e8', 'center', 800);
+        return;
+      }
+      const frac = clamp(B.manaShow / MANA_MAX, 0, 1), ready = B.mana >= MANA_MAX;
+      const hov = hover === 'special' && canAct() && ready;
+      ctx.fillStyle = 'rgba(0,0,0,0.35)'; rr(b.x, b.y + 4, b.w, b.h, 16); ctx.fill();
+      ctx.fillStyle = ready ? lin(0, b.y, 0, b.y + b.h, [[0, shade(sp.color, 10)], [1, shade(sp.color, -90)]]) : lin(0, b.y, 0, b.y + b.h, [[0, '#3c3266'], [1, '#261f48']]);
+      rr(b.x, b.y + (hov ? 2 : 0), b.w, b.h, 16); ctx.fill();
+      ctx.strokeStyle = ready ? `rgba(255,240,180,${0.6 + 0.4 * Math.sin(time * 6)})` : 'rgba(255,255,255,0.14)'; ctx.lineWidth = ready ? 3 : 1.5; ctx.stroke();
+      const o = manaOrbPos();
+      drawManaOrb(o.x, o.y, 26, frac, sp.color, time, ready);
+      specialIcon(sp.id, o.x, o.y, 12, time);
+      label(sp.name, b.x + 76, b.y + 25, 17, '#ffffff', 'left', 700, 'Fredoka');
+      label(ready ? 'READY! Click it or press 4' : `Mana ${B.mana} / ${MANA_MAX} · cast words to fill`, b.x + 76, b.y + 50, 12, ready ? '#fff2b0' : '#b3a9d6', 'left', 800);
+      ctx.fillStyle = 'rgba(255,255,255,0.12)'; rr(b.x + b.w - 34, b.y + 8, 24, 22, 6); ctx.fill();
+      label('4', b.x + b.w - 22, b.y + 20, 13, '#e0d8ff', 'center', 900);
+    }
+    function drawManaParts(time) {
+      const col = B.special.color;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      for (const q of B.manaParts) {
+        if (q.t < 0) continue;
+        const k = easeOut(q.t / q.dur), x = lerp(q.x, q.tx, k), y = lerp(q.y, q.ty, k) - Math.sin(k * Math.PI) * 60;
+        glow(x, y, 16, col, 0.8); circle(x, y, 3.5, '#ffffff');
+      }
+      ctx.restore();
+    }
+    function drawShield(time) {
+      if (!B.shieldHits) return;
+      const x = WIZ_X + 6, y = GROUND - 100, a = 0.55 + 0.15 * Math.sin(time * 4);
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.fillStyle = rad(x, y, 30, 120, [[0, 'rgba(200,180,255,0.05)'], [1, 'rgba(170,140,255,0.35)']]);
+      ctx.beginPath(); ctx.ellipse(x, y, 92, 124, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(230,220,255,0.9)'; ctx.lineWidth = 3; ctx.stroke();
+      ctx.strokeStyle = 'rgba(230,220,255,0.35)'; ctx.lineWidth = 1.5;
+      for (let i = 0; i < 6; i++) { const ang = time * 0.6 + i * TAU / 6; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(ang) * 92, y + Math.sin(ang) * 124); ctx.stroke(); }
+      ell(x - 40, y - 70, 18, 8, 'rgba(255,255,255,0.6)', -0.6);
+      ctx.restore();
+      for (let i = 0; i < B.shieldHits; i++) specialIcon('shield', x - 12 + i * 24, y - 140, 9, time);
+    }
     function drawLeftPanel(time) {
-      panelBox(20, 398, 300, 180);
-      label('SPELLBOOK', 170, 414, 12, '#c2a8ff', 'center', 900);
-      label('Best word this battle', 36, 438, 12, '#b3a9d6', 'left', 800);
+      panelBox(20, 398, 300, 100);
+      label('SPELLBOOK', 170, 412, 12, '#c2a8ff', 'center', 900);
       if (B.best) {
-        label(B.best.w.toUpperCase(), 36, 462, 24, '#ffd43b', 'left', 700, 'Fredoka');
-        label(`${B.best.d} dmg`, 304, 462, 14, '#ffe6a8', 'right', 800);
-      } else label('-', 36, 462, 22, '#6a6098', 'left', 700, 'Fredoka');
-      ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(36, 480, 268, 1.5);
-      label('Recent spells', 36, 496, 12, '#b3a9d6', 'left', 800);
-      if (!B.recent.length) label('Your words will show up here', 36, 518, 13, '#6a6098', 'left', 700);
-      B.recent.slice(0, 3).forEach((r, i) => {
-        const y = 518 + i * 20;
-        ctx.globalAlpha = 1 - i * 0.22;
-        label(r.w.toUpperCase(), 36, y, 15, '#e0d8ff', 'left', 700, 'Fredoka');
-        label(String(r.d), 304, y, 14, '#ffe6a8', 'right', 800);
+        label(B.best.w.toUpperCase(), 36, 438, 22, '#ffd43b', 'left', 700, 'Fredoka');
+        label(`best · ${B.best.d} dmg`, 304, 438, 13, '#ffe6a8', 'right', 800);
+      } else label('Best word: -', 36, 438, 15, '#6a6098', 'left', 700, 'Fredoka');
+      ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(36, 455, 268, 1.5);
+      if (!B.recent.length) label('Your words will show up here', 36, 476, 13, '#6a6098', 'left', 700);
+      else {
+        let x = 36;
+        B.recent.slice(0, 3).forEach((r, i) => {
+          ctx.globalAlpha = 1 - i * 0.25;
+          const txt = `${r.w.toUpperCase()} ${r.d}`;
+          ctx.font = '700 14px Fredoka, sans-serif';
+          const w = ctx.measureText(txt).width;
+          if (x + w > 304) return;
+          label(r.w.toUpperCase(), x, 476, 14, '#e0d8ff', 'left', 700, 'Fredoka');
+          ctx.font = '700 14px Fredoka, sans-serif';
+          label(String(r.d), x + ctx.measureText(r.w.toUpperCase() + ' ').width, 476, 13, '#ffe6a8', 'left', 800);
+          x += w + 16;
+          ctx.globalAlpha = 1;
+        });
         ctx.globalAlpha = 1;
-      });
+      }
+      specialButton(BTN.special, time);
       itemButton(BTN.potion, 'potion', 'Potion', save.items.potion, '1', time);
       itemButton(BTN.hint, 'hint', 'Hint', save.items.hint, '2', time);
       itemButton(BTN.scramble, 'scramble', save.items.scramble > 0 ? 'Scramble' : 'Scramble (1 turn)', save.items.scramble, '3', time);
@@ -2608,7 +3096,20 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       hpBar(96, 348, 240, 20, B.hp, B.lagHp, B.maxHp, low ? ['#ff8a8a', '#d02a3a'] : ['#8affb8', '#22a85a'], `${B.hp} / ${B.maxHp}`);
       if (B.poison > 0) chip(346, 347, `Poison ${B.poison}`, '#b6ff6a', (x, y) => circle(x, y, 5, '#8ae04a'));
       const m = B.mon;
-      if (m && m.dieT < 0) {
+      if (B.daily) {
+        const bx = 600, bw = 290, k = clamp(B.daily.score / DAILY_STARS[2], 0, 1);
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(bx - 2, 346, bw + 4, 24, 12); ctx.fill();
+        ctx.fillStyle = '#2a1e3a'; rr(bx, 348, bw, 20, 10); ctx.fill();
+        if (k > 0) { ctx.fillStyle = lin(0, 348, 0, 368, [[0, '#a8f0ff'], [1, '#2a9ad8']]); rr(bx, 348, Math.max(20, bw * k), 20, 10); ctx.fill(); }
+        DAILY_STARS.forEach((s) => { const sx = bx + bw * s / DAILY_STARS[2]; ctx.fillStyle = B.daily.score >= s ? '#ffd43b' : '#6a6098'; star5(Math.min(sx - 8, bx + bw - 10), 358, 8); ctx.fill(); });
+        outlined(`Damage: ${B.daily.score}`, bx + bw / 2 - 20, 359, 14, '#ffffff', 'rgba(0,0,0,0.6)', 3.5);
+        const gx = 900, gy = 340, left = DAILY_CASTS - B.daily.casts;
+        ctx.fillStyle = 'rgba(10,6,24,0.75)'; rr(gx, gy, 84, 36, 12); ctx.fill();
+        ctx.strokeStyle = 'rgba(138,232,255,0.5)'; ctx.lineWidth = 2; ctx.stroke();
+        sparkle4(gx + 18, gy + 18, 10, '#8ae8ff');
+        label(String(left), gx + 44, gy + 19, 22, '#ffffff', 'center', 700, 'Fredoka');
+        label('spells', gx + 68, gy + 19, 10, '#c2b8e8', 'center', 800);
+      } else if (m && m.dieT < 0) {
         const bx = 600, bw = 290;
         hpBar(bx, 348, bw, 20, m.hp, m.lagHp, m.maxHp, m.def.boss ? ['#ffb07a', '#d8321a'] : ['#ff9a9a', '#d83a4a'], `${m.def.name}  ${m.hp}/${m.maxHp}`);
         const gx = 900, gy = 340;
@@ -2634,7 +3135,7 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       const chp = CHAPTERS[B.ch];
       circle(26, 23, 16, hexA(chp.color, 0.25));
       ctx.strokeStyle = chp.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(26, 23, 16, 0, TAU); ctx.stroke();
-      label(String((B.n - 1) % 8 + 1), 26, 24, 16, '#ffffff', 'center', 700, 'Fredoka');
+      label(B.daily ? '★' : String((B.n - 1) % 8 + 1), 26, 24, 16, '#ffffff', 'center', 700, 'Fredoka');
       label(B.def.name, 50, 17, 16, '#ffffff', 'left', 700, 'Fredoka');
       label(chp.name, 50, 34, 11, chp.color, 'left', 800);
       const n = B.queue.length;
@@ -2702,6 +3203,18 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
           glow(p.x, p.y, 46 * pw, '#ff7a2a', 0.7);
           ctx.fillStyle = rad(p.x - 4, p.y - 4, 1, 20 * pw, [[0, '#ffffff'], [0.3, '#fff2a0'], [0.7, '#ff8a2a'], [1, 'rgba(255,60,20,0)']]);
           ctx.beginPath(); ctx.arc(p.x, p.y, 20 * pw, 0, TAU); ctx.fill();
+        } else if (f.kind === 'meteor') {
+          glow(p.x, p.y, 54, '#ff7a2a', 0.75);
+          ctx.restore(); ctx.save();
+          const ang = Math.atan2(f.to.y - f.from.y, f.to.x - f.from.x);
+          ctx.translate(p.x, p.y); ctx.rotate(ang);
+          ctx.fillStyle = lin(-60, 0, 10, 0, [[0, 'rgba(255,120,40,0)'], [0.6, 'rgba(255,170,60,0.75)'], [1, '#fff2a0']]);
+          ctx.beginPath(); ctx.moveTo(-70, 0); ctx.lineTo(0, -15); ctx.lineTo(4, 0); ctx.lineTo(0, 15); ctx.closePath(); ctx.fill();
+          ctx.rotate(f.t * 9);
+          ctx.fillStyle = rad(-4, -4, 1, 18, [[0, '#a8806a'], [0.6, '#6a4a3a'], [1, '#3a2418']]);
+          ctx.beginPath(); ctx.moveTo(-15, -6); ctx.lineTo(-6, -15); ctx.lineTo(10, -12); ctx.lineTo(16, 2); ctx.lineTo(6, 14); ctx.lineTo(-10, 12); ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = '#ffb04a'; ctx.lineWidth = 2.5; ctx.stroke();
+          circle(-3, -2, 3.5, '#4a2e22'); circle(6, 5, 2.5, '#4a2e22');
         } else if (f.kind === 'star') {
           glow(p.x, p.y, 60 * pw, '#ffe066', 0.6);
           ctx.restore(); ctx.save();
@@ -2774,15 +3287,16 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
         ctx.beginPath(); ctx.moveTo(-14, -6); ctx.lineTo(-4, -15); ctx.lineTo(12, -10); ctx.lineTo(15, 6); ctx.lineTo(2, 14); ctx.lineTo(-12, 9); ctx.closePath(); ctx.fill();
       } else {
         ctx.globalCompositeOperation = 'lighter';
-        const col = f.sub === 'shroom' ? '#9cff5a' : f.sub === 'dragon' ? '#ff7a2a' : '#a07aff';
+        const col = f.sub === 'shroom' ? '#9cff5a' : f.sub === 'dragon' ? '#ff7a2a' : f.sub === 'wisp' ? '#9ad8ff' : '#a07aff';
         glow(p.x, p.y, 40, col, 0.7);
         circle(p.x, p.y, 12, f.sub === 'dragon' ? '#fff2a0' : '#ffffff');
         if (f.sub === 'ghost') { ctx.globalCompositeOperation = 'source-over'; circle(p.x - 4, p.y - 2, 2.5, '#2a1a4a'); circle(p.x + 4, p.y - 2, 2.5, '#2a1a4a'); }
       }
       ctx.restore();
     }
-    function drawParts() {
+    function drawParts(only) {
       for (const q of B.parts) {
+        if (only && !only(q)) continue;
         const a = clamp(q.life / q.max, 0, 1);
         if (q.type === 'spark') {
           ctx.globalCompositeOperation = 'lighter';
@@ -2814,8 +3328,9 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
         ctx.globalCompositeOperation = 'source-over';
       }
     }
-    function drawFloaters() {
+    function drawFloaters(only) {
       for (const f of B.floaters) {
+        if (only && !only(f)) continue;
         const age = f.max - f.life;
         const a = clamp(f.life / 0.4, 0, 1);
         const sc = f.pop ? 1 + Math.max(0, 0.6 - age * 3) : 1;
@@ -2904,6 +3419,7 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       drawMonsterInBattle(time);
       const w = B.wiz;
       drawWizard(WIZ_X, GROUND, { time: B.time, hat: save.hat, robe: save.robe, cast: w.cast, hurt: w.hurt, ko: w.ko, joy: w.joy });
+      drawShield(time);
       if (w.heal > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(WIZ_X, GROUND - 100, 120, '#5aff8a', w.heal * 0.35); ctx.restore(); }
       drawFx(time);
       drawAmbient(time);
@@ -2916,6 +3432,7 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       wordbarDraw(time);
       drawHud(time);
       drawParts();
+      drawManaParts(time);
       drawFloaters();
       drawBanner();
       drawTutorial(time);
@@ -2933,8 +3450,285 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       else if (B.flash < 0) { ctx.fillStyle = `rgba(255,255,240,${-B.flash * 0.55})`; ctx.fillRect(0, 0, VW, VH); }
       if (mode === 'paused') { ctx.fillStyle = 'rgba(10,6,24,0.3)'; ctx.fillRect(0, 0, VW, VH); }
     }
+    // =====================================================================
+    // Portrait (phone) drawing
+    // =====================================================================
+    const panelBgCache = {};
+    function panelBgP(ch, y0) {
+      const key = `${ch}:${Math.round(PW)}:${Math.round(PH)}:${Math.round(y0)}`;
+      if (!panelBgCache[key]) {
+        const c = document.createElement('canvas'), k = Math.min(2, dpr * view.s);
+        c.width = Math.ceil(PW * k); c.height = Math.ceil((PH - y0) * k);
+        withCtx(c.getContext('2d'), () => {
+          ctx.scale(k, k);
+          const h = PH - y0, pal = [['#7a5232', '#53351e', '#2e1c10'], ['#3e3660', '#2a2444', '#17132a'], ['#40262a', '#28171b', '#130a0c']][ch];
+          ctx.fillStyle = lin(0, 0, 0, h, [[0, pal[0]], [0.5, pal[1]], [1, pal[2]]]);
+          ctx.fillRect(0, 0, PW, h);
+          const R = seeded(77 + ch);
+          if (ch === 0) {
+            for (let y = 40; y < h; y += 46) { ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(0, y, PW, 2); ctx.fillStyle = 'rgba(255,220,160,0.08)'; ctx.fillRect(0, y + 2, PW, 1); }
+            ctx.strokeStyle = 'rgba(40,20,8,0.25)'; ctx.lineWidth = 1.5;
+            for (let i = 0; i < 30; i++) { const y = R() * h, x = R() * PW; ctx.beginPath(); ctx.moveTo(x, y); ctx.bezierCurveTo(x + 50, y - 4, x + 100, y + 4, x + 160, y); ctx.stroke(); }
+          } else if (ch === 1) {
+            for (let row = 0; row * 40 < h; row++) for (let x = (row % 2) * -45; x < PW; x += 90) { ctx.fillStyle = `rgba(255,255,255,${0.02 + R() * 0.04})`; rr(x + 3, row * 40 + 3, 84, 34, 6); ctx.fill(); }
+          } else {
+            for (let i = 0; i < 40; i++) ell(R() * PW, R() * h, 10 + R() * 30, 4 + R() * 10, `rgba(0,0,0,${0.1 + R() * 0.15})`);
+            ctx.strokeStyle = 'rgba(255,110,40,0.22)'; ctx.lineWidth = 2;
+            for (let i = 0; i < 6; i++) { let x = R() * PW, y = 20 + R() * (h - 40); ctx.beginPath(); ctx.moveTo(x, y); for (let k2 = 0; k2 < 5; k2++) { x += 20 + R() * 30; y += (R() - 0.5) * 24; ctx.lineTo(x, y); } ctx.stroke(); }
+          }
+          ctx.fillStyle = lin(0, 0, 0, 8, [[0, '#fff0a8'], [0.5, '#e0a83a'], [1, '#8a5a14']]);
+          ctx.fillRect(0, 0, PW, 6);
+          for (let x = 40; x < PW; x += 90) { ctx.fillStyle = '#7a4ad8'; ctx.beginPath(); ctx.moveTo(x, -4); ctx.lineTo(x + 7, 3); ctx.lineTo(x, 10); ctx.lineTo(x - 7, 3); ctx.closePath(); ctx.fill(); }
+        });
+        panelBgCache[key] = c;
+      }
+      ctx.drawImage(panelBgCache[key], 0, y0, PW, PH - y0);
+    }
+    const toGridP = (x, y) => ({ x: P.grid.x + (x - GSRC.x) * P.kg, y: P.grid.y + (y - GSRC.y) * P.kg });
+    function sceneP(time, drawInner) {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0, P.scene.y, PW, P.scene.h); ctx.clip();
+      ctx.translate(0, P.scene.y); ctx.scale(P.ks, P.ks); ctx.translate(-SSRC.x, -SSRC.y);
+      drawInner();
+      ctx.restore();
+      // a soft edge where the scene meets the panel
+      ctx.fillStyle = lin(0, P.scene.y + P.scene.h - 14, 0, P.scene.y + P.scene.h, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.35)']]);
+      ctx.fillRect(0, P.scene.y + P.scene.h - 14, PW, 14);
+    }
+    function gridBackP() {
+      // the dark tray the letter tiles sit in
+      ctx.fillStyle = 'rgba(0,0,0,0.38)'; rr(GRID_X - 14, GRID_Y - 14, GRID_W + 28, GRID_W + 26, 18); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,220,150,0.25)'; ctx.lineWidth = 2; ctx.stroke();
+      for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { ctx.fillStyle = 'rgba(0,0,0,0.25)'; rr(GRID_X + c * (TILE + GAP), GRID_Y + r * (TILE + GAP), TILE, TILE, 12); ctx.fill(); }
+    }
+    function drawMenuP(time) {
+      const ch = sceneChapter(), bg = background(ch);
+      ctx.fillStyle = '#0c0918'; ctx.fillRect(0, 0, PW, PH);
+      sceneP(time, () => {
+        ctx.drawImage(bg, 0, 0, VW * BG_S, PANEL_Y * BG_S, 0, 0, VW, PANEL_Y);
+        drawSceneLive(ch, time);
+        const m = MENU_MONS[ch]; m.ph = time;
+        drawMonster(m, MON_X + 20, GROUND, time, {});
+        drawWizard(WIZ_X, GROUND, { time, hat: save.hat, robe: save.robe, cast: Math.max(0, Math.sin(time * 0.9) * 2 - 1.2) });
+        drawAmbient(time);
+      });
+      ctx.fillStyle = lin(0, 0, 0, P.scene.y, [[0, '#2a2050'], [1, '#1a1434']]); ctx.fillRect(0, 0, PW, P.scene.y);
+      panelBgP(ch, P.scene.y + P.scene.h);
+      ctx.save();
+      ctx.translate(P.grid.x, P.grid.y); ctx.scale(P.kg, P.kg); ctx.translate(-GSRC.x, -GSRC.y);
+      gridBackP();
+      for (let i = 0; i < 16; i++) {
+        const t = MENU_TILES[i], c = i % 4, r = Math.floor(i / 4);
+        const x = GRID_X + c * (TILE + GAP), y = GRID_Y + r * (TILE + GAP) + Math.sin(time * 2 + i * 0.6) * 2;
+        ctx.fillStyle = 'rgba(0,0,0,0.42)'; rr(x + 2, y + 5, TILE, TILE, 12); ctx.fill();
+        tileFace(t, x, y, TILE, time);
+      }
+      ctx.restore();
+    }
+    function drawHudP(time) {
+      ctx.fillStyle = lin(0, 0, 0, 46, [[0, 'rgba(18,12,40,1)'], [1, 'rgba(26,18,52,1)']]);
+      ctx.fillRect(0, 0, PW, 46);
+      ctx.fillStyle = 'rgba(255,201,74,0.35)'; ctx.fillRect(0, 45, PW, 1.5);
+      const chp = CHAPTERS[B.ch];
+      circle(24, 23, 15, hexA(chp.color, 0.25));
+      ctx.strokeStyle = chp.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(24, 23, 15, 0, TAU); ctx.stroke();
+      label(B.daily ? '★' : String((B.n - 1) % 8 + 1), 24, 24, 15, '#ffffff', 'center', 700, 'Fredoka');
+      label(B.def.name, 46, 17, 15, '#ffffff', 'left', 700, 'Fredoka');
+      label(B.daily ? 'Daily practice' : chp.name, 46, 34, 11, chp.color, 'left', 800);
+      drawCoin(PW - 150, 23, 10, time * 2);
+      label(String(save.gold + B.gold), PW - 136, 24, 16, '#ffe58a', 'left', 700, 'Fredoka');
+      for (const [b, id] of [[BTNP.mute, 'mute'], [BTNP.pause, 'pause']]) {
+        ctx.fillStyle = 'rgba(40,30,80,0.9)'; rr(b.x, b.y, b.w, b.h, 9); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1.5; ctx.stroke();
+        const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+        ctx.fillStyle = '#ffffff';
+        if (id === 'pause') { ctx.fillRect(cx - 6, cy - 7, 4, 14); ctx.fillRect(cx + 2, cy - 7, 4, 14); }
+        else {
+          ctx.beginPath(); ctx.moveTo(cx - 9, cy - 3); ctx.lineTo(cx - 5, cy - 3); ctx.lineTo(cx, cy - 8); ctx.lineTo(cx, cy + 8); ctx.lineTo(cx - 5, cy + 3); ctx.lineTo(cx - 9, cy + 3); ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+          if (save.muted) { ctx.beginPath(); ctx.moveTo(cx + 3, cy - 5); ctx.lineTo(cx + 10, cy + 5); ctx.moveTo(cx + 10, cy - 5); ctx.lineTo(cx + 3, cy + 5); ctx.stroke(); }
+          else { ctx.beginPath(); ctx.arc(cx + 1, cy, 6, -0.8, 0.8); ctx.stroke(); }
+        }
+      }
+      // monster queue pips along the top of the scene
+      const n = B.queue.length, y = P.scene.y + 16;
+      ctx.fillStyle = 'rgba(10,6,24,0.6)'; rr(PW / 2 - n * 15 - 6, y - 12, n * 30 + 12, 24, 12); ctx.fill();
+      for (let i = 0; i < n; i++) {
+        const x = PW / 2 - (n - 1) * 15 + i * 30, done = i < B.mi || (i === B.mi && B.mon.dieT >= 0), cur = i === B.mi && !done;
+        circle(x, y, 9, done ? '#3fcf7a' : cur ? '#ff7a6a' : 'rgba(255,255,255,0.18)');
+        if (done) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(x - 4, y); ctx.lineTo(x - 1, y + 3); ctx.lineTo(x + 4, y - 3); ctx.stroke(); }
+        else if (MONS[B.queue[i]].boss) { ctx.fillStyle = '#ffd43b'; star5(x, y, 6); ctx.fill(); }
+        else label(String(i + 1), x, y + 1, 10, '#ffffff', 'center', 900);
+      }
+    }
+    function drawBarsP(time) {
+      const y = P.bars + 12, half = PW / 2;
+      const low = B.hp <= B.maxHp * 0.3;
+      heartShape(20, y + 9, 9, '#ff4a6a');
+      hpBar(34, y, half - 46, 20, B.hp, B.lagHp, B.maxHp, low ? ['#ff8a8a', '#d02a3a'] : ['#8affb8', '#22a85a'], `${B.hp}/${B.maxHp}`);
+      const m = B.mon, bx = half + 2, bw = PW - half - 66;
+      if (B.daily) {
+        const k = clamp(B.daily.score / DAILY_STARS[2], 0, 1);
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(bx - 2, y - 2, bw + 4, 24, 12); ctx.fill();
+        ctx.fillStyle = '#2a1e3a'; rr(bx, y, bw, 20, 10); ctx.fill();
+        if (k > 0) { ctx.fillStyle = lin(0, y, 0, y + 20, [[0, '#a8f0ff'], [1, '#2a9ad8']]); rr(bx, y, Math.max(20, bw * k), 20, 10); ctx.fill(); }
+        outlined(`Damage ${B.daily.score}`, bx + bw / 2, y + 11, 13, '#ffffff', 'rgba(0,0,0,0.6)', 3.5);
+      } else if (m && m.dieT < 0) hpBar(bx, y, bw, 20, m.hp, m.lagHp, m.maxHp, m.def.boss ? ['#ffb07a', '#d8321a'] : ['#ff9a9a', '#d83a4a'], `${m.hp}/${m.maxHp}`);
+      const gx = PW - 58, gy = y - 8;
+      const urgent = !B.daily && m && m.timer <= 1 && !m.frozen;
+      ctx.fillStyle = urgent ? `rgba(160,30,50,${0.75 + 0.2 * Math.sin(time * 8)})` : 'rgba(10,6,24,0.8)';
+      rr(gx, gy, 50, 36, 12); ctx.fill();
+      ctx.strokeStyle = urgent ? '#ff8a9a' : 'rgba(255,255,255,0.2)'; ctx.lineWidth = 2; ctx.stroke();
+      if (B.daily) { sparkle4(gx + 14, gy + 18, 8, '#8ae8ff'); label(String(DAILY_CASTS - B.daily.casts), gx + 34, gy + 19, 20, '#ffffff', 'center', 700, 'Fredoka'); }
+      else if (m) {
+        if (m.frozen) snowflake(gx + 14, gy + 18, 8, '#9ad8ff', 2.5); else hourglass(gx + 14, gy + 18, 10, urgent ? '#ffd0a0' : '#ffd43b');
+        label(m.frozen ? `${m.frozen}` : String(m.timer), gx + 34, gy + 19, 20, '#ffffff', 'center', 700, 'Fredoka');
+      }
+      // status chips over the scene
+      let cy = P.scene.y + 34, cx = PW - 8;
+      const chipR = (text, col, icon) => { ctx.font = '800 12px Nunito, sans-serif'; const w = ctx.measureText(text).width + 30; chip(cx - w, cy, text, col, icon); cy += 26; };
+      if (B.poison > 0) { ctx.font = '800 12px Nunito, sans-serif'; chip(8, P.scene.y + 34, `Poison ${B.poison}`, '#b6ff6a', (x, y2) => circle(x, y2, 5, '#8ae04a')); }
+      if (m && m.dieT < 0) {
+        if (m.burn > 0) chipR(`Burning ${m.burn}`, '#ff9a3c', (x, y2) => flameShape(x, y2 + 1, 6, '#fff4a0', '#ff5a1a'));
+        if (m.frozen > 0) chipR(`Frozen ${m.frozen}`, '#9ad8ff', (x, y2) => snowflake(x, y2, 5, '#9ad8ff', 1.5));
+        if (m.def.ability === 'shield') chipR('Rock skin', '#d0c8c0', (x, y2) => circle(x, y2, 5, '#a89a8a'));
+      }
+    }
+    function smallItem(b, id, count, key) {
+      const hov = hover === id && canAct();
+      ctx.fillStyle = 'rgba(0,0,0,0.35)'; rr(b.x, b.y + 4, b.w, b.h, 14); ctx.fill();
+      ctx.fillStyle = hov ? lin(0, b.y, 0, b.y + b.h, [[0, '#5a4c92'], [1, '#3a2f66']]) : lin(0, b.y, 0, b.y + b.h, [[0, '#463a7a'], [1, '#2c2452']]);
+      rr(b.x, b.y, b.w, b.h, 14); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.14)'; ctx.lineWidth = 1.5; ctx.stroke();
+      itemIcon(id, b.x + b.w / 2 - 12, b.y + 27, 0.75);
+      label({ potion: 'Potion', hint: 'Hint', scramble: 'Shuffle' }[id], b.x + b.w / 2, b.y + b.h - 10, 12, '#e0d8ff', 'center', 800);
+      circle(b.x + b.w - 18, b.y + 18, 12, count > 0 ? '#ffc94a' : '#3a3060');
+      label(String(count), b.x + b.w - 18, b.y + 19, 13, count > 0 ? '#3a2200' : '#7a70a8', 'center', 900);
+    }
+    function drawControlsP(time) {
+      const y = P.ctrl, p = B.preview;
+      // spell preview (left) and bonus word (right)
+      panelBox(10, y, PW * 0.5 - 14, 42);
+      if (p && p.valid) {
+        const kind = spellKind(p);
+        spellIcon(kind, 32, y + 21, 12, time);
+        outlined(String(p.dmg), 70, y + 21, 24, p.bonus || p.L >= 7 ? '#ffd43b' : '#ffffff', '#2a1a4a', 5);
+        label(SPELL_NAMES[kind], 92, y + 21, 13, '#ffe6a8', 'left', 700, 'Fredoka');
+      } else if (p && p.L > 0) {
+        const pre = p.L >= 3 && isPrefix(p.word);
+        label(p.L < 3 ? 'Need 3+ letters' : pre ? 'Keep going...' : 'Not a word yet', PW * 0.25 - 2, y + 21, 14, pre || p.L < 3 ? '#e0d8ff' : '#ffb0a0', 'center', 700, 'Fredoka');
+      } else label('Longer words hit harder!', PW * 0.25 - 2, y + 21, 13, '#b3a9d6', 'center', 800);
+      panelBox(PW * 0.5 + 4, y, PW * 0.5 - 14, 42);
+      const bw = B.bonus.toUpperCase(), n = bw.length, s = 22, gap = 3, have = gridCounts(), used = {};
+      const bx0 = PW * 0.75 - 5 - (n * s + (n - 1) * gap) / 2;
+      for (let i = 0; i < n; i++) {
+        const c = B.bonus[i];
+        used[c] = (used[c] || 0) + 1;
+        const lit = B.bonusDone || (have[c] || 0) >= used[c];
+        ctx.fillStyle = B.bonusDone ? '#3fcf7a' : lit ? '#ffd43b' : 'rgba(255,255,255,0.1)';
+        rr(bx0 + i * (s + gap), y + 10, s, s, 5); ctx.fill();
+        label(bw[i], bx0 + i * (s + gap) + s / 2, y + 22, 14, B.bonusDone || lit ? '#2a1a00' : '#8f86b8', 'center', 700, 'Fredoka');
+      }
+      label('BONUS', PW * 0.5 + 12, y + 8, 9, '#ffd43b', 'left', 900);
+      // cast & clear
+      const c = BTNP.cast, valid = p && p.valid && canAct();
+      if (valid) glow(c.x + c.w / 2, c.y + c.h / 2, c.w * 0.6, '#ffc94a', 0.3 + 0.12 * Math.sin(time * 5));
+      ctx.fillStyle = 'rgba(0,0,0,0.4)'; rr(c.x, c.y + 6, c.w, c.h, 18); ctx.fill();
+      ctx.fillStyle = valid ? lin(0, c.y, 0, c.y + c.h, [[0, '#ffe58a'], [0.5, '#ffc23a'], [1, '#e08a12']]) : lin(0, c.y, 0, c.y + c.h, [[0, '#4a3e78'], [1, '#2e2552']]);
+      rr(c.x, c.y, c.w, c.h, 18); ctx.fill();
+      ctx.strokeStyle = valid ? '#fff4c0' : 'rgba(255,255,255,0.15)'; ctx.lineWidth = 2; ctx.stroke();
+      outlined('CAST!', c.x + c.w / 2, c.y + c.h / 2 + 1, 34, valid ? '#ffffff' : '#7a70a8', valid ? '#a0560a' : '#241c44', 6);
+      const cl = BTNP.clear, any = B.sel.length > 0;
+      ctx.fillStyle = '#352c5c'; rr(cl.x, cl.y, cl.w, cl.h, 16); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1.5; ctx.stroke();
+      label('Clear', cl.x + cl.w / 2, cl.y + cl.h / 2 + 1, 20, any ? '#e0d8ff' : '#6a6098', 'center', 700, 'Fredoka');
+      // special + items
+      const sb = BTNP.special;
+      if (B.daily) {
+        panelBox(sb.x, sb.y, sb.w, sb.h);
+        label('PRACTICE', sb.x + sb.w / 2, sb.y + 16, 11, '#8ae8ff', 'center', 900);
+        label(`${DAILY_CASTS - B.daily.casts} spells left`, sb.x + sb.w / 2, sb.y + 40, 14, '#ffffff', 'center', 700, 'Fredoka');
+      } else {
+        const ready = B.mana >= MANA_MAX, sp = B.special;
+        ctx.fillStyle = 'rgba(0,0,0,0.35)'; rr(sb.x, sb.y + 4, sb.w, sb.h, 14); ctx.fill();
+        ctx.fillStyle = ready ? lin(0, sb.y, 0, sb.y + sb.h, [[0, shade(sp.color, 10)], [1, shade(sp.color, -90)]]) : lin(0, sb.y, 0, sb.y + sb.h, [[0, '#3c3266'], [1, '#261f48']]);
+        rr(sb.x, sb.y, sb.w, sb.h, 14); ctx.fill();
+        ctx.strokeStyle = ready ? `rgba(255,240,180,${0.6 + 0.4 * Math.sin(time * 6)})` : 'rgba(255,255,255,0.14)'; ctx.lineWidth = ready ? 3 : 1.5; ctx.stroke();
+        const o = manaOrbPos();
+        drawManaOrb(o.x, o.y, 21, clamp(B.manaShow / MANA_MAX, 0, 1), sp.color, time, ready);
+        specialIcon(sp.id, o.x, o.y, 10, time);
+        label(ready ? 'READY!' : `${B.mana}/${MANA_MAX}`, sb.x + 58, sb.y + 22, 14, ready ? '#fff2b0' : '#e0d8ff', 'left', 700, 'Fredoka');
+        label(sp.name.split(' ')[0], sb.x + 58, sb.y + 42, 11, '#c2b8e8', 'left', 800);
+      }
+      smallItem(BTNP.potion, 'potion', save.items.potion, '1');
+      smallItem(BTNP.hint, 'hint', save.items.hint, '2');
+      smallItem(BTNP.scramble, 'scramble', save.items.scramble, '3');
+    }
+    function drawTutorialP(time) {
+      if (B.tut < 0 || B.result || mode !== 'play') return;
+      const bob = Math.sin(time * 4) * 4;
+      const w = PW - 40;
+      if (B.tut === 0 && B.phase === 'input') bubble(20, P.grid.y - 64 + bob, w, 58, 'Tap letters in ANY order to spell\na word (like CAT or STAR)!', PW / 2, P.grid.y + 40);
+      else if (B.tut === 1) bubble(20, BTNP.cast.y - 74 + bob, w, 58, 'That is a real word!\nTap CAST to zap the monster!', BTNP.cast.x + BTNP.cast.w / 2, BTNP.cast.y + 6);
+      else if (B.tut === 2 && B.phase === 'input') bubble(20, P.scene.y + 40 + bob, w, 80, 'Great zap! Longer words hit harder.\nWhen the hourglass reaches 0,\nthe monster attacks!', PW - 34, P.bars + 4);
+    }
+    function drawBattleP(time) {
+      const bg = background(B.ch), inScene = (q) => q.y < PANEL_Y - 2, inPanel = (q) => q.y >= PANEL_Y - 2;
+      ctx.fillStyle = '#0c0918'; ctx.fillRect(0, 0, PW, PH);
+      sceneP(time, () => {
+        if (B.shake > 0) ctx.translate(rand(-1, 1) * B.shake * 0.5, rand(-1, 1) * B.shake * 0.5);
+        ctx.drawImage(bg, 0, 0, VW * BG_S, PANEL_Y * BG_S, 0, 0, VW, PANEL_Y);
+        drawSceneLive(B.ch, time);
+        drawMonsterInBattle(time);
+        const w = B.wiz;
+        drawWizard(WIZ_X, GROUND, { time: B.time, hat: save.hat, robe: save.robe, cast: w.cast, hurt: w.hurt, ko: w.ko, joy: w.joy });
+        drawShield(time);
+        if (w.heal > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(WIZ_X, GROUND - 100, 120, '#5aff8a', w.heal * 0.35); ctx.restore(); }
+        drawFx(time);
+        drawAmbient(time);
+        drawParts(inScene);
+        drawFloaters(inScene);
+        drawBanner();
+      });
+      panelBgP(B.ch, P.scene.y + P.scene.h);
+      drawBarsP(time);
+      ctx.save();
+      ctx.translate(P.grid.x, P.grid.y); ctx.scale(P.kg, P.kg); ctx.translate(-GSRC.x, -GSRC.y);
+      gridBackP();
+      drawGrid(time);
+      wordbarDraw(time);
+      drawParts(inPanel);
+      drawFloaters(inPanel);
+      ctx.restore();
+      drawControlsP(time);
+      // mana sparks fly from the used tiles to the orb
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      for (const q of B.manaParts) {
+        if (q.t < 0) continue;
+        const from = toGridP(q.x, q.y), to = manaOrbPos(), k = easeOut(q.t / q.dur);
+        const x = lerp(from.x, to.x, k), y2 = lerp(from.y, to.y, k) - Math.sin(k * Math.PI) * 50;
+        glow(x, y2, 14, B.special.color, 0.8); circle(x, y2, 3, '#ffffff');
+      }
+      ctx.restore();
+      drawHudP(time);
+      drawTutorialP(time);
+      if (B.msg) {
+        const a = Math.min(1, B.msg.t * 3);
+        ctx.save(); ctx.globalAlpha = a;
+        ctx.font = '800 14px Nunito, sans-serif';
+        const tw = Math.min(PW - 16, ctx.measureText(B.msg.text).width + 30);
+        ctx.fillStyle = 'rgba(14,8,32,0.9)'; rr(PW / 2 - tw / 2, P.scene.y + P.scene.h - 44, tw, 32, 16); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,170,150,0.6)'; ctx.lineWidth = 2; ctx.stroke();
+        label(B.msg.text, PW / 2, P.scene.y + P.scene.h - 27, Math.min(14, (PW - 40) / B.msg.text.length * 2), '#ffd6cc', 'center', 800);
+        ctx.restore();
+      }
+      if (B.flash > 0) { ctx.fillStyle = `rgba(255,50,70,${B.flash})`; ctx.fillRect(0, 0, PW, PH); }
+      else if (B.flash < 0) { ctx.fillStyle = `rgba(255,255,240,${-B.flash * 0.55})`; ctx.fillRect(0, 0, PW, PH); }
+      if (mode === 'paused') { ctx.fillStyle = 'rgba(10,6,24,0.3)'; ctx.fillRect(0, 0, PW, PH); }
+    }
+
     // Monster portraits for the battle intro card.
-    const PORTRAIT = { slime: [150, 100, 0], bat: [190, 190, 0], shroom: [150, 150, 0], goblin: [150, 160, 0], ghost: [130, 200, 0], golem: [160, 200, 0], dragon: [400, 300, 30] };
+    const PORTRAIT = { slime: [150, 100, 0], bat: [190, 190, 0], shroom: [150, 150, 0], goblin: [150, 160, 0], ghost: [130, 200, 0], golem: [160, 200, 0], dragon: [400, 300, 30], imp: [130, 130, 0], wisp: [120, 190, 0], dummy: [150, 170, 0] };
     function portrait(c2d, id) {
       const d = MONS[id];
       const [w, h, ox] = PORTRAIT[d.kind];
@@ -2957,8 +3751,17 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       W = window.innerWidth; H = window.innerHeight;
       canvas.width = Math.round(W * dpr);
       canvas.height = Math.round(H * dpr);
-      const s = Math.min(W / VW, H / VH);
-      view = { s, ox: (W - VW * s) / 2, oy: (H - VH * s) / 2 };
+      // Phones held upright get their own tall layout; everything else scales the 1000x760 stage.
+      tall = H > W * 1.25;
+      if (tall) {
+        const s = Math.min(W / 520, H / 1000);
+        PW = W / s; PH = H / s;
+        view = { s, ox: 0, oy: 0 };
+        layoutPortrait();
+      } else {
+        const s = Math.min(W / VW, H / VH);
+        view = { s, ox: (W - VW * s) / 2, oy: (H - VH * s) / 2 };
+      }
     }
     window.addEventListener('resize', resize);
     document.addEventListener('visibilitychange', () => { if (document.hidden) pause(true); });
@@ -2999,6 +3802,11 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
       ctx.fillStyle = '#0c0918';
       ctx.fillRect(0, 0, W, H);
       ctx.setTransform(dpr * view.s, 0, 0, dpr * view.s, dpr * view.ox, dpr * view.oy);
+      if (tall) {
+        if (B && (mode === 'play' || mode === 'paused')) drawBattleP(time);
+        else drawMenuP(time);
+        return;
+      }
       drawBackdrop();
       ctx.save();
       ctx.beginPath(); ctx.rect(0, 0, VW, VH); ctx.clip();
@@ -3027,6 +3835,8 @@ strain/sdgR satin rant/sdg stint/s lore node/s redo/s dorm/s drone/sdg loner/s l
         };
       },
       startBattle, pause, cast,
+      special: () => useSpecial(), fillMana() { if (B) { B.mana = MANA_MAX; B.manaShow = MANA_MAX; } }, startDaily: () => startBattle(0, { daily: true }),
+      lock: (n) => B && lockTiles(n || 2), fog: (n) => B && fogTiles(n || 3),
       isWord: (w) => DICT.has(String(w).toLowerCase()),
       findBest: () => (B ? findBest() : null),
       spell: (w) => spellWord(String(w)),

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sunny Acres – Cozy Farming Sim | Potato Games</title>
-  <meta name="description" content="Plant carrots, corn, sunflowers and watermelons, water your fields, raise chickens, cows, sheep and goats, and fill truck orders before sunset! Earn 3 stars a day, find golden crops, level up your farm and decorate it with fountains, windmills and a hot air balloon. A free cozy farming game on Potato.">
+  <meta name="description" content="Plant carrots, corn, sunflowers and watermelons, water your fields, raise chickens, cows, sheep and goats, pick apples, bake bread and apple pies, win blue ribbons at the County Fair and fill truck orders before sunset! Earn 3 stars a day, find golden crops, level up your farm and decorate it with fountains, windmills and a hot air balloon. A free cozy farming game on Potato.">
   <link rel="icon" href="sunnyacres-icon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
@@ -101,6 +101,7 @@
         <li><b>Water</b> with the can (<kbd>2</kbd>) so crops grow faster, and refill it at the pond. Harvest when they <b>sparkle</b>! Hold and <b>drag</b> to do a whole row.</li>
         <li><b>Feed animals</b> 1 wheat each to get eggs, milk, wool and cheese, then click to collect. A beehive makes honey all by itself!</li>
         <li>Fill <b>truck orders</b> for coins and XP. <b>Rush</b> orders pay extra, quick harvests make <b>combos</b>, and shiny <b>golden crops</b> give bonus coins!</li>
+        <li>Shake the <b>apple trees</b> for apples, bake <b>bread and apple pies</b> in the barn oven, and win <b>blue ribbons</b> on County Fair days!</li>
         <li>Keys: <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move the cursor, <kbd>Space</kbd> uses your tool, <kbd>Q</kbd>/<kbd>E</kbd> switch tools, <kbd>P</kbd> pauses, <kbd>M</kbd> mutes.</li>
         <li>Hit 3 goals for <b>3 stars</b> a day. Level up to unlock crops, animals and goodies in the <b>Market</b>.</li>
       </ul>
@@ -224,8 +225,21 @@
       wool: { name: 'Wool', plural: 'wool', value: 15 },
       cheese: { name: 'Cheese', plural: 'cheese', value: 18 },
       honey: { name: 'Honey', plural: 'honey jars', value: 13 },
+      apple: { name: 'Apple', plural: 'apples', value: 5 },
+      bread: { name: 'Bread', plural: 'loaves of bread', value: 19 },
+      pie: { name: 'Apple Pie', plural: 'apple pies', value: 42 },
     };
-    const ITEM_IDS = [...CROP_IDS, 'egg', 'milk', 'wool', 'cheese', 'honey'];
+    const ITEM_IDS = [...CROP_IDS, 'egg', 'milk', 'wool', 'cheese', 'honey', 'apple', 'bread', 'pie'];
+    // ---- the orchard: two apple trees by the field fill up with apples (from farm level 2) ----
+    const ORCHARD = { lvl: 2, time: 36, per: 3, trees: [0, 3] };
+    // ---- the barn oven bakes bread and apple pies ----
+    const OVEN = { price: 250, lvl: 3 };
+    const RECIPES = {
+      bread: { name: 'Bread', needs: [['wheat', 3]], time: 22, lvl: 3, xp: 3 },
+      pie: { name: 'Apple Pie', needs: [['apple', 2], ['wheat', 2], ['egg', 1]], time: 36, lvl: 5, xp: 6 },
+    };
+    // ---- every 4th day is County Fair day: win a blue ribbon with a special order ----
+    const isFairDay = (d) => d >= 4 && d % 4 === 0;
     const HIVE_TIME = 40;
     const CLOVER = { price: 480, lvl: 10 };
     const goldChance = () => (save.clover ? 0.13 : 0.06);
@@ -280,6 +294,7 @@
         can: 0, canWater: 6, sprinkler: 0, scarecrow: false, clover: false, decor: [], hive: 0, lastSeed: 'carrot', lastGoal: '',
         orders: [null, null, null], stars: {}, bestCombo: 0, tut: false, tutOrders: 0, muted: false,
         stats: { harvested: 0, orders: 0, coins: 0, products: 0 },
+        orchard: [0.6, 0.3], oven: false, bake: { r: null, t: 0 }, ribbons: 0,
       };
     }
     function fixInv(d) { const inv = {}; for (const id of ITEM_IDS) inv[id] = Math.max(0, Math.floor(Number(d.inv && d.inv[id]) || 0)); d.inv = inv; }
@@ -287,7 +302,7 @@
       if (!o || !Array.isArray(o.items)) return null;
       const items = o.items.filter((it) => it && ITEM_IDS.includes(it.id) && Number(it.n) > 0).map((it) => ({ id: it.id, n: Math.floor(Number(it.n)) }));
       if (!items.length) return null;
-      return { items, coins: Math.max(1, Math.floor(Number(o.coins) || 10)), xp: Math.max(1, Math.floor(Number(o.xp) || 3)), rush: false, time: 0, max: 0, id: ++orderSeq };
+      return { items, coins: Math.max(1, Math.floor(Number(o.coins) || 10)), xp: Math.max(1, Math.floor(Number(o.xp) || 3)), rush: false, time: 0, max: 0, id: ++orderSeq, fair: !!o.fair };
     }
     function loadSave() {
       const d = freshSave();
@@ -326,6 +341,12 @@
       d.tutOrders = Math.floor(num(s.tutOrders, 0));
       d.muted = !!s.muted;
       if (s.stats && typeof s.stats === 'object') for (const k of Object.keys(d.stats)) d.stats[k] = Math.floor(num(s.stats[k], 0));
+      // orchard, oven and fair ribbons came later; older saves start them fresh
+      if (Array.isArray(s.orchard)) d.orchard = [0, 1].map((k) => clamp(num(s.orchard[k], 0.5), 0, 1));
+      d.oven = !!s.oven;
+      if (s.bake && RECIPES[s.bake.r]) d.bake = { r: s.bake.r, t: clamp(num(s.bake.t, 0), 0, 1) };
+      d.ribbons = Math.floor(num(s.ribbons, 0));
+      d.orchardSeen = !!s.orchardSeen;
       return d;
     }
     let save = loadSave();
@@ -341,7 +362,7 @@
     }
     const canCap = () => CANS[save.can].cap;
     const xpNeed = (l) => 40 + (l - 1) * 30;
-    function rating() { return save.decor.reduce((s, id) => s + (DECOR.find((d) => d.id === id) || { rating: 0 }).rating, 0) + (save.scarecrow ? 1 : 0) + Math.min(3, save.animals.length > 0 ? 1 + Math.floor(save.animals.length / 4) : 0); }
+    function rating() { return save.decor.reduce((s, id) => s + (DECOR.find((d) => d.id === id) || { rating: 0 }).rating, 0) + (save.scarecrow ? 1 : 0) + Math.min(3, save.animals.length > 0 ? 1 + Math.floor(save.animals.length / 4) : 0) + Math.min(5, save.ribbons || 0) + (save.oven ? 1 : 0); }
     const ratingStars = () => Math.min(5, 1 + Math.floor(rating() / 4));
     const totalStars = () => Object.values(save.stars).reduce((s, n) => s + n, 0);
     function toolSlots() { return ['hand', 'water', ...CROP_IDS.filter((id) => save.seeds.includes(id)).map((id) => 'seed:' + id)]; }
@@ -481,6 +502,9 @@
       shoo: (n) => `Shoo away ${n} crows`,
       crop: (n, id) => `Harvest ${n} ${CROPS[id].plural}`,
       honey: (n) => `Collect ${n} honey`,
+      fair: () => 'Win the County Fair ribbon',
+      bake: (n) => `Bake ${n} treats in the barn`,
+      apples: (n) => `Pick ${n} apples`,
     };
     function makeGoals(day) {
       const lvl = save.level;
@@ -495,16 +519,19 @@
       if (owns('beehive')) kinds.push('honey');
       if (day >= 2) kinds.push('rush');
       if (day >= 3 && !save.scarecrow) kinds.push('shoo');
+      if (save.oven) kinds.push('bake');
+      if (orchardOpen()) kinds.push('apples');
       // a different kind of bonus goal from yesterday's, picked by a dice roll seeded with the day
       const pool = kinds.filter((x) => x !== save.lastGoal);
       const roll = Math.abs(Math.sin(day * 12.9898 + 4.1) * 43758.5453) % 1;
-      const k = day === 1 ? 'harvest' : pool[Math.floor(roll * pool.length)];
+      const k = day === 1 ? 'harvest' : isFairDay(day) ? 'fair' : pool[Math.floor(roll * pool.length)];
       // "harvest some crop" picks one of your newer seeds, so new seeds get used
       const owned = CROP_IDS.filter((id) => save.seeds.includes(id));
       const cropId = owned[Math.max(0, owned.length - 1 - (day % 2))];
       const n = {
         harvest: Math.min(30, 6 + day * 2), combo: Math.min(10, 3 + Math.floor(day / 3)), products: Math.min(12, 2 + save.animals.length * 2),
         rush: 1, shoo: 2, crop: clamp(Math.round((3 + Math.floor(day / 4)) * 24 / CROPS[cropId].grow), 2, 10), honey: Math.min(4, 1 + Math.floor(day / 8)),
+        fair: 1, bake: Math.min(4, 1 + Math.floor(day / 7)), apples: Math.min(15, 6 + Math.floor(day / 3) * 3),
       }[k];
       goals.push({ kind: k, n, id: k === 'crop' ? cropId : undefined });
       goals.forEach((g) => { g.text = GOAL_TEXT[g.kind](g.n, g.id); g.done = false; });
@@ -513,7 +540,7 @@
     function goalProgress(g) {
       if (!run) return 0;
       if (g.kind === 'crop') return run.cropsBy[g.id] || 0;
-      return { coins: run.coins, orders: run.ordersDone, harvest: run.harvested, combo: run.bestCombo, products: run.products, rush: run.rushDone, shoo: run.shoos, honey: run.honey }[g.kind] || 0;
+      return { coins: run.coins, orders: run.ordersDone, harvest: run.harvested, combo: run.bestCombo, products: run.products, rush: run.rushDone, shoo: run.shoos, honey: run.honey, fair: run.fairWon, bake: run.baked, apples: run.apples }[g.kind] || 0;
     }
     function prepareDay() {
       nextDay = { goals: makeGoals(save.day), rain: save.day >= 2 && Math.random() < 0.35 ? { at: rand(30, 95), dur: 22 } : null };
@@ -526,7 +553,28 @@
       const list = CROP_IDS.filter((id) => save.seeds.includes(id));
       for (const t of Object.keys(ANIMALS)) if (save.animals.some((a) => a.type === t)) list.push(ANIMALS[t].product);
       if (owns('beehive')) list.push('honey');
+      if (orchardOpen()) list.push('apple');
+      if (save.oven) list.push('bread');
+      if (save.oven && save.level >= RECIPES.pie.lvl && save.animals.some((a) => a.type === 'chicken')) list.push('pie');
       return list;
+    }
+    const orchardOpen = () => save.level >= ORCHARD.lvl;
+    // County Fair: a big order of your best goods that wins a blue ribbon
+    function makeFairOrder() {
+      const pool = availableItems();
+      const prefer = pool.filter((id) => !['wheat', 'carrot'].includes(id));
+      const src = prefer.length >= 2 ? prefer : pool;
+      const chosen = [];
+      while (chosen.length < Math.min(3, src.length)) { const id = src[Math.floor(Math.random() * src.length)]; if (!chosen.includes(id)) chosen.push(id); }
+      const items = chosen.map((id) => {
+        let n;
+        if (id === 'bread' || id === 'pie') n = 1;
+        else if (PRODUCTS[id]) n = id === 'apple' ? 4 : 2;
+        else n = clamp(Math.round(48 / CROPS[id].grow) + 1, 2, 6);
+        return { id, n };
+      });
+      const p = priceOrder(items, false);
+      return { items, rush: false, time: 0, max: 0, id: ++orderSeq, fair: true, coins: p.coins * 2 + 20, xp: p.xp * 2 };
     }
     function priceOrder(items, rush) {
       const base = items.reduce((s, it) => s + itemDef(it.id).value * it.n, 0);
@@ -546,14 +594,16 @@
       const chosen = [];
       // newer crops and animal goods show up a bit more often, so new stuff feels useful
       while (chosen.length < types && pool.length) {
-        const w = pool.map((id, k) => 1 + k * 0.25 + (PRODUCTS[id] ? 0.6 : 0));
+        const w = pool.map((id, k) => (id === 'bread' || id === 'pie' ? 0.9 : id === 'apple' ? 1.6 : 1 + k * 0.25 + (PRODUCTS[id] ? 0.6 : 0)));
         let r = Math.random() * w.reduce((s, x) => s + x, 0), k = 0;
         while (r > w[k] && k < w.length - 1) { r -= w[k]; k++; }
         chosen.push(pool.splice(k, 1)[0]);
       }
       const items = chosen.map((id) => {
         let n;
-        if (PRODUCTS[id]) {
+        if (id === 'apple') n = 2 + Math.floor(Math.random() * 4);
+        else if (id === 'bread' || id === 'pie') n = 1 + (Math.random() < 0.3 ? 1 : 0);
+        else if (PRODUCTS[id]) {
           const cnt = id === 'honey' ? 1 : save.animals.filter((a) => ANIMALS[a.type].product === id).length;
           n = 1 + Math.floor(Math.random() * (cnt + 1));
         } else {
@@ -588,6 +638,7 @@
         goals: nextDay.goals, rain: nextDay.rain, rainK: 0, rainAnnounced: false,
         crows: [], nextCrow: rand(20, 30), golden: null, nextGolden: rand(30, 55),
         slotT: [0, 0, 0], forceRush: nextDay.goals.some((g) => g.kind === 'rush'), sprayT: 0, endT: 0, warned: false, drops: [],
+        fairWon: 0, baked: 0, apples: 0, fair: isFairDay(save.day),
       };
       nextDay = null;
       save.lastGoal = run.goals[2].kind;
@@ -598,6 +649,11 @@
       hideOverlays();
       showBanner(`Day ${save.day}`, save.tut ? pick(['Good morning, farmer!', 'Rise and shine!', 'What a lovely morning!']) : 'Welcome to Sunny Acres!', '#ffd43b');
       if (run.rain) showBanner('Forecast: rain later', 'Free water for your crops!', '#9fd8ff');
+      if (run.fair) {
+        if (!save.orders.some((o) => o && o.fair)) { save.orders[0] = makeFairOrder(); noteAnim[0] = 0; }
+        showBanner('County Fair day!', 'Fill the blue ribbon order to win a prize ribbon!', '#6aa8ff');
+      }
+      if (orchardOpen() && !save.orchardSeen) { save.orchardSeen = true; showBanner('Apples are growing!', 'Click the apple trees by the field to pick them', '#ff8a7a'); }
       persist();
     }
 
@@ -610,7 +666,9 @@
       }
       let goods = 0;
       for (const a of save.animals) if (a.fed && !a.ready) { a.ready = true; a.t = 1; goods++; }
-      save.orders = save.orders.map((o) => (o && o.rush ? null : o));
+      save.orders = save.orders.map((o) => (o && (o.rush || o.fair) ? null : o));
+      save.orchard = save.orchard.map((g) => Math.min(1, g + 0.5));
+      if (save.bake.r) save.bake.t = 1;
       save.canWater = canCap();
       const bits = [];
       if (ripened) bits.push(`${ripened} crop${ripened > 1 ? 's' : ''} finished growing`);
@@ -703,6 +761,9 @@
       if (EXPANDS.some((e) => e.lvl === l)) out.push('More fields');
       if (SCARECROW.lvl === l) out.push('Scarecrow');
       if (CLOVER.lvl === l) out.push('Lucky Clover');
+      if (OVEN.lvl === l) out.push('Barn Oven');
+      if (ORCHARD.lvl === l) out.push('Apple picking');
+      if (RECIPES.pie.lvl === l) out.push('Apple pie recipe');
       DECOR.forEach((d) => d.lvl === l && out.push(d.name));
       return out;
     }
@@ -947,6 +1008,70 @@
       addXp(1);
       sfx.honey();
     }
+    // --- the orchard: shake an apple tree to pick its apples
+    const treeOf = (k) => TREES[ORCHARD.trees[k]];
+    const treeShake = [0, 0];
+    function pickApples(k) {
+      const tr = treeOf(k), cx = tr.x, cy = tr.y - tr.r * 0.95;
+      farmer.tx = tr.x + 30; farmer.ty = tr.y + 14;
+      if (!orchardOpen()) { toastMsg(`The apple trees will fruit at farm level ${ORCHARD.lvl}!`); sfx.error(); return; }
+      if (save.orchard[k] < 1) { toastMsg(`Apples are growing... ${Math.floor(save.orchard[k] * 100)}%`); treeShake[k] = 0.25; return; }
+      save.orchard[k] = 0;
+      treeShake[k] = 0.7;
+      const n = ORCHARD.per;
+      save.inv.apple += n;
+      run.apples += n;
+      run.products += n;
+      for (let j = 0; j < n; j++) {
+        // apples tumble out of the tree, then fly to storage
+        addPart({ type: 'apple', x: cx + rand(-tr.r * 0.6, tr.r * 0.6), y: cy + rand(-10, 10), vx: rand(-60, 60), vy: rand(-160, -60), life: 0.7, max: 0.7, size: 6, g: 900 });
+        flyItem('apple', cx + (j - 1) * 14, cy + 20, 0.35 + j * 0.08);
+      }
+      leaves(cx, cy, 10);
+      floater(cx + 34, cy + 30, `+${n} apples`, '#ffb3a6', 18);
+      bumpCombo(cx, cy - 20);
+      addXp(1);
+      sfx.harvest(run.combo);
+      noise(0.3, 0.06, 1200);
+    }
+    // --- the barn oven: start baking, or take out what's ready
+    function bakeAction() {
+      farmer.tx = 700; farmer.ty = 262;
+      if (!save.oven) { toastMsg(`Buy a Barn Oven in the Market (level ${OVEN.lvl}) to bake bread and pies!`); sfx.error(); return; }
+      const B = save.bake;
+      if (B.r && B.t >= 1) {
+        save.inv[B.r]++;
+        run.baked++;
+        run.products++;
+        save.stats.products++;
+        flyItem(B.r, 728, 190);
+        burst(728, 190, 16, ['#ffd08a', '#ffffff', '#e8a050']);
+        floater(728, 160, `+1 ${PRODUCTS[B.r].name.toLowerCase()}`, '#ffe7a0', 18);
+        bumpCombo(728, 170);
+        addXp(RECIPES[B.r].xp);
+        sfx.honey();
+        save.bake = { r: null, t: 0 };
+        barnBump = 1;
+        return;
+      }
+      if (B.r) { toastMsg(`The oven is baking ${PRODUCTS[B.r].name.toLowerCase()}... ${Math.floor(B.t * 100)}%`); return; }
+      const can = (id) => save.level >= RECIPES[id].lvl && RECIPES[id].needs.every(([it, n]) => save.inv[it] >= n);
+      const wanted = (id) => save.orders.some((o) => o && o.items.some((it) => it.id === id && save.inv[id] < it.n));
+      let pickR = null;
+      if (can('pie') && (wanted('pie') || !wanted('bread'))) pickR = 'pie';
+      else if (can('bread')) pickR = 'bread';
+      if (!pickR) {
+        toastMsg(save.level >= RECIPES.pie.lvl ? 'Bread needs 3 wheat. Apple pie needs 2 apples, 2 wheat and 1 egg.' : 'Bread needs 3 wheat. Grow some wheat first!');
+        sfx.error();
+        return;
+      }
+      for (const [it, n] of RECIPES[pickR].needs) save.inv[it] -= n;
+      save.bake = { r: pickR, t: 0 };
+      barnBump = 1;
+      floater(728, 160, `Baking ${PRODUCTS[pickR].name.toLowerCase()}!`, '#ffe7a0', 17);
+      sfx.feed();
+      dust(728, 236, 6, '#e8d8b8');
+    }
     function ship(i) {
       const o = save.orders[i];
       if (!o || !run) return;
@@ -964,6 +1089,14 @@
       floater(nx, ny + 26, `+${o.xp} XP`, '#b6f08a', 16);
       run.ordersDone++;
       if (o.rush) run.rushDone++;
+      if (o.fair) {
+        save.ribbons = (save.ribbons || 0) + 1;
+        run.fairWon = 1;
+        showBanner('Blue ribbon!', `You won the County Fair! Ribbons: ${save.ribbons}`, '#6aa8ff');
+        burst(nx, ny, 40, ['#6aa8ff', '#ffffff', '#ffd43b', '#3a6ad9']);
+        confetti();
+        sfx.level();
+      }
       save.stats.orders++;
       save.orders[i] = null;
       run.slotT[i] = 4.5;
@@ -1048,6 +1181,9 @@
         }
         if (P.w > 0) P.w = Math.max(0, P.w - dt / 30);
       }
+      // apples grow on the trees, bread and pies bake in the barn
+      if (orchardOpen()) for (let k = 0; k < 2; k++) if (save.orchard[k] < 1) { save.orchard[k] = Math.min(1, save.orchard[k] + dt / ORCHARD.time); if (save.orchard[k] >= 1) { sfx.pop(); const tr = treeOf(k); for (let j = 0; j < 6; j++) addPart({ type: 'spark', x: tr.x + rand(-tr.r, tr.r) * 0.7, y: tr.y - tr.r + rand(-tr.r, tr.r) * 0.5, vx: rand(-20, 20), vy: rand(-60, -20), life: 0.8, max: 0.8, size: rand(3, 5), color: pick(['#fff3b0', '#ffffff', '#ff8a7a']) }); } }
+      if (save.bake.r && save.bake.t < 1) { save.bake.t = Math.min(1, save.bake.t + dt / RECIPES[save.bake.r].time); if (save.bake.t >= 1) { sfx.pop(); barnBump = 1; floater(728, 150, `${PRODUCTS[save.bake.r].name} is ready!`, '#ffe7a0', 17); } }
       // animals make their goodies, bees make honey
       for (const a of save.animals) if (a.fed && !a.ready) { a.t += dt / ANIMALS[a.type].time; if (a.t >= 1) { a.t = 1; a.ready = true; a.pop = 1; sfx.pop(); } }
       if (owns('beehive') && save.hive < 1) { save.hive = Math.min(1, save.hive + dt / (HIVE_TIME * (owns('flowers') ? 0.8 : 1))); if (save.hive >= 1) { hiveBump = 1; sfx.pop(); } }
@@ -1234,6 +1370,8 @@
       for (let i = 0; i < NPLOTS; i++) if (plotBump[i] > 0) plotBump[i] = Math.max(0, plotBump[i] - dt * 4);
       for (let i = 0; i < 3; i++) noteStamp[i] = Math.max(0, noteStamp[i] - dt * 0.9);
       hiveBump = Math.max(0, hiveBump - dt * 2.5);
+      barnBump = Math.max(0, barnBump - dt * 2.5);
+      for (let k = 0; k < 2; k++) treeShake[k] = Math.max(0, treeShake[k] - dt);
       toolFlash = Math.max(0, toolFlash - dt * 3);
       coinBump = Math.max(0, coinBump - dt * 4);
       for (const k of Object.keys(storeBump)) storeBump[k] = Math.max(0, storeBump[k] - dt * 4);
@@ -1241,7 +1379,7 @@
       if (toast) { toast.t += dt; if (toast.t > 2.8) toast = null; }
       shake = Math.max(0, shake - dt * 18);
     }
-    let coinBump = 0;
+    let coinBump = 0, barnBump = 0;
     const storeBump = {};
 
     // =====================================================================
@@ -1427,6 +1565,33 @@
         for (const [px, py, pr] of puffs) { ctx.fillStyle = rad(px - pr * 0.35, py - pr * 0.4, 1, pr * 1.2, [[0, '#ffffff'], [0.7, '#f4ecdc'], [1, '#d8cab0']]); ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.fill(); }
         ctx.strokeStyle = 'rgba(180,160,130,0.6)'; ctx.lineWidth = 1.6;
         for (const [px, py] of [[-12, 6], [10, 4], [0, -12]]) { ctx.beginPath(); ctx.arc(px, py, 5, 0.3, 4); ctx.stroke(); }
+      } else if (id === 'apple') {
+        const body = () => { ctx.beginPath(); ctx.moveTo(0, -18); ctx.bezierCurveTo(14, -32, 36, -18, 32, 6); ctx.bezierCurveTo(28, 30, 10, 40, 0, 32); ctx.bezierCurveTo(-10, 40, -28, 30, -32, 6); ctx.bezierCurveTo(-36, -18, -14, -32, 0, -18); ctx.closePath(); };
+        body(); ctx.fillStyle = rad(-12, -10, 2, 46, [[0, '#ff8a7a'], [0.45, '#e8382e'], [1, '#8a1410']]); ctx.fill();
+        ctx.strokeStyle = 'rgba(90,10,5,0.5)'; ctx.lineWidth = 2.5; body(); ctx.stroke();
+        ctx.strokeStyle = '#5a3a1e'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(0, -16); ctx.quadraticCurveTo(2, -30, 6, -36); ctx.stroke();
+        ctx.fillStyle = '#5cc24a'; ctx.beginPath(); ctx.ellipse(16, -32, 13, 6, -0.4, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#2e7a2a'; ctx.lineWidth = 1.4; line(6, -29, 26, -36);
+        ellipse(-14, -6, 7, 12, 'rgba(255,255,255,0.55)', 0.4);
+      } else if (id === 'bread') {
+        const loaf = () => { ctx.beginPath(); ctx.moveTo(-36, 22); ctx.quadraticCurveTo(-42, -22, -6, -26); ctx.quadraticCurveTo(30, -30, 38, 0); ctx.quadraticCurveTo(42, 22, 30, 26); ctx.lineTo(-28, 28); ctx.quadraticCurveTo(-36, 28, -36, 22); ctx.closePath(); };
+        loaf(); ctx.fillStyle = lin(0, -26, 0, 28, [[0, '#f2b45a'], [0.55, '#c97a2a'], [1, '#8a4a14']]); ctx.fill();
+        ctx.strokeStyle = 'rgba(90,40,5,0.55)'; ctx.lineWidth = 2.5; loaf(); ctx.stroke();
+        ctx.strokeStyle = '#ffe0a0'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+        for (const x of [-18, -2, 14]) { ctx.beginPath(); ctx.moveTo(x - 6, 0); ctx.quadraticCurveTo(x, -10, x + 8, -14); ctx.stroke(); }
+        ellipse(-20, -12, 10, 5, 'rgba(255,255,255,0.35)', -0.4);
+      } else if (id === 'pie') {
+        ctx.fillStyle = '#c9c4bc'; ctx.beginPath(); ctx.ellipse(0, 18, 42, 14, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = lin(0, -6, 0, 24, [[0, '#e8a050'], [1, '#a8601e']]); ctx.beginPath(); ctx.ellipse(0, 10, 38, 18, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = lin(0, -20, 0, 10, [[0, '#ffd08a'], [1, '#e09a4a']]); ctx.beginPath(); ctx.ellipse(0, 2, 36, 16, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.save(); ctx.beginPath(); ctx.ellipse(0, 2, 36, 16, 0, 0, Math.PI * 2); ctx.clip();
+        ctx.strokeStyle = '#b8682a'; ctx.lineWidth = 4;
+        for (let k = -3; k <= 3; k++) { line(k * 11 - 8, -16, k * 11 + 8, 20); line(k * 11 + 8, -16, k * 11 - 8, 20); }
+        ctx.restore();
+        for (let k = 0; k < 12; k++) { const a = (k / 12) * Math.PI * 2; circle(Math.cos(a) * 37, 4 + Math.sin(a) * 17, 4.5, '#f2b45a'); }
+        circle(-2, -2, 6, '#e8382e'); circle(-3.5, -3.5, 2, 'rgba(255,255,255,0.7)');
+        ellipse(-16, -4, 9, 3, 'rgba(255,255,255,0.4)', -0.2);
+        for (let k = 0; k < 3; k++) { ctx.strokeStyle = `rgba(255,255,255,${0.5 - k * 0.12})`; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(-10 + k * 10, -18); ctx.quadraticCurveTo(-16 + k * 10, -28, -8 + k * 10, -38); ctx.stroke(); }
       }
     }
     const ICONS = {};
@@ -1527,7 +1692,9 @@
     ];
     function drawTree(tr, t, sdx) {
       const { x, y, r } = tr;
-      const sway = Math.sin(t * 1.1 + tr.ph) * 0.03 + Math.sin(t * 2.6 + tr.ph * 2) * 0.01;
+      const ok2 = ORCHARD.trees.indexOf(TREES.indexOf(tr));
+      const shk = ok2 >= 0 ? treeShake[ok2] : 0;
+      const sway = Math.sin(t * 1.1 + tr.ph) * 0.03 + Math.sin(t * 2.6 + tr.ph * 2) * 0.01 + Math.sin(t * 40) * shk * 0.12;
       ellipse(x + sdx * 1.4, y + 2, r * 0.95, r * 0.3, 'rgba(30,60,10,0.25)');
       ctx.fillStyle = lin(x - 7, 0, x + 7, 0, [[0, '#9a6a3a'], [1, '#5b3a1e']]);
       ctx.beginPath(); ctx.moveTo(x - 7, y); ctx.quadraticCurveTo(x - 4, y - r * 0.5, x - 4, y - r); ctx.lineTo(x + 4, y - r); ctx.quadraticCurveTo(x + 4, y - r * 0.5, x + 8, y); ctx.closePath(); ctx.fill();
@@ -1539,8 +1706,31 @@
         ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fill();
       }
       for (let k = 0; k < 6; k++) { const a = k * 1.9 + tr.ph, d = r * 0.5; ellipse(Math.cos(a) * d * 0.9, Math.sin(a) * d * 0.6 - r * 0.2, 5, 3, 'rgba(220,255,170,0.3)', a); }
-      if (tr.apple) for (const [ax, ay] of [[-r * 0.4, 0], [r * 0.35, -r * 0.15], [r * 0.05, r * 0.3], [-r * 0.1, -r * 0.55], [r * 0.55, r * 0.25]]) { circle(ax, ay, 4, '#d6302a'); circle(ax - 1.2, ay - 1.2, 1.3, 'rgba(255,255,255,0.7)'); }
+      const SPOTS5 = [[-r * 0.4, 0], [r * 0.35, -r * 0.15], [r * 0.05, r * 0.3], [-r * 0.1, -r * 0.55], [r * 0.55, r * 0.25]];
+      if (ok2 >= 0) {
+        // orchard trees: blossoms before level 2, then apples that grow bigger and redder until they can be picked
+        if (!orchardOpen()) for (const [ax, ay] of SPOTS5) { for (let q = 0; q < 5; q++) circle(ax + Math.cos(q * 1.26) * 3, ay + Math.sin(q * 1.26) * 3, 2.2, '#ffd2e6'); circle(ax, ay, 1.6, '#ffe066'); }
+        else {
+          const g = save.orchard[ok2], ripe = g >= 1;
+          SPOTS5.forEach(([ax, ay], q) => {
+            const k = clamp(g * 5 - q, 0, 1);
+            if (k <= 0) return;
+            const rr2 = (ripe ? 5.6 + Math.sin(t * 5 + q) * 0.4 : 2.5 + k * 2.4);
+            circle(ax, ay + 1, rr2, 'rgba(60,20,10,0.35)');
+            circle(ax, ay, rr2, ripe ? '#e8382e' : mix('#9ad04a', '#d6302a', g));
+            circle(ax - rr2 * 0.3, ay - rr2 * 0.3, rr2 * 0.32, 'rgba(255,255,255,0.75)');
+            if (ripe) { ctx.strokeStyle = '#5a3a1e'; ctx.lineWidth = 1.2; line(ax, ay - rr2, ax + 1, ay - rr2 - 3); }
+          });
+        }
+      } else if (tr.apple) for (const [ax, ay] of SPOTS5) { circle(ax, ay, 4, '#d6302a'); circle(ax - 1.2, ay - 1.2, 1.3, 'rgba(255,255,255,0.7)'); }
       ctx.restore();
+      if (ok2 >= 0 && orchardOpen() && save.orchard[ok2] >= 1 && run) {
+        // a little "ready!" badge with an apple
+        const bx2 = x + r * 0.95, by = y - r * 1.35 + Math.sin(t * 4 + tr.ph) * 3;
+        circle(bx2 + 1, by + 2, 13, 'rgba(40,24,8,0.3)'); circle(bx2, by, 13, '#fff6e4');
+        ctx.strokeStyle = '#e8382e'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(bx2, by, 13, 0, Math.PI * 2); ctx.stroke();
+        icon('apple', bx2, by, 22);
+      }
     }
     function drawBush(x, y, s, ph, t) {
       const sw = Math.sin(t * 1.4 + ph) * 1.2;
@@ -1609,6 +1799,53 @@
       ctx.restore();
     }
 
+    // the oven's brick chimney (with smoke while baking), a status bubble and the fair ribbons won so far
+    function drawBarnOven(t) {
+      const R = Math.min(5, save.ribbons || 0);
+      for (let k = 0; k < R; k++) {
+        const x = 662 + (k % 2) * 14, y = 182 + Math.floor(k / 2) * 18;
+        ctx.fillStyle = '#3a6ad9'; ctx.beginPath(); ctx.moveTo(x - 4, y); ctx.lineTo(x - 6, y + 12); ctx.lineTo(x - 2, y + 9); ctx.lineTo(x, y + 13); ctx.lineTo(x + 2, y); ctx.closePath(); ctx.fill();
+        for (let q = 0; q < 8; q++) { const a = (q / 8) * Math.PI * 2; circle(x + Math.cos(a) * 5, y + Math.sin(a) * 5, 2.6, '#6aa8ff'); }
+        circle(x, y, 3.6, '#ffd43b');
+      }
+      if (!save.oven) return;
+      const cx = 794, cy = 126;
+      ctx.fillStyle = lin(cx - 9, 0, cx + 9, 0, [[0, '#c0563c'], [1, '#7a2a1c']]); ctx.fillRect(cx - 9, cy - 20, 18, 30);
+      ctx.strokeStyle = 'rgba(60,20,10,0.5)'; ctx.lineWidth = 1;
+      for (let y = cy - 14; y < cy + 10; y += 6) line(cx - 9, y, cx + 9, y);
+      ctx.fillStyle = '#5a2a1c'; ctx.fillRect(cx - 11, cy - 24, 22, 5);
+      const B = save.bake;
+      if (B.r && B.t < 1) {
+        for (let k = 0; k < 4; k++) {
+          const q = (t * 0.45 + k / 4) % 1;
+          ctx.globalAlpha = (1 - q) * 0.6;
+          circle(cx + Math.sin(q * 6 + k) * 6 + q * 14, cy - 28 - q * 50, 5 + q * 10, '#f2eee8');
+          ctx.globalAlpha = 1;
+        }
+      }
+      if (!run || !B.r) return;
+      // the bubble shows what's in the oven
+      const bx = 676, by = 100 + Math.sin(t * 3) * 2, done = B.t >= 1;
+      circle(bx + 1, by + 2, 17, 'rgba(40,24,8,0.3)'); circle(bx, by, 17, '#fff6e4');
+      ctx.strokeStyle = done ? '#ffb347' : '#c9a06a'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(bx, by, 17, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * B.t); ctx.stroke();
+      icon(B.r, bx, by, done ? 26 + Math.sin(t * 8) * 2 : 22);
+      if (done) sparkle4(bx + 12, by - 12, 5, '#ffd43b');
+    }
+    // County Fair day: flags strung along the field fence
+    function drawFairBunting(t) {
+      const cols = ['#e8503e', '#3f8fe0', '#f2b53a', '#4fbf6a', '#c45cff'];
+      for (const [x0, x1, y] of [[FENCE.x0, FENCE.x1, FENCE.y0 - 26], [COOP.x0, COOP.x1, COOP.y0 - 16]]) {
+        ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(x0, y); ctx.quadraticCurveTo((x0 + x1) / 2, y + 16, x1, y); ctx.stroke();
+        const n = Math.floor((x1 - x0) / 26);
+        for (let k = 0; k < n; k++) {
+          const f = (k + 0.5) / n, x = x0 + (x1 - x0) * f, yy = y + Math.sin(f * Math.PI) * 8 + 1, sw = Math.sin(t * 3 + k) * 2;
+          ctx.fillStyle = cols[k % cols.length];
+          ctx.beginPath(); ctx.moveTo(x - 7, yy); ctx.lineTo(x + 7, yy); ctx.lineTo(x + sw, yy + 15); ctx.closePath(); ctx.fill();
+        }
+      }
+    }
     function fenceH(x0, x1, y, white) {
       const post = white ? ['#ffffff', '#cfc8ba'] : ['#c48a50', '#7a5230'];
       if (white) {
@@ -2415,7 +2652,12 @@
       const sdx = (p - 0.5) * 28;
       ctx.drawImage(bgCanvas, 0, 0, VW, VH);
       for (const tr of TREES) drawTree(tr, t, sdx);
+      ctx.save();
+      if (barnBump > 0) { const bb = 1 + Math.sin(barnBump * Math.PI) * 0.03; ctx.translate(728, 238); ctx.scale(2 - bb, bb); ctx.translate(-728, -238); }
       drawBarn(t, sdx);
+      ctx.restore();
+      drawBarnOven(t);
+      if (run && run.fair) drawFairBunting(t);
       // coop yard
       fenceH(COOP.x0, COOP.x1, COOP.y0 + 4);
       drawCoop(t);
@@ -2538,6 +2780,7 @@
         else if (q.type === 'puff') { ctx.globalAlpha = a * 0.5; circle(q.x, q.y, q.size, q.color || '#d8d4cc'); }
         else if (q.type === 'ring') { const e = 1 - a; ctx.globalAlpha = a; ctx.strokeStyle = q.color; ctx.lineWidth = 3 * a + 1; ctx.beginPath(); ctx.ellipse(q.x, q.y, 6 + e * q.size, (6 + e * q.size) * q.flat, 0, 0, Math.PI * 2); ctx.stroke(); }
         else if (q.type === 'seed') { ctx.globalAlpha = Math.min(1, a * 3); ellipse(q.x, q.y, q.size, q.size * 0.7, '#e8cf8a'); }
+        else if (q.type === 'apple') { ctx.globalAlpha = Math.min(1, a * 3); circle(q.x, q.y, q.size, '#e8382e'); circle(q.x - 2, q.y - 2, 2, 'rgba(255,255,255,0.7)'); }
         ctx.globalAlpha = 1;
       }
     }
@@ -2699,7 +2942,7 @@
       }
       const ready = canFill(o);
       ctx.fillStyle = 'rgba(60,30,10,0.3)'; rr(L + 3, T + 4, n.w, n.h, 8); ctx.fill();
-      ctx.fillStyle = o.rush ? lin(0, T, 0, T + n.h, [[0, '#fff0ea'], [1, '#ffd8cc']]) : lin(0, T, 0, T + n.h, [[0, '#fffaf0'], [1, '#f2e6cc']]);
+      ctx.fillStyle = o.fair ? lin(0, T, 0, T + n.h, [[0, '#eef5ff'], [1, '#cfe0ff']]) : o.rush ? lin(0, T, 0, T + n.h, [[0, '#fff0ea'], [1, '#ffd8cc']]) : lin(0, T, 0, T + n.h, [[0, '#fffaf0'], [1, '#f2e6cc']]);
       rr(L, T, n.w, n.h, 8); ctx.fill();
       if (ready) { ctx.strokeStyle = `rgba(110,200,70,${0.6 + Math.sin(t * 6) * 0.3})`; ctx.lineWidth = 3; rr(L + 1.5, T + 1.5, n.w - 3, n.h - 3, 8); ctx.stroke(); }
       circle(0, T + 4, 5, '#d9463a'); circle(-1.5, T + 2.5, 1.6, 'rgba(255,255,255,0.7)');
@@ -2709,6 +2952,14 @@
         label(`RUSH  ${fmtTime(o.time)}`, L + 62, T + 18.5, 12, '#ffffff', 'center', 900);
         ctx.fillStyle = 'rgba(0,0,0,0.12)'; rr(L + 8, T + n.h - 9, n.w - 16, 5, 2.5); ctx.fill();
         ctx.fillStyle = o.time < 15 ? '#ff3b2a' : '#ff8a5a'; rr(L + 8, T + n.h - 9, Math.max(5, (n.w - 16) * o.time / o.max), 5, 2.5); ctx.fill();
+      } else if (o.fair) {
+        // the County Fair entry: a blue prize ribbon
+        ctx.fillStyle = '#3a6ad9'; rr(L + 8, T + 8, 136, 20, 6); ctx.fill();
+        label('COUNTY FAIR ENTRY', L + 76, T + 18.5, 11, '#ffffff', 'center', 900);
+        const rx0 = L + 180, ry0 = T + 17;
+        ctx.fillStyle = '#3a6ad9'; ctx.beginPath(); ctx.moveTo(rx0 - 6, ry0); ctx.lineTo(rx0 - 9, ry0 + 20); ctx.lineTo(rx0 - 3, ry0 + 15); ctx.lineTo(rx0, ry0 + 21); ctx.lineTo(rx0 + 3, ry0); ctx.closePath(); ctx.fill();
+        for (let q = 0; q < 10; q++) { const a2 = (q / 10) * Math.PI * 2 + t; circle(rx0 + Math.cos(a2) * 8, ry0 + Math.sin(a2) * 8, 3.4, '#6aa8ff'); }
+        circle(rx0, ry0, 6, '#ffd43b'); label('1', rx0, ry0 + 1, 8, '#7a5200', 'center', 900);
       } else fitLabel(orderText(o), L + 12, T + 18, n.w - 130, 12, '#7a5230', 'left', 800);
       o.items.forEach((it, j) => {
         const ix = L + 32 + j * 56, iy = T + 52, have = Math.min(save.inv[it.id], it.n), done = have >= it.n;
@@ -2735,7 +2986,7 @@
       ctx.strokeStyle = dhov ? '#fff' : 'rgba(90,50,20,0.7)'; ctx.lineWidth = 2; line(n.w / 2 - 16, T + 10, n.w / 2 - 10, T + 16); line(n.w / 2 - 10, T + 10, n.w / 2 - 16, T + 16);
       ctx.restore();
     }
-    const storeCell = (k) => ({ x: STORE.x + 32 + (k % 7) * 44.5, y: STORE.y + 48 + Math.floor(k / 7) * 44 });
+    const storeCell = (k) => ({ x: STORE.x + 30 + (k % 8) * 38.6, y: STORE.y + 48 + Math.floor(k / 8) * 44 });
     function drawStore(t) {
       const { x, y, w, h } = STORE;
       woodPanel(x, y, w, h, 14);
@@ -2749,8 +3000,8 @@
         const c = storeCell(k), cnt = save.inv[id], known = avail.includes(id) || cnt > 0;
         ctx.globalAlpha = known ? 1 : 0.3;
         const b = storeBump[id] || 0;
-        if (known) { ctx.fillStyle = cnt ? 'rgba(255,240,210,0.14)' : 'rgba(0,0,0,0.12)'; rr(c.x - 26, c.y - 20, 40, 40, 9); ctx.fill(); }
-        icon(id, c.x - 6, c.y - 3, 30 * (1 + b * 0.35));
+        if (known) { ctx.fillStyle = cnt ? 'rgba(255,240,210,0.14)' : 'rgba(0,0,0,0.12)'; rr(c.x - 24, c.y - 20, 36, 40, 9); ctx.fill(); }
+        icon(id, c.x - 6, c.y - 3, 28 * (1 + b * 0.35));
         outlined(String(cnt), c.x + 10, c.y + 11, 13, cnt ? '#ffffff' : '#d8c4a4', 'rgba(50,28,10,0.85)', 3.5, 'center');
         ctx.globalAlpha = 1;
       });
@@ -2836,6 +3087,8 @@
       }
       if (owns('beehive') && Math.hypot(p.x - DECOR_POS.beehive[0], p.y - (DECOR_POS.beehive[1] - 24)) < 30) return { kind: 'hive', i: 0 };
       if (((p.x - POND.x) / (POND.rx + 8)) ** 2 + ((p.y - POND.y) / (POND.ry + 8)) ** 2 <= 1) return { kind: 'pond', i: 0 };
+      for (let k = 0; k < 2; k++) { const tr = treeOf(k); if (Math.hypot(p.x - tr.x, p.y - (tr.y - tr.r * 0.95)) < tr.r * 1.05) return { kind: 'tree', i: k }; }
+      if (p.x > 652 && p.x < 806 && p.y > 104 && p.y < 240) return { kind: 'barn', i: 0 };
       const i = plotAt(p);
       if (i >= 0) return { kind: 'plot', i };
       for (let k = 0; k < 3; k++) if (inRect(p, noteRect(k))) return { kind: 'order', i: k };
@@ -2853,6 +3106,8 @@
       save.animals.forEach((a, k) => out.push({ kind: 'animal', i: k, x: a.x, y: a.y - 16 }));
       out.push({ kind: 'pond', i: 0, x: POND.x, y: POND.y });
       if (owns('beehive')) out.push({ kind: 'hive', i: 0, x: DECOR_POS.beehive[0], y: DECOR_POS.beehive[1] - 24 });
+      for (let k = 0; k < 2; k++) { const tr = treeOf(k); out.push({ kind: 'tree', i: k, x: tr.x, y: tr.y - tr.r * 0.95 }); }
+      out.push({ kind: 'barn', i: 0, x: 728, y: 190 });
       for (let k = 0; k < 3; k++) { const n = noteRect(k); out.push({ kind: 'order', i: k, x: n.x + n.w / 2, y: n.y + n.h / 2 }); }
       return out;
     }
@@ -2884,6 +3139,8 @@
       else if (tg.kind === 'order') ship(tg.i);
       else if (tg.kind === 'crow') shoo(tg.c);
       else if (tg.kind === 'golden') catchGolden();
+      else if (tg.kind === 'tree') pickApples(tg.i);
+      else if (tg.kind === 'barn') bakeAction();
     }
     function focusTarget() {
       if (mode !== 'play') return null;
@@ -2916,6 +3173,8 @@
       if (tg.kind === 'order') return save.orders[tg.i] ? (canFill(save.orders[tg.i]) ? 'Ship it!' : 'Need more') : '';
       if (tg.kind === 'crow') return 'Shoo!';
       if (tg.kind === 'golden') return 'Catch it!';
+      if (tg.kind === 'tree') return !orchardOpen() ? `Apples at level ${ORCHARD.lvl}` : save.orchard[tg.i] >= 1 ? 'Pick apples' : `Apples ${Math.floor(save.orchard[tg.i] * 100)}%`;
+      if (tg.kind === 'barn') { const B = save.bake; return !save.oven ? 'Barn oven (Market)' : B.r ? (B.t >= 1 ? 'Take out ' + PRODUCTS[B.r].name.toLowerCase() : `Baking ${Math.floor(B.t * 100)}%`) : 'Bake!'; }
       return '';
     }
     function targetBox(tg) {
@@ -2929,6 +3188,8 @@
       if (tg.kind === 'order') { const n = noteRect(tg.i); return { x: n.x - 4, y: n.y - 4, w: n.w + 8, h: n.h + 8, cx: n.x + n.w / 2, top: n.y - 2, noChip: true }; }
       if (tg.kind === 'crow') return { x: tg.c.x - 22, y: tg.c.y - 34, w: 44, h: 40, cx: tg.c.x, top: tg.c.y - 62, round: true };
       if (tg.kind === 'golden') { const g = run.golden; return { x: g.x - 24, y: g.y - 24, w: 48, h: 48, cx: g.x, top: g.y - 30, round: true }; }
+      if (tg.kind === 'tree') { const tr = treeOf(tg.i), cy = tr.y - tr.r * 0.95; return { x: tr.x - tr.r * 1.1, y: cy - tr.r * 1.1, w: tr.r * 2.2, h: tr.r * 2.2, cx: tr.x, top: cy - tr.r - 14, round: true }; }
+      if (tg.kind === 'barn') return { x: 650, y: 100, w: 158, h: 142, cx: 728, top: 96 };
       return null;
     }
     function drawFocus(t) {
@@ -2988,15 +3249,15 @@
       }
       const txt = TUT_TEXT[tutStep];
       ctx.font = '800 15px Nunito, sans-serif';
-      const w = Math.min(640, ctx.measureText(txt).width + 70), x = VW / 2 - w / 2, y = 586;
+      const w = Math.min(640, ctx.measureText(txt).width + 70), x = (portrait ? 472 : VW / 2) - w / 2, y = 586;
       ctx.fillStyle = 'rgba(30,18,6,0.85)'; rr(x, y, w, 40, 14); ctx.fill();
       ctx.strokeStyle = '#ffc94a'; ctx.lineWidth = 2; rr(x, y, w, 40, 14); ctx.stroke();
       circle(x + 22, y + 20, 12, '#ffc94a'); label(String(tutStep + 1), x + 22, y + 21, 14, '#5a3a1e', 'center', 900);
       fitLabel(txt, x + 42, y + 21, w - 52, 15, '#fff6e4', 'left', 800);
     }
-    function drawBannerAndToast(t) {
+    function drawBannerAndToast(t, part = 'both') {
       const b = banners[0];
-      if (b) {
+      if (b && part !== 'toast') {
         const a = Math.min(1, b.t * 5, (2.3 - b.t) * 3), sc = 0.8 + 0.2 * Math.min(1, b.t * 6);
         ctx.save(); ctx.globalAlpha = Math.max(0, a); ctx.translate(VW / 2 - 160, 180); ctx.scale(sc, sc);
         ctx.font = '800 15px Nunito, sans-serif';
@@ -3007,7 +3268,7 @@
         label(b.sub, 0, 24, 15, '#fff6e4');
         ctx.restore();
       }
-      if (toast) {
+      if (toast && part !== 'banner') {
         const a = Math.min(1, toast.t * 6, (2.8 - toast.t) * 3);
         ctx.save(); ctx.globalAlpha = Math.max(0, a);
         ctx.font = '800 15px Nunito, sans-serif';
@@ -3087,7 +3348,7 @@
       $('t-day').textContent = `Day ${save.day}`;
       $('t-lvl').textContent = `Farm level ${save.level}`;
       $('t-coins').textContent = `${save.coins.toLocaleString()} coins`;
-      $('t-stars').textContent = `${totalStars()} ★`;
+      $('t-stars').textContent = `${totalStars()} ★` + (save.ribbons ? ` · ${save.ribbons} ribbon${save.ribbons > 1 ? 's' : ''}` : '');
       $('play-btn').textContent = `Start Day ${save.day}`;
       syncMuteBtn();
       showOverlay('title');
@@ -3104,6 +3365,8 @@
       else if (nightNote) tip = nightNote;
       else tip = pick(['Tip: hold the mouse and drag across plots to plant or water a whole row.', 'Tip: quick harvests in a row make combos for bonus coins!', 'Tip: rush orders pay 70% more, but watch the timer.', 'Tip: with bare Hands, clicking soil plants the seed your orders need most.', 'Tip: golden crops sometimes appear. Harvest them for an extra crop and bonus coins!', 'Tip: hold a seed bag and click grass to till and plant in one go.', 'Tip: crows peck at your crops. Click them to shoo them away!', 'Tip: decorations raise your farm rating, so every order pays more.']);
       if (save.day === 3 && save.tut && !save.scarecrow) tip = 'Watch out: from today, crows may try to steal your crops! Click a crow to shoo it.';
+      if (isFairDay(save.day)) tip = '🎪 It is County Fair day! A special blue ribbon order is waiting on the board. Win it for a prize ribbon (+1 farm rating).';
+      else if (save.day > 1 && isFairDay(save.day + 1)) tip = 'Tomorrow is County Fair day! Stock up on your best crops and goodies tonight.';
       $('i-tip').textContent = tip;
       nightNote = '';
       showOverlay('intro');
@@ -3172,8 +3435,12 @@
           () => { save.coins -= SCARECROW.price; save.scarecrow = true; });
         item(() => { ctx.save(); ctx.translate(27, 26); for (let k = 0; k < 4; k++) { ctx.save(); ctx.rotate(k * Math.PI / 2 + 0.3); heart(0, -9, 8, k % 2 ? '#4fae3a' : '#5cc24a'); ctx.restore(); } ctx.strokeStyle = '#3f8a2a'; ctx.lineWidth = 2.5; line(2, 4, 8, 22); sparkle4(14, -12, 5, '#ffe066'); ctx.restore(); },
           'Lucky Clover', `Golden crops show up twice as often! They give an extra crop, bonus coins and XP.`,
-          save.clover ? 'âœ“ Owned' : price(CLOVER.lvl, CLOVER.price), save.clover || !buyable(CLOVER.lvl, CLOVER.price), save.clover ? 'owned' : save.level < CLOVER.lvl ? 'locked' : '',
+          save.clover ? '✓ Owned' : price(CLOVER.lvl, CLOVER.price), save.clover || !buyable(CLOVER.lvl, CLOVER.price), save.clover ? 'owned' : save.level < CLOVER.lvl ? 'locked' : '',
           () => { save.coins -= CLOVER.price; save.clover = true; });
+        item(() => { ctx.save(); ctx.translate(27, 30); ctx.scale(0.42, 0.42); drawItemArt(save.level >= RECIPES.pie.lvl ? 'pie' : 'bread'); ctx.restore(); },
+          'Barn Oven', `Click the barn to bake! Bread (3 wheat) sells for ${PRODUCTS.bread.value}. From level ${RECIPES.pie.lvl}: apple pie (2 apples, 2 wheat, 1 egg) sells for ${PRODUCTS.pie.value}. +1 farm rating.`,
+          save.oven ? '✓ Owned' : price(OVEN.lvl, OVEN.price), save.oven || !buyable(OVEN.lvl, OVEN.price), save.oven ? 'owned' : save.level < OVEN.lvl ? 'locked' : '',
+          () => { save.coins -= OVEN.price; save.oven = true; });
       } else {
         for (const d of DECOR) {
           const owned = owns(d.id);
@@ -3246,7 +3513,13 @@
     let view = { s: 1, ox: 0, oy: 0 };
     const toView = (e) => {
       const rect = canvas.getBoundingClientRect();
-      return { x: (e.clientX - rect.left - view.ox) / view.s, y: (e.clientY - rect.top - view.oy) / view.s };
+      const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+      if (portrait && PR.world) {
+        // tall screens show the farm, the tools and the orders in separate boxes
+        for (const R of [PR.world, PR.tool, PR.board]) if (R && inRegion(R, sx, sy)) return regionToSrc(R, sx, sy);
+        return { x: -9999, y: -9999, hud: true, sx, sy };
+      }
+      return { x: (sx - view.ox) / view.s, y: (sy - view.oy) / view.s };
     };
     function uiClick(p) {
       if (inRect(p, PAUSE_BTN)) { pause(true); return true; }
@@ -3267,6 +3540,7 @@
       mouse.x = p.x; mouse.y = p.y; mouse.in = true;
       lastInput = 'mouse';
       if (mode !== 'play') return;
+      if (p.hud) { const q = { x: p.sx, y: p.sy }; if (PR.pause && inRect(q, PR.pause)) pause(true); else if (PR.mute && inRect(q, PR.mute)) toggleMute(); return; }
       if (uiClick(p)) return;
       const tg = worldTargetAt(p);
       if (!tg) return;
@@ -3315,28 +3589,73 @@
     // Resize, frame and loop
     // =====================================================================
     let W = 0, H = 0, dpr = 1;
+    // ---- tall phone screens: the farm on top, then the tools, then the orders and storage ----
+    let portrait = false;
+    const PR = { hudH: 96, world: null, tool: null, board: null, pause: null, mute: null };
+    const SRC_WORLD = { x: 0, y: 56, w: 944, h: 584 }, SRC_BOARD = { x: 942, y: 52, w: 336, h: 522 };
+    function layoutPortrait() {
+      const ws = W / SRC_WORLD.w;
+      PR.world = { src: SRC_WORLD, s: ws, x: 0, y: PR.hudH, w: W, h: SRC_WORLD.h * ws };
+      const L = toolbarLayout(), T = { x: L.x0 - 4, y: 634, w: L.total + 8, h: 84 };
+      const ts = Math.min((W - 8) / T.w, 1.1);
+      PR.tool = { src: T, s: ts, x: (W - T.w * ts) / 2, y: PR.world.y + PR.world.h + 2, w: T.w * ts, h: T.h * ts };
+      const top = PR.tool.y + PR.tool.h + 4, avail = Math.max(80, H - top - 4);
+      const bs = Math.min((W - 8) / SRC_BOARD.w, avail / SRC_BOARD.h);
+      PR.board = { src: SRC_BOARD, s: bs, x: (W - SRC_BOARD.w * bs) / 2, y: top, w: SRC_BOARD.w * bs, h: SRC_BOARD.h * bs };
+    }
+    function inRegion(R, sx, sy) { return sx >= R.x && sx <= R.x + R.w && sy >= R.y && sy <= R.y + R.h; }
+    function regionToSrc(R, sx, sy) { return { x: R.src.x + (sx - R.x) / R.s, y: R.src.y + (sy - R.y) / R.s }; }
+    function withRegion(R, fn) {
+      ctx.save();
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.beginPath(); ctx.rect(R.x, R.y, R.w, R.h); ctx.clip();
+      ctx.setTransform(dpr * R.s, 0, 0, dpr * R.s, dpr * (R.x - R.src.x * R.s), dpr * (R.y - R.src.y * R.s));
+      fn();
+      ctx.restore();
+    }
+    // a grassy pattern for any space around the farm
+    let grassPat = null;
+    function grassPattern() {
+      if (grassPat) return grassPat;
+      const c = document.createElement('canvas'); c.width = c.height = 96;
+      withCtx(c.getContext('2d'), () => {
+        ctx.fillStyle = '#4f8f34'; ctx.fillRect(0, 0, 96, 96);
+        const rnd = seeded(77);
+        for (let k = 0; k < 40; k++) { const x = rnd() * 96, y = rnd() * 96; ctx.fillStyle = rnd() < 0.5 ? 'rgba(120,190,70,0.35)' : 'rgba(30,70,20,0.25)'; ctx.beginPath(); ctx.moveTo(x - 2, y); ctx.lineTo(x, y - 6 - rnd() * 5); ctx.lineTo(x + 2, y); ctx.fill(); }
+        for (let k = 0; k < 4; k++) circle(rnd() * 96, rnd() * 96, 1.6, rnd() < 0.5 ? '#ffe9f2' : '#fff4b0');
+      });
+      grassPat = ctx.createPattern(c, 'repeat');
+      return grassPat;
+    }
     function resize() {
       dpr = Math.min(2, window.devicePixelRatio || 1);
-      W = window.innerWidth; H = window.innerHeight;
+      W = Math.max(1, window.innerWidth); H = Math.max(1, window.innerHeight);
       canvas.width = Math.max(1, Math.round(W * dpr));
       canvas.height = Math.max(1, Math.round(H * dpr));
+      portrait = H > W * 1.15;
       const s = Math.min(W / VW, H / VH) || 1;
       view = { s, ox: (W - VW * s) / 2, oy: (H - VH * s) / 2 };
-      const want = clamp(Math.ceil(dpr * s * 2) / 2, 1, 2);
+      const want = clamp(Math.ceil(dpr * (portrait ? W / SRC_WORLD.w : s) * 2) / 2, 1, 2);
       if (want !== bgScale) buildBg(want);
     }
-    window.addEventListener('resize', resize);
+    // redraw right away so the canvas never sits blank between a resize and the next frame
+    window.addEventListener('resize', () => { resize(); if (started) frame(performance.now() / 1000); });
+    let started = false;
 
+    const playingView = () => run && (mode === 'play' || mode === 'paused' || mode === 'dayend' || (mode === 'shop' && shopBack === 'pause'));
     function frame(time) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.fillStyle = '#3f7a2a';
+      ctx.fillStyle = grassPattern();
       ctx.fillRect(0, 0, W, H);
+      if (portrait) { framePortrait(time); return; }
       ctx.setTransform(dpr * view.s, 0, 0, dpr * view.s, dpr * view.ox, dpr * view.oy);
+      // a soft shadow where the farm meets the grass around it
+      ctx.fillStyle = 'rgba(20,50,10,0.35)'; ctx.fillRect(-6, -6, VW + 12, VH + 12);
       ctx.save();
       ctx.beginPath(); ctx.rect(0, 0, VW, VH); ctx.clip();
       if (shake > 0) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
       drawScene(time);
-      if (run && (mode === 'play' || mode === 'paused' || mode === 'dayend' || (mode === 'shop' && shopBack === 'pause'))) {
+      if (playingView()) {
         drawFocus(time);
         drawBoard(time);
         drawStore(time);
@@ -3347,6 +3666,80 @@
       }
       drawFloatersAndFlyers();
       if (run) drawBannerAndToast(time);
+      ctx.restore();
+    }
+    function framePortrait(time) {
+      layoutPortrait();
+      const playing = playingView();
+      withRegion(PR.world, () => {
+        if (shake > 0) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+        drawScene(time);
+        if (playing) { drawFocus(time); drawTutorial(time); drawToolCursor(time); }
+        drawFloatersAndFlyers();
+      });
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // a wooden shelf under the farm for the tools, orders and storage
+      const y0 = PR.world.y + PR.world.h;
+      ctx.fillStyle = lin(0, y0, 0, H, [[0, '#7a4e2a'], [0.04, '#a8743f'], [0.06, '#6e4426'], [1, '#4a2c16']]); ctx.fillRect(0, y0, W, H - y0);
+      ctx.fillStyle = 'rgba(0,0,0,0.12)'; for (let y = y0 + 14; y < H; y += 22) ctx.fillRect(0, y, W, 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(0, y0, W, 4);
+      if (playing) {
+        withRegion(PR.tool, () => { drawToolbar(time); drawTutorial(time); drawFloatersAndFlyers(); });
+        withRegion(PR.board, () => { drawBoard(time); drawStore(time); drawFocus(time); drawTutorial(time); drawFloatersAndFlyers(); });
+        drawPortraitHud(time);
+      } else {
+        ctx.fillStyle = lin(0, 0, 0, PR.hudH, [[0, '#2f6a22'], [1, '#3f7a2a']]); ctx.fillRect(0, 0, W, PR.hudH);
+        outlined('Sunny Acres', W / 2, PR.hudH / 2, Math.min(40, W / 9), '#fff4b0', 'rgba(60,30,8,0.8)', 6);
+      }
+      // big messages sit across the middle of the farm
+      if (run) {
+        const s2 = Math.min(W / 640, 1);
+        ctx.setTransform(dpr * s2, 0, 0, dpr * s2, dpr * (W / 2 - 480 * s2), dpr * (PR.world.y + PR.world.h * 0.42 - 180 * s2));
+        drawBannerAndToast(time, 'banner');
+        ctx.setTransform(dpr * s2, 0, 0, dpr * s2, dpr * (W / 2 - 480 * s2), dpr * (PR.world.y + PR.world.h - 40 * s2 - 607 * s2));
+        drawBannerAndToast(time, 'toast');
+      }
+    }
+    // the score bar on tall screens: coins, level, the day clock and the three goals
+    function drawPortraitHud(t) {
+      const r = run, p = r.t / DAY_LEN, k = Math.min(1.25, W / 390);
+      ctx.save(); ctx.setTransform(dpr * k, 0, 0, dpr * k, 0, 0);
+      const w = W / k, hh = PR.hudH / k;
+      ctx.fillStyle = lin(0, 0, 0, hh, [[0, '#2f6a22'], [1, '#26561b']]); ctx.fillRect(0, 0, w, hh);
+      ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(0, hh - 3, w, 3);
+      // row 1: coins, level, mute, pause
+      panel(6, 6, 112, 36, 12);
+      const cb = 1 + coinBump * 0.3;
+      ctx.save(); ctx.translate(26, 24); ctx.scale(cb, cb); drawCoin(0, 0, 11); ctx.restore();
+      fitLabel(save.coins.toLocaleString(), 42, 25, 72, 19, '#ffe58a', 'left', 700, 'Fredoka');
+      panel(124, 6, w - 124 - 92, 36, 12);
+      ctx.fillStyle = rad(140, 20, 2, 16, [[0, '#c8f08a'], [1, '#3f8a2a']]); ctx.beginPath(); ctx.arc(142, 24, 13, 0, Math.PI * 2); ctx.fill();
+      outlined(String(save.level), 142, 25, 14, '#ffffff', 'rgba(20,60,10,0.7)', 3);
+      const bw = w - 124 - 92 - 44;
+      label('Level', 160, 16, 10, '#dcc7a6', 'left', 800);
+      ctx.fillStyle = 'rgba(0,0,0,0.35)'; rr(160, 26, bw, 8, 4); ctx.fill();
+      ctx.fillStyle = lin(160, 0, 160 + bw, 0, [[0, '#7bd65a'], [1, '#d4f56a']]); rr(160, 26, Math.max(8, bw * clamp(save.xp / xpNeed(save.level), 0, 1)), 8, 4); ctx.fill();
+      PR.mute = { x: (w - 84) * k, y: 6 * k, w: 38 * k, h: 36 * k }; PR.pause = { x: (w - 42) * k, y: 6 * k, w: 38 * k, h: 36 * k };
+      for (const [bx, txt] of [[w - 84, save.muted ? '\u{1F507}' : '\u{1F50A}'], [w - 42, 'II']]) { panel(bx, 6, 38, 36, 11); label(txt, bx + 19, 25, 16, '#ffffff', 'center', 900); }
+      // row 2: day clock and goals
+      const late = r.t > DAY_LEN - 20;
+      panel(6, 48, 92, 38, 12);
+      if (late) { ctx.strokeStyle = `rgba(255,120,80,${0.5 + Math.sin(t * 8) * 0.4})`; ctx.lineWidth = 2.5; rr(6, 48, 92, 38, 12); ctx.stroke(); }
+      label(`Day ${save.day}`, 14, 60, 13, '#ffffff', 'left', 700, 'Fredoka');
+      label(fmtTime(DAY_LEN - r.t), 92, 60, 11, late ? '#ffb38a' : '#dcc7a6', 'right', 900);
+      ctx.fillStyle = 'rgba(0,0,0,0.35)'; rr(14, 72, 76, 7, 3.5); ctx.fill();
+      ctx.fillStyle = lin(14, 0, 90, 0, [[0, '#ffe08a'], [0.6, '#ffc94a'], [1, '#ff7a4a']]); rr(14, 72, Math.max(7, 76 * p), 7, 3.5); ctx.fill();
+      const gw = (w - 110) / 3;
+      r.goals.forEach((g, i) => {
+        const x = 104 + i * gw, pr = Math.min(goalProgress(g), g.n);
+        panel(x, 48, gw - 4, 38, 11);
+        const pop = 1 + Math.sin(goalPop[i] * Math.PI) * 0.6;
+        ctx.save(); ctx.translate(x + 13, 60); ctx.scale(pop, pop); star5(0, 1, 9, 'rgba(0,0,0,0.35)'); star5(0, 0, 9, g.done ? '#ffd43b' : '#6e5238'); ctx.restore();
+        fitLabel(g.text, x + 25, 59, gw - 34, 10, g.done ? '#ffe58a' : '#fff6e4', 'left', 800);
+        ctx.fillStyle = 'rgba(0,0,0,0.35)'; rr(x + 8, 72, gw - 20, 7, 3.5); ctx.fill();
+        ctx.fillStyle = g.done ? '#ffd43b' : '#9be86e'; rr(x + 8, 72, Math.max(7, (gw - 20) * pr / g.n), 7, 3.5); ctx.fill();
+      });
+      if (r.combo >= 2 && r.comboT > 0) { panel(w / 2 - 60, hh + 4, 120, 26, 12, 0.75); outlined(`Combo x${r.combo}`, w / 2, hh + 17, 15, '#ffb347', 'rgba(60,20,0,0.7)', 4); }
       ctx.restore();
     }
 
@@ -3386,15 +3779,18 @@
         if (kind === 'sprinkler') { const ns = SPRINKLERS[save.sprinkler + 1]; if (ns && can(ns.lvl, ns.price)) { save.coins -= ns.price; save.sprinkler++; return true; } }
         if (kind === 'scarecrow' && !save.scarecrow && can(SCARECROW.lvl, SCARECROW.price)) { save.coins -= SCARECROW.price; save.scarecrow = true; return true; }
         if (kind === 'clover' && !save.clover && can(CLOVER.lvl, CLOVER.price)) { save.coins -= CLOVER.price; save.clover = true; return true; }
+        if (kind === 'oven' && !save.oven && can(OVEN.lvl, OVEN.price)) { save.coins -= OVEN.price; save.oven = true; return true; }
         if (kind === 'decor') { const d = DECOR.find((x) => x.id === id); if (d && !owns(id) && can(d.lvl, d.price)) { save.coins -= d.price; save.decor.push(id); return true; } }
         return false;
       },
       setTime: (s) => { if (run) run.t = s; },
+      ripenTrees: () => { save.orchard = [1, 1]; }, finishBake: () => { if (save.bake.r) save.bake.t = 1; }, fairOrder: () => { save.orders[0] = makeFairOrder(); },
     };
 
     buildIcons();
     resize();
     showTitle();
+    started = true;
     requestAnimationFrame(loop);
   })();
   </script>

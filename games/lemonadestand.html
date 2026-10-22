@@ -1,0 +1,2064 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Lemonade Stand – Sunny Business Game | Potato Games</title>
+  <meta name="description" content="Run your own lemonade stand! Check the weather, buy lemons, sugar, ice and cups, mix the perfect recipe, pick a price and watch customers line up. Unlock new drinks, upgrade your stand and move to the beach, the fair and more. A free business game on Potato.">
+  <link rel="icon" href="lemonadestand-icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #fff8e1; --panel: #fffdf5; --panel-2: #fff3c4; --line: #f1d27a; --text: #3b2a10; --muted: #8a6d3b;
+      --accent: #ffcc1a; --accent-d: #d99a00; --pink: #ff6f9a; --green: #2fbf71; --green-d: #1d8a4f; --red: #e8484f; --sky: #4fb3ff;
+      --display: 'Fredoka', 'Trebuchet MS', system-ui, sans-serif; --body: 'Nunito', system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body { background: #9fd8ff; color: var(--text); font-family: var(--body); overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+    canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; }
+    button { font-family: var(--display); }
+    .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 12px; background: rgba(60, 40, 0, 0.28); z-index: 10; animation: fade .25s; }
+    .overlay[hidden] { display: none; }
+    @keyframes fade { from { opacity: 0; } }
+    .card { width: min(560px, 100%); max-height: 100%; overflow-y: auto; padding: 20px; border-radius: 24px; background: var(--panel); border: 3px solid var(--accent); text-align: center; box-shadow: 0 18px 50px rgba(80, 50, 0, 0.35); animation: pop .3s cubic-bezier(.2,1.4,.4,1); }
+    .card.wide { width: min(860px, 100%); }
+    #plan-card { display: flex; flex-direction: column; max-height: 100%; overflow: hidden; }
+    #plan-card #tab-body { flex: 1 1 auto; min-height: 90px; overflow-y: auto; padding: 2px; }
+    #plan-card .plan-top, #plan-card .pills, #plan-card .tabs, #plan-card .open-row { flex: none; }
+    @keyframes pop { from { transform: scale(.92) translateY(10px); opacity: 0; } }
+    .logo { margin: 0; font: 700 58px/1 var(--display); color: var(--accent); -webkit-text-stroke: 2px #b37d00; text-shadow: 0 5px 0 #b37d00; letter-spacing: 1px; }
+    .logo span { color: var(--pink); -webkit-text-stroke: 2px #b8345e; text-shadow: 0 5px 0 #b8345e; }
+    .tag { color: var(--muted); font-weight: 800; margin: 10px 0 12px; }
+    h2 { margin: 0 0 6px; font: 700 30px var(--display); color: #e09a00; }
+    h3 { margin: 4px 0 8px; font: 700 19px var(--display); color: var(--text); text-align: left; }
+    p { color: var(--muted); margin: 6px 0 12px; line-height: 1.4; }
+    .btn { padding: 11px 24px; border: 0; border-radius: 16px; background: linear-gradient(180deg, #ffe066, var(--accent)); color: #4a3000; font: 700 19px var(--display); cursor: pointer; box-shadow: 0 5px 0 var(--accent-d); }
+    .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--accent-d); }
+    .btn.green { background: linear-gradient(180deg, #5ee39a, var(--green)); color: #fff; box-shadow: 0 5px 0 var(--green-d); text-shadow: 0 2px 0 rgba(0,0,0,0.15); }
+    .btn.pink { background: linear-gradient(180deg, #ff9dbb, var(--pink)); color: #fff; box-shadow: 0 5px 0 #b8345e; }
+    .btn.ghost { background: #fff1c2; color: var(--text); box-shadow: 0 5px 0 #e8cf85; }
+    .btn.small { padding: 6px 12px; font-size: 15px; border-radius: 12px; box-shadow: 0 3px 0 var(--accent-d); }
+    .btn.small.ghost { box-shadow: 0 3px 0 #e8cf85; }
+    .btn.small.green { box-shadow: 0 3px 0 var(--green-d); }
+    .btn:disabled { opacity: .45; cursor: default; }
+    .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .menu { display: grid; gap: 10px; max-width: 320px; margin: 0 auto 10px; }
+    .pills { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 0 0 10px; }
+    .pill { padding: 4px 12px; border-radius: 999px; background: var(--panel-2); font: 700 15px var(--display); border: 2px solid var(--line); }
+    .pill.money { color: var(--green-d); } .pill.star { color: #d99a00; } .pill.rep { color: var(--pink); }
+    .tog { border: 2px solid var(--line); background: #fff; color: var(--muted); border-radius: 12px; padding: 5px 12px; font: 700 14px var(--display); cursor: pointer; }
+    .tog.on { border-color: var(--green); color: var(--text); }
+    /* planner */
+    .plan-top { display: grid; grid-template-columns: 1.1fr 1fr; gap: 10px; margin-bottom: 10px; text-align: left; }
+    .box { background: #fff; border: 2px solid var(--line); border-radius: 16px; padding: 10px 12px; }
+    .wx { display: flex; gap: 10px; align-items: center; }
+    .wx canvas { position: static; width: 64px; height: 64px; flex: none; }
+    .wx b { font: 700 20px var(--display); display: block; }
+    .wx small { color: var(--muted); font-weight: 800; display: block; }
+    .event { margin-top: 6px; padding: 6px 10px; border-radius: 10px; background: #ffe9f0; color: #b8345e; font-weight: 800; font-size: 13.5px; }
+    .event.good { background: #e3f9ec; color: var(--green-d); }
+    .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 10px; }
+    .tab { border: 2px solid var(--line); background: #fff; color: var(--muted); border-radius: 12px; padding: 6px 13px; font: 700 15px var(--display); cursor: pointer; }
+    .tab.on { border-color: var(--accent-d); background: var(--panel-2); color: var(--text); }
+    .tab .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--red); margin-left: 4px; vertical-align: 2px; }
+    .items { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; text-align: left; }
+    .item { display: flex; gap: 8px; align-items: center; background: #fff; border: 2px solid var(--line); border-radius: 14px; padding: 8px; }
+    .item.need { border-color: var(--red); background: #fff2f2; }
+    .item canvas { position: static; width: 42px; height: 42px; flex: none; }
+    .item .info { flex: 1; min-width: 0; }
+    .item b { font: 700 16px var(--display); display: block; }
+    .item small { color: var(--muted); font-weight: 800; font-size: 12.5px; display: block; }
+    .item .buys { display: flex; flex-direction: column; gap: 4px; }
+    .item .buys .btn { padding: 4px 8px; font-size: 13px; white-space: nowrap; }
+    .recipe { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; }
+    .drinks { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+    .drink { border: 2px solid var(--line); background: #fff; border-radius: 12px; padding: 4px 9px; font: 700 13.5px var(--display); cursor: pointer; color: var(--text); display: flex; align-items: center; gap: 5px; }
+    .drink i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; border: 1px solid rgba(0,0,0,0.2); }
+    .drink.on { border-color: var(--green); background: #e3f9ec; }
+    .drink.locked { opacity: .45; cursor: default; }
+    .step { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+    .step label { flex: 1; font-weight: 800; }
+    .step label small { display: block; color: var(--muted); font-size: 12px; }
+    .step .v { font: 700 20px var(--display); min-width: 56px; text-align: center; }
+    .step button { width: 34px; height: 34px; border-radius: 10px; border: 0; background: var(--panel-2); font: 700 20px var(--display); color: var(--text); cursor: pointer; box-shadow: 0 3px 0 #e8cf85; }
+    .step button:active { transform: translateY(2px); box-shadow: 0 1px 0 #e8cf85; }
+    .meter { margin: 6px 0 9px; }
+    .meter .lab { display: flex; justify-content: space-between; font-size: 12px; font-weight: 800; color: var(--muted); }
+    .meter .bar { position: relative; height: 14px; border-radius: 7px; background: linear-gradient(90deg, #ffd2d2, #fff6c8 50%, #ffd2d2); border: 1px solid #e9d38f; }
+    .meter .zone { position: absolute; top: 0; bottom: 0; background: rgba(47, 191, 113, 0.45); border-radius: 6px; }
+    .meter .mark { position: absolute; top: -4px; width: 6px; height: 20px; margin-left: -3px; background: #3b2a10; border-radius: 3px; box-shadow: 0 0 0 2px #fff; transition: left .2s; }
+    .verdict { font: 700 17px var(--display); padding: 8px 10px; border-radius: 12px; background: #e3f9ec; color: var(--green-d); text-align: center; margin-top: 6px; }
+    .verdict.bad { background: #fff2f2; color: var(--red); }
+    .cost { font-size: 13px; font-weight: 800; color: var(--muted); text-align: center; margin-top: 6px; }
+    .shop { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; text-align: left; }
+    .up { background: #fff; border: 2px solid var(--line); border-radius: 14px; padding: 9px 11px; display: flex; flex-direction: column; gap: 3px; }
+    .up b { font: 700 16px var(--display); }
+    .up small { color: var(--muted); font-weight: 700; flex: 1; font-size: 12.5px; }
+    .up.owned { background: #e3f9ec; border-color: #9fe2bd; }
+    .up .btn { align-self: flex-start; margin-top: 4px; }
+    .loc { position: relative; }
+    .loc canvas { position: static; width: 100%; height: 66px; border-radius: 10px; margin-bottom: 4px; }
+    .loc.here { border-color: var(--green); box-shadow: 0 0 0 3px rgba(47,191,113,0.25); }
+    .open-row { display: flex; gap: 10px; align-items: center; justify-content: space-between; margin-top: 12px; flex-wrap: wrap; }
+    .zesty { display: flex; gap: 8px; align-items: center; text-align: left; font-weight: 800; color: var(--text); background: #fffbe6; border: 2px dashed var(--line); border-radius: 14px; padding: 6px 10px; flex: 1; min-width: 220px; font-size: 14px; }
+    .zesty canvas { position: static; width: 40px; height: 40px; flex: none; }
+    /* results */
+    .bigstars { font-size: 54px; letter-spacing: 6px; color: #f0dfb0; margin: 0 0 2px; }
+    .bigstars span { display: inline-block; }
+    .bigstars span.on { color: #ffc400; text-shadow: 0 4px 0 #b37d00; animation: spop .5s backwards; }
+    .bigstars span:nth-child(2).on { animation-delay: .25s; } .bigstars span:nth-child(3).on { animation-delay: .5s; }
+    @keyframes spop { 0% { transform: scale(0) rotate(-40deg); } 70% { transform: scale(1.35); } 100% { transform: scale(1); } }
+    .goals { display: grid; gap: 6px; text-align: left; margin: 8px 0; }
+    .goals div { background: #fff; border: 2px solid var(--line); border-radius: 12px; padding: 7px 12px; font-weight: 800; display: flex; gap: 8px; align-items: center; }
+    .goals .s { color: #f0dfb0; font-size: 19px; } .goals .s.on { color: #ffc400; }
+    .goals .r { margin-left: auto; color: var(--muted); }
+    .ledger { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0; }
+    .ledger div { background: var(--panel-2); border-radius: 12px; padding: 6px; }
+    .ledger span { display: block; font-size: 11.5px; font-weight: 800; color: var(--muted); }
+    .ledger b { font: 700 19px var(--display); }
+    .ledger .pos { color: var(--green-d); } .ledger .neg { color: var(--red); }
+    .fb { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 5px; margin: 6px 0 8px; }
+    .fb div { background: #fff; border: 2px solid var(--line); border-radius: 10px; padding: 4px 8px; font-weight: 800; font-size: 13px; display: flex; justify-content: space-between; }
+    .fb div.bad { border-color: #f4b4b4; color: var(--red); }
+    .fb div.good { border-color: #9fe2bd; color: var(--green-d); }
+    .badge-new { background: #fff0f6; border: 2px solid var(--pink); color: #b8345e; border-radius: 12px; padding: 6px 10px; font-weight: 800; margin: 6px 0; }
+    .badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; text-align: left; margin-bottom: 12px; }
+    .bdg { background: #fff; border: 2px solid var(--line); border-radius: 12px; padding: 8px; font-size: 12.5px; color: var(--muted); font-weight: 700; }
+    .bdg b { display: block; font: 700 15px var(--display); color: var(--text); }
+    .bdg.got { border-color: #ffc400; background: #fff8d6; }
+    .bdg:not(.got) { opacity: .55; }
+    .chs { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; text-align: left; margin-bottom: 12px; }
+    .ch { background: #fff; border: 2px solid var(--line); border-radius: 14px; padding: 9px 11px; cursor: pointer; }
+    .ch b { font: 700 16px var(--display); display: block; }
+    .ch small { color: var(--muted); font-weight: 700; display: block; margin: 2px 0 4px; }
+    .ch .st { color: #f0dfb0; letter-spacing: 2px; } .ch .st i { font-style: normal; color: #ffc400; }
+    .ch.locked { opacity: .45; cursor: default; }
+    /* day HUD */
+    .hud { position: fixed; left: 0; right: 0; z-index: 5; display: flex; gap: 8px; align-items: center; padding: 8px 10px; pointer-events: none; }
+    .hud[hidden] { display: none; }
+    .hud.top { top: 0; justify-content: space-between; }
+    .hud.bot { bottom: 0; justify-content: center; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+    .chip { pointer-events: none; background: rgba(255, 253, 245, 0.92); border: 2px solid var(--line); border-radius: 14px; padding: 4px 10px; font: 700 16px var(--display); white-space: nowrap; box-shadow: 0 3px 0 rgba(150,110,0,0.2); }
+    .chip.money { color: var(--green-d); }
+    .clock { flex: 1; max-width: 360px; pointer-events: none; background: rgba(255,253,245,0.92); border: 2px solid var(--line); border-radius: 14px; padding: 4px 10px; box-shadow: 0 3px 0 rgba(150,110,0,0.2); }
+    .clock .t { display: flex; justify-content: space-between; font: 700 14px var(--display); }
+    .clock .bar { height: 8px; border-radius: 4px; background: #f6e7b4; margin-top: 3px; overflow: hidden; }
+    .clock .fill { height: 100%; background: linear-gradient(90deg, #ffcc1a, #ff8a3a); border-radius: 4px; }
+    .hb { pointer-events: auto; border: 0; border-radius: 14px; background: rgba(255, 253, 245, 0.95); color: var(--text); font: 700 15px var(--display); padding: 8px 12px; cursor: pointer; box-shadow: 0 3px 0 rgba(150,110,0,0.35); border: 2px solid var(--line); }
+    .hb:active { transform: translateY(2px); }
+    .hb.on { background: var(--accent); }
+    .hb.shout { background: linear-gradient(180deg, #ff9dbb, var(--pink)); color: #fff; border-color: #b8345e; min-width: 118px; }
+    .hb:disabled { opacity: .5; }
+    .stock { pointer-events: none; display: flex; gap: 4px; background: rgba(255,253,245,0.92); border: 2px solid var(--line); border-radius: 14px; padding: 3px 8px; font: 700 14px var(--display); }
+    .stock span { display: flex; align-items: center; gap: 3px; }
+    .stock span.low { color: var(--red); }
+    .stock canvas { position: static; width: 20px; height: 20px; }
+    .confetti { position: fixed; top: -14px; width: 10px; height: 14px; border-radius: 2px; pointer-events: none; z-index: 30; animation: fall linear forwards; }
+    @keyframes fall { to { transform: translateY(110vh) rotate(760deg); } }
+    @media (max-width: 640px) {
+      .plan-top { grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+      .wx { gap: 6px; } .wx canvas { width: 40px; height: 40px; } .wx b { font-size: 15px; } .wx small { font-size: 11px; }
+      .box { padding: 6px 8px; } .event { font-size: 12px; padding: 4px 8px; }
+      .tabs { gap: 4px; margin-bottom: 6px; } .tab { padding: 5px 9px; font-size: 13.5px; }
+      .open-row { margin-top: 8px; gap: 6px; } .open-row .row { flex-wrap: nowrap; width: 100%; } .open-row .row .btn { padding: 10px 12px; font-size: 15px; } #p-open { flex: 1; }
+      .zesty { font-size: 12.5px; padding: 4px 8px; min-width: 0; } .zesty canvas { width: 30px; height: 30px; }
+      .pills { margin-bottom: 6px; } .pill { font-size: 13px; padding: 3px 9px; }
+      .recipe { grid-template-columns: 1fr; }
+      .logo { font-size: 44px; }
+      .card { padding: 14px 12px; }
+      .ledger { grid-template-columns: repeat(2, 1fr); }
+      .hb { padding: 7px 9px; font-size: 14px; }
+      .hb.shout { min-width: 92px; }
+      .chip { font-size: 14px; padding: 3px 8px; }
+      .stock { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div class="hud top" id="hud-top" hidden>
+    <div class="chip money" id="h-money">$0.00</div>
+    <div class="clock"><div class="t"><span id="h-time">9:00 AM</span><span id="h-day">Day 1</span></div><div class="bar"><div class="fill" id="h-fill" style="width:0%"></div></div></div>
+    <div class="chip" id="h-rep">★★★</div>
+    <button class="hb" id="b-pause" title="Pause (P)">❚❚</button>
+  </div>
+  <div class="hud bot" id="hud-bot" hidden>
+    <div class="stock" id="h-stock"></div>
+    <button class="hb shout" id="b-shout" title="Shout (Space)">📣 Shout!</button>
+    <button class="hb" id="b-speed" title="Speed (F)">▶ 1×</button>
+  </div>
+
+  <div class="overlay" id="title">
+    <div class="card">
+      <h1 class="logo">Lemonade <span>Stand</span></h1>
+      <div class="tag">Mix it, price it, sell it. Become the town's top drink seller!</div>
+      <div class="pills"><span class="pill money" id="t-money">$12.00</span><span class="pill star" id="t-stars">0 ★</span><span class="pill" id="t-day">Day 1</span></div>
+      <div class="menu">
+        <button class="btn green" id="t-play">Open for business</button>
+        <div class="row" style="flex-wrap:nowrap">
+          <button class="btn ghost" id="t-ch" style="flex:1">🏆 Challenges</button>
+          <button class="btn ghost" id="t-badges" style="flex:1">🎖 Badges</button>
+        </div>
+      </div>
+      <div class="row"><button class="tog" id="tg-sound">🔊 Sound on</button><button class="tog" id="tg-reset">↺ New game</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="plan" hidden>
+    <div class="card wide" id="plan-card">
+      <div class="pills"><span class="pill" id="p-day">Day 1</span><span class="pill money" id="p-money">$12.00</span><span class="pill rep" id="p-rep">★★</span><span class="pill star" id="p-stars">0 ★</span></div>
+      <div class="plan-top">
+        <div class="box"><div class="wx"><canvas id="wx-icon"></canvas><div><small>Today's forecast</small><b id="wx-name">Sunny</b><small id="wx-temp">75°F</small></div></div><div id="wx-event"></div></div>
+        <div class="box"><div class="wx"><canvas id="loc-icon"></canvas><div><small>Your stand is at</small><b id="loc-name">Maple Street</b><small id="loc-info"></small></div></div></div>
+      </div>
+      <div class="tabs" id="tabs">
+        <button class="tab on" data-tab="buy">🛒 Supplies</button>
+        <button class="tab" data-tab="recipe">🥤 Recipe & Price</button>
+        <button class="tab" data-tab="stand">🔨 Stand</button>
+        <button class="tab" data-tab="map">🗺 Places</button>
+      </div>
+      <div id="tab-body"></div>
+      <div class="open-row">
+        <div class="zesty"><canvas id="zesty"></canvas><span id="tip">Hi! I'm Zesty. Buy supplies, then open your stand!</span></div>
+        <div class="row"><button class="btn ghost" id="p-menu">Menu</button><button class="btn green" id="p-open">Open the stand! ☀</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="results" hidden>
+    <div class="card">
+      <h2 id="r-title">Day 1 is done!</h2>
+      <div class="bigstars" id="r-stars"></div>
+      <div class="ledger" id="r-ledger"></div>
+      <div class="goals" id="r-goals"></div>
+      <h3>What customers said</h3>
+      <div class="fb" id="r-fb"></div>
+      <div id="r-badges"></div>
+      <div class="zesty" style="margin:8px 0 12px"><canvas id="zesty2"></canvas><span id="r-tip"></span></div>
+      <div class="row"><button class="btn green" id="r-next">Next day ☀</button><button class="btn ghost" id="r-menu">Menu</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="challenges" hidden>
+    <div class="card wide">
+      <h2>Challenges</h2>
+      <p>Special days with their own money, weather and goals. Earn up to 3 stars on each!</p>
+      <div class="chs" id="ch-list"></div>
+      <div class="row"><button class="btn ghost" id="ch-back">Back</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="badges" hidden>
+    <div class="card wide">
+      <h2>Badges</h2>
+      <div class="badges" id="b-list"></div>
+      <div class="row"><button class="btn ghost" id="b-back">Back</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="pause" hidden>
+    <div class="card">
+      <h2>Paused</h2>
+      <div class="menu"><button class="btn green" id="pa-resume">Resume</button><button class="btn ghost" id="pa-end">Close the stand early</button></div>
+      <div class="row"><button class="tog" id="pa-sound">🔊 Sound on</button></div>
+      <p style="margin:12px 0 0;font-size:13px">Tap the <b>stand</b> to pour faster. Tap <b>gold coins</b> for tips. <b>Space</b> shout · <b>F</b> speed · <b>P</b> pause · <b>M</b> mute</p>
+    </div>
+  </div>
+
+  <script src="potato-sdk.js"></script>
+  <script>
+  (() => {
+    'use strict';
+    const $ = (id) => document.getElementById(id);
+    const canvas = $('c');
+    const ctx = canvas.getContext('2d');
+    const params = new URLSearchParams(location.search);
+    // screenshot helper: ?still=1 turns off CSS animations so a test capture shows the finished screen
+    if (params.get("still")) { const st = document.createElement("style"); st.textContent = "*,*::before,*::after{animation:none!important;transition:none!important}"; document.head.appendChild(st); }
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const rand = (a, b) => a + Math.random() * (b - a);
+    const pick = (a) => a[Math.floor(Math.random() * a.length)];
+    const money = (n) => (n < 0 ? '-$' : '$') + Math.abs(n).toFixed(2);
+    const cents = (n) => Math.round(n * 100) / 100;
+    function mulberry32(a) { return function () { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+    // =====================================================================
+    // Game data
+    // =====================================================================
+    const ITEMS = {
+      lemon: { name: 'Lemons', packs: [[6, 1.2], [24, 4.2]], unit: 'lemons' },
+      orange: { name: 'Oranges', packs: [[6, 1.5], [24, 5.4]], unit: 'oranges' },
+      cocoa: { name: 'Cocoa', packs: [[8, 1.6], [32, 5.6]], unit: 'scoops' },
+      sugar: { name: 'Sugar', packs: [[10, 1.0], [40, 3.4]], unit: 'scoops' },
+      ice: { name: 'Ice', packs: [[30, 0.6], [120, 2.0]], unit: 'cubes', melts: true },
+      cups: { name: 'Cups', packs: [[20, 0.8], [80, 2.8]], unit: 'cups' },
+      berry: { name: 'Berries', packs: [[8, 1.6], [32, 5.6]], unit: 'berries' },
+      mint: { name: 'Mint', packs: [[10, 1.0], [40, 3.4]], unit: 'leaves' },
+    };
+    const DRINKS = [
+      { id: 'lemonade', name: 'Classic Lemonade', fruit: 'lemon', extra: [], col: '#ffe45c', b: 0, iceAdj: 0, price: 1, stars: 0, def: { fruit: 4, sugar: 4, ice: 3, price: 0.75 } },
+      { id: 'pink', name: 'Pink Lemonade', fruit: 'lemon', extra: ['berry'], col: '#ff9cc2', b: 0, iceAdj: 0, price: 1.3, stars: 6, def: { fruit: 4, sugar: 4, ice: 3, price: 1.0 }, note: 'Uses 2 berries per pitcher. Kids love it!' },
+      { id: 'cocoa', name: 'Hot Cocoa', fruit: 'cocoa', extra: [], col: '#8a5634', b: 0, iceAdj: 0, hot: true, price: 1.25, stars: 12, def: { fruit: 3, sugar: 3, ice: 0, price: 1.0 }, note: 'Best on cold and rainy days. No ice!' },
+      { id: 'mint', name: 'Mint Cooler', fruit: 'lemon', extra: ['mint'], col: '#a8f0c8', b: -1, iceAdj: 1, price: 1.25, stars: 20, def: { fruit: 4, sugar: 3, ice: 4, price: 1.1 }, note: 'Extra popular on hot days. A bit less sugar.' },
+      { id: 'orange', name: 'Orange Fizz', fruit: 'orange', extra: [], col: '#ffa53a', b: -1, iceAdj: 0, price: 1.4, stars: 30, def: { fruit: 4, sugar: 3, ice: 3, price: 1.2 }, note: 'Oranges are sweet, so use less sugar.' },
+      { id: 'slush', name: 'Rainbow Slush', fruit: 'lemon', extra: ['berry', 'mint'], col: 'rainbow', b: 1, iceAdj: 2, price: 1.8, stars: 42, def: { fruit: 4, sugar: 5, ice: 5, price: 1.6 }, note: 'Super icy and sweet. Sells for a lot!' },
+    ];
+    const EXTRA_PER_PITCHER = 2;
+    const LOCATIONS = [
+      { id: 'street', name: 'Maple Street', traffic: 1, price: 1, rent: 0, permit: 0, rep: 0, temp: 0, desc: 'A quiet street. A great place to start.' },
+      { id: 'park', name: 'Sunny Park', traffic: 1.35, price: 1.1, rent: 2, permit: 25, rep: 25, temp: 0, desc: 'Joggers and families. More people walk by.' },
+      { id: 'beach', name: 'Beach Boardwalk', traffic: 1.6, price: 1.25, rent: 5, permit: 60, rep: 40, temp: 6, desc: 'Hot and sunny: everyone is thirsty!' },
+      { id: 'downtown', name: 'Downtown Plaza', traffic: 2.0, price: 1.4, rent: 9, permit: 120, rep: 55, temp: 0, desc: 'Busy office workers who will pay more.' },
+      { id: 'stadium', name: 'Stadium Gate', traffic: 2.4, price: 1.6, rent: 14, permit: 200, rep: 70, temp: 0, desc: 'Huge crowds rush in before the big game.' },
+      { id: 'fair', name: 'Fun Fair', traffic: 2.8, price: 1.8, rent: 20, permit: 320, rep: 85, temp: 2, desc: 'The busiest spot in town. Big prices, big crowds!' },
+    ];
+    const UPGRADES = [
+      { id: 'pitcher', name: 'Big Pitcher', cost: 15, desc: 'Each pitcher makes 12 cups instead of 8. Saves money!' },
+      { id: 'cooler', name: 'Cooler Box', cost: 20, desc: 'Keeps half your ice frozen overnight.' },
+      { id: 'sign', name: 'Fancy Sign', cost: 25, desc: '+15% of people stop to look at your stand.' },
+      { id: 'radio', name: 'Weather Radio', cost: 30, desc: 'The weather forecast is always right.' },
+      { id: 'umbrella', name: 'Shade Umbrella', cost: 30, desc: 'People wait longer in line, and more stop on hot days.' },
+      { id: 'register', name: 'Cash Register', cost: 35, desc: 'Serve every customer faster.' },
+      { id: 'juicer', name: 'Lemon Squeezer', cost: 40, desc: 'Mix pitchers twice as fast, and your fruit tastes stronger.' },
+      { id: 'music', name: 'Music Box', cost: 45, desc: 'Happy tunes: people wait longer and tip more.' },
+      { id: 'helper', name: 'Helper Friend', cost: 80, desc: 'A friend pours drinks too. Lines move twice as fast!' },
+      { id: 'neon', name: 'Glowing Sign', cost: 120, need: 'sign', desc: '+15% more people stop (needs the Fancy Sign).' },
+    ];
+    const PAINTS = [
+      { id: 'sun', name: 'Sunshine', cost: 0, a: '#ffd43b', b: '#ffffff', wood: '#e8a95c' },
+      { id: 'pink', name: 'Bubblegum', cost: 10, a: '#ff7aa8', b: '#ffffff', wood: '#e8a95c' },
+      { id: 'mint', name: 'Minty', cost: 15, a: '#4fd6a0', b: '#f6fff9', wood: '#d9a066' },
+      { id: 'sky', name: 'Sky Blue', cost: 20, a: '#4fa8ff', b: '#ffffff', wood: '#d9a066' },
+      { id: 'grape', name: 'Grape', cost: 30, a: '#9b6bff', b: '#fff2a8', wood: '#c98a50' },
+    ];
+    const WEATHER = {
+      sunny: { name: 'Sunny', t: [70, 84], traffic: 1, sky: ['#6ec3ff', '#c9ecff'] },
+      hot: { name: 'Hot!', t: [86, 99], traffic: 1.1, sky: ['#4fb3ff', '#ffe9b0'] },
+      cloudy: { name: 'Cloudy', t: [62, 74], traffic: 0.9, sky: ['#9fb6c9', '#dfe9f0'] },
+      rainy: { name: 'Rainy', t: [55, 66], traffic: 0.6, sky: ['#6f8296', '#b9c6d2'] },
+      cold: { name: 'Chilly', t: [45, 56], traffic: 0.75, sky: ['#9ab3d0', '#e6eef6'] },
+    };
+    const EVENTS = {
+      fair: { text: 'Street festival today! Lots more people around.', good: true },
+      sale: { text: 'Fruit sale at the shop: lemons, oranges and berries cost less!', good: true },
+      sugar: { text: 'Sugar is running low at the shop, so it costs more.', good: false },
+      team: { text: 'A sports team will jog past at lunchtime. They\'ll be thirsty!', good: true },
+      critic: { text: 'A famous drink critic is visiting! Make them say "Yum!"', good: true },
+      truck: { text: 'An ice cream truck is parked nearby. People will pay a bit less.', good: false },
+      parade: { text: 'There\'s a parade in the afternoon!', good: true },
+      shower: { text: 'A rain shower might pass by around midday.', good: false },
+    };
+    const BADGES = [
+      { id: 'first', name: 'First Sale', desc: 'Sell your very first cup.' },
+      { id: 'c100', name: 'Hundred Cups', desc: 'Sell 100 cups in total.' },
+      { id: 'c1000', name: 'Thousand Cups', desc: 'Sell 1,000 cups in total.' },
+      { id: 'perfect', name: 'Perfect Recipe', desc: 'Every buyer says "Yum!" (at least 15 cups).' },
+      { id: 'soldout', name: 'Sold Out!', desc: 'Sell every last drop before closing time.' },
+      { id: 'cocoa', name: 'Rainy Day Hero', desc: 'Sell 15 cups of cocoa on a rainy or chilly day.' },
+      { id: 'big', name: 'Big Day', desc: 'Make $50 profit in a single day.' },
+      { id: 'mover', name: 'On the Move', desc: 'Open a stand in 3 different places.' },
+      { id: 'critic', name: 'Five-Star Review', desc: 'Make the drink critic say "Yum!"' },
+      { id: 'tycoon', name: 'Lemon Tycoon', desc: 'Have $500 in the bank.' },
+      { id: 'tips', name: 'Tip Catcher', desc: 'Catch 25 tips in total.' },
+      { id: 'allstar', name: 'Superstar Stand', desc: 'Reach 5-star reputation.' },
+    ];
+    const CHALLENGES = [
+      { id: 'heat', name: 'Heat Wave', desc: 'A scorching day at the park. Sell, sell, sell!', loc: 'park', w: 'hot', temp: 96, money: 15, goal: [12, 24, 36], drinks: ['lemonade'] },
+      { id: 'rain', name: 'Rainy Day Hero', desc: 'Cold rain all day. Maybe try cocoa?', loc: 'street', w: 'rainy', temp: 52, money: 12, goal: [4, 9, 14], drinks: ['lemonade', 'cocoa'] },
+      { id: 'pinch', name: 'Penny Pincher', desc: 'Only $5 to start. Spend wisely!', loc: 'street', w: 'sunny', temp: 78, money: 5, goal: [5, 10, 15], drinks: ['lemonade'] },
+      { id: 'beach', name: 'Beach Party', desc: 'The boardwalk is packed and the sun is blazing.', loc: 'beach', w: 'hot', temp: 92, money: 25, goal: [25, 45, 65], drinks: ['lemonade', 'pink', 'mint'], ev: 'fair' },
+      { id: 'critic', name: 'Critic\'s Choice', desc: 'The famous critic is coming. Perfect your recipe!', loc: 'park', w: 'sunny', temp: 80, money: 20, goal: [10, 20, 30], drinks: ['lemonade', 'pink'], ev: 'critic', needCritic: true },
+      { id: 'parade', name: 'Parade Panic', desc: 'A parade brings a huge crowd. Have enough supplies!', loc: 'downtown', w: 'sunny', temp: 82, money: 30, goal: [30, 55, 80], drinks: ['lemonade', 'orange'], ev: 'parade' },
+      { id: 'game', name: 'Big Game Day', desc: 'The stadium is full of thirsty fans.', loc: 'stadium', w: 'hot', temp: 88, money: 40, goal: [45, 80, 120], drinks: ['lemonade', 'pink', 'mint', 'orange'], ev: 'team' },
+      { id: 'fair', name: 'Fair Frenzy', desc: 'The busiest day of the year at the Fun Fair!', loc: 'fair', w: 'sunny', temp: 84, money: 50, goal: [60, 110, 160], drinks: ['lemonade', 'pink', 'mint', 'orange', 'slush'], ev: 'fair' },
+    ];
+
+    // =====================================================================
+    // Save
+    // =====================================================================
+    function freshSave() {
+      return {
+        money: 12, day: 1, rep: 20, inv: { lemon: 0, orange: 0, cocoa: 0, sugar: 0, ice: 0, cups: 0, berry: 0, mint: 0 },
+        recipes: {}, drink: 'lemonade', loc: 'street', locs: ['street'], ups: [], paint: 'sun', paints: ['sun'],
+        stars: 0, stats: { cups: 0, earned: 0, days: 0, tips: 0, places: ['street'] }, badges: [], ch: {}, muted: false, today: null, seed: Math.floor(Math.random() * 1e6),
+      };
+    }
+    let save = Potato.load('save', null);
+    if (!save || typeof save !== 'object') save = freshSave();
+    (() => { // fill in anything missing from older saves
+      const f = freshSave();
+      for (const k in f) if (save[k] === undefined) save[k] = f[k];
+      save.inv = Object.assign(f.inv, save.inv || {});
+      save.stats = Object.assign(f.stats, save.stats || {});
+      for (const k in save.inv) save.inv[k] = Math.max(0, Number(save.inv[k]) || 0);
+      save.money = Math.max(0, Number(save.money) || 0);
+      save.rep = clamp(Number(save.rep) || 0, 0, 100);
+      if (!LOCATIONS.some((l) => l.id === save.loc)) save.loc = 'street';
+      if (!DRINKS.some((d) => d.id === save.drink)) save.drink = 'lemonade';
+    })();
+    const persist = () => Potato.save('save', save);
+    const drinkById = (id) => DRINKS.find((d) => d.id === id) || DRINKS[0];
+    const locById = (id) => LOCATIONS.find((l) => l.id === id) || LOCATIONS[0];
+    function recipeFor(id) {
+      if (!save.recipes[id]) save.recipes[id] = Object.assign({}, drinkById(id).def);
+      return save.recipes[id];
+    }
+
+    // =====================================================================
+    // Sound
+    // =====================================================================
+    let ac = null;
+    function audio() { try { if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); } catch (e) { ac = null; } return ac; }
+    function tone(freq, dur, type = 'sine', vol = 0.06, delay = 0, slide = 0) {
+      if (save.muted || !ac) return;
+      const t = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain();
+      o.type = type; o.frequency.setValueAtTime(freq, t);
+      if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t + dur);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur + 0.03);
+    }
+    const sfx = {
+      buy: () => { tone(880, 0.06, 'triangle', 0.05); tone(1320, 0.1, 'triangle', 0.04, 0.05); },
+      cash: () => { tone(1568, 0.06, 'square', 0.025); tone(2093, 0.12, 'square', 0.025, 0.05); },
+      pour: () => { for (let i = 0; i < 4; i++) tone(500 + i * 90 + Math.random() * 40, 0.07, 'sine', 0.035, i * 0.05); },
+      yum: () => { tone(784, 0.09, 'triangle', 0.04); tone(1046, 0.14, 'triangle', 0.04, 0.07); },
+      meh: () => tone(330, 0.15, 'triangle', 0.035, 0, -60),
+      tip: () => [1320, 1760, 2349].forEach((f, i) => tone(f, 0.09, 'square', 0.025, i * 0.05)),
+      shout: () => { tone(440, 0.12, 'sawtooth', 0.03, 0, 200); tone(660, 0.16, 'sawtooth', 0.03, 0.1, 120); },
+      mix: () => tone(260 + Math.random() * 60, 0.05, 'sine', 0.025),
+      nope: () => tone(180, 0.12, 'square', 0.03),
+      fanfare: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.24, 'triangle', 0.06, i * 0.1)),
+      click: () => tone(700, 0.04, 'triangle', 0.035),
+    };
+    // a gentle summer tune while the stand is open
+    const TUNE = [523, 659, 784, 659, 698, 880, 784, 0, 659, 784, 1047, 880, 784, 659, 587, 0];
+    let musicStep = 0, musicNext = 0;
+    setInterval(() => {
+      const on = scene === 'day' && !save.muted && ac && (R && R.ups.has('music'));
+      if (!on) { musicNext = 0; return; }
+      const beat = 0.24 / Math.min(2, R.speed);
+      if (!musicNext || musicNext < ac.currentTime) musicNext = ac.currentTime + 0.05;
+      while (musicNext < ac.currentTime + 0.3) {
+        const f = TUNE[musicStep % TUNE.length];
+        if (f) { const o = ac.createOscillator(), g = ac.createGain(); o.type = 'triangle'; o.frequency.value = f; g.gain.setValueAtTime(0.018, musicNext); g.gain.exponentialRampToValueAtTime(0.0001, musicNext + beat * 0.9); o.connect(g).connect(ac.destination); o.start(musicNext); o.stop(musicNext + beat); }
+        musicStep++; musicNext += beat;
+      }
+    }, 100);
+
+    // =====================================================================
+    // Weather of the day (picked once per day, so it doesn't change if you reload)
+    // =====================================================================
+    function makeToday() {
+      const rng = mulberry32(save.seed + save.day * 7919);
+      const loc = locById(save.loc);
+      let type;
+      if (save.day === 1) type = 'sunny';
+      else { const r = rng(); type = r < 0.36 ? 'sunny' : r < 0.56 ? 'hot' : r < 0.78 ? 'cloudy' : r < 0.9 ? 'rainy' : 'cold'; }
+      const W0 = WEATHER[type];
+      const temp = Math.round(save.day === 1 ? 76 : lerp(W0.t[0], W0.t[1], rng()));
+      // the forecast can be a bit wrong (unless you own the weather radio)
+      let fType = type, fTemp = temp;
+      const order = ['cold', 'rainy', 'cloudy', 'sunny', 'hot'];
+      if (rng() < 0.28 && save.day > 1) { const i = order.indexOf(type); fType = order[clamp(i + (rng() < 0.5 ? -1 : 1), 0, 4)]; }
+      if (save.day > 1) fTemp = temp + Math.round((rng() - 0.5) * 14);
+      let event = null;
+      if (save.day >= 3 && rng() < 0.45) {
+        const pool = ['fair', 'sale', 'sugar', 'team', 'critic', 'truck', 'parade'];
+        if (type !== 'rainy') pool.push('shower');
+        event = pool[Math.floor(rng() * pool.length)];
+      }
+      return { day: save.day, type, temp, fType, fTemp, event };
+    }
+    function today() {
+      if (!save.today || save.today.day !== save.day) { save.today = makeToday(); persist(); }
+      return save.today;
+    }
+
+    // =====================================================================
+    // Taste and customers
+    // =====================================================================
+    function idealIce(drink, temp) { return drink.hot ? 0 : clamp(Math.round((temp - 52) / 9) + drink.iceAdj, 0, 6); }
+    function tasteOf(rec, drink, temp, iceUsed, pref, juicer) {
+      const F = rec.fruit + (juicer ? 0.6 : 0), S = rec.sugar;
+      const b = S - F - drink.b - (pref || 0);
+      const str = F + S;
+      const want = idealIce(drink, temp);
+      const issues = [];
+      if (b < -1.25) issues.push('sour'); else if (b > 1.25) issues.push('sweet');
+      if (str < 5.5) issues.push('watery'); else if (str > 11.5) issues.push('strong');
+      if (drink.hot) { if (iceUsed > 0) issues.push('icy'); }
+      else if (iceUsed < want - 1) issues.push('warm');
+      else if (iceUsed > want + 2) issues.push('icy');
+      if (issues.length) return { mood: 'bad', issue: issues[0], issues, b, str, want };
+      const great = Math.abs(b) < 0.75 && str >= 6.5 && str <= 10.5 && (drink.hot || Math.abs(iceUsed - want) <= 1);
+      return { mood: great ? 'yum' : 'ok', issues, b, str, want };
+    }
+    const SAY = {
+      yum: ['Yum!', 'So good!', 'Delicious!', 'Perfect!', 'Mmm!', 'Wow!'], ok: ['Not bad.', 'Nice.', 'Pretty good.', 'OK!'],
+      sour: ['Too sour!', 'Sooo sour!'], sweet: ['Too sweet!', 'Sugar overload!'], watery: ['Watery...', 'Tastes like water.'], strong: ['Too strong!'],
+      warm: ['Not cold enough!', 'It\'s warm!'], icy: ['Brr, too icy!'], pricey: ['Too pricey!', 'How much?!'], line: ['Line\'s too long.'], soldout: ['Sold out? Aww.'], slow: ['Too slow!'],
+    };
+    function thirstOf(drink, temp, type) {
+      let t = drink.hot ? clamp((74 - temp) / 24, 0.1, 1.2) : clamp((temp - 48) / 40, 0.1, 1.2);
+      if (type === 'rainy') t *= drink.hot ? 1.2 : 0.8;
+      if (drink.id === 'mint' && temp >= 85) t += 0.15;
+      return t;
+    }
+
+    // =====================================================================
+    // State
+    // =====================================================================
+    let scene = 'title';
+    let R = null;          // the running day
+    let W = 0, H = 0, dpr = 1, S = 1, VW = 900, VH = 560, GY = 440, SX = 450;
+    let time = 0;
+    let parts = [], floaters = [];
+    let cars = [];
+    let planTab = 'buy';
+    let plan = null;       // the morning plan (career or challenge)
+
+    function newPlan(ch) {
+      if (ch) {
+        const inv = { lemon: 0, orange: 0, cocoa: 0, sugar: 0, ice: 0, cups: 0, berry: 0, mint: 0 };
+        return {
+          mode: 'challenge', ch, money: ch.money, inv, drink: ch.drinks[0], loc: ch.loc, ups: new Set(), rep: 40, day: 0,
+          recipes: Object.fromEntries(ch.drinks.map((d) => [d, Object.assign({}, drinkById(d).def)])),
+          today: { day: 0, type: ch.w, temp: ch.temp, fType: ch.w, fTemp: ch.temp, event: ch.ev || null }, spent: 0, paint: save.paint,
+        };
+      }
+      const t = today();
+      // no debt, no game over: if you are nearly broke with nothing to sell, Grandma helps out
+      if (!t.gift && save.money < 4 && cupsPossible({ drink: save.drink, recipes: save.recipes, inv: save.inv, ups: new Set(save.ups) }) < 8) { t.gift = true; save.money = cents(save.money + 8); persist(); setTimeout(() => { if (scene === "plan") $("tip").textContent = "Grandma gave you $8.00 to help get your stand going again!"; }, 50); }
+      return {
+        mode: 'career', money: save.money, inv: save.inv, drink: save.drink, loc: save.loc, ups: new Set(save.ups), rep: save.rep, day: save.day,
+        recipes: save.recipes, today: t, spent: Number(t.spent) || 0, paint: save.paint,
+      };
+    }
+    const planRecipe = () => { if (!plan.recipes[plan.drink]) plan.recipes[plan.drink] = Object.assign({}, drinkById(plan.drink).def); return plan.recipes[plan.drink]; };
+    const drinkUnlocked = (d) => (plan && plan.mode === 'challenge' ? plan.ch.drinks.includes(d.id) : save.stars >= d.stars);
+    function itemPrice(kind, packIdx) {
+      let p = ITEMS[kind].packs[packIdx][1];
+      const ev = plan && plan.today.event;
+      if (ev === 'sale' && (kind === 'lemon' || kind === 'orange' || kind === 'berry')) p *= 0.6;
+      if (ev === 'sugar' && kind === 'sugar') p *= 1.6;
+      return cents(p);
+    }
+    const spendable = () => cents(plan.money - (plan.mode === "career" ? locById(plan.loc).rent : 0));
+    function neededItems(drink) { return [drink.fruit, 'sugar', ...(drink.hot ? [] : ['ice']), 'cups', ...drink.extra]; }
+    function cupsPossible(p) {
+      const d = drinkById(p.drink), rec = p.recipes[p.drink] || d.def;
+      const per = p.ups.has('pitcher') ? 12 : 8;
+      let pitchers = Math.floor(p.inv[d.fruit] / Math.max(1, rec.fruit));
+      pitchers = Math.min(pitchers, Math.floor(p.inv.sugar / Math.max(1, rec.sugar)));
+      for (const e of d.extra) pitchers = Math.min(pitchers, Math.floor(p.inv[e] / EXTRA_PER_PITCHER));
+      return Math.min(pitchers * per, p.inv.cups);
+    }
+
+    // =====================================================================
+    // Planner UI
+    // =====================================================================
+    const OVERLAYS = ['title', 'plan', 'results', 'challenges', 'badges', 'pause'];
+    function showOverlay(id) { OVERLAYS.forEach((o) => { $(o).hidden = o !== id; }); }
+    function repStars(rep) { const n = clamp(Math.round(rep / 20 * 2) / 2, 0, 5); let s = ''; for (let i = 1; i <= 5; i++) s += n >= i ? '★' : n >= i - 0.5 ? '⯪' : '☆'; return s.replace(/⯪/g, '★'); }
+    function repText(rep) { const n = Math.max(0, Math.min(5, Math.floor(rep / 20) + (rep >= 100 ? 0 : 0))); return '★'.repeat(Math.max(1, Math.ceil(rep / 20))) + '☆'.repeat(5 - Math.max(1, Math.ceil(rep / 20))); }
+    function iconCanvas(cv, kind, size) {
+      const s = size || 42;
+      cv.width = s * dpr; cv.height = s * dpr;
+      const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawIcon(g, kind, s / 2, s / 2, s * 0.42);
+    }
+    function showTitle() {
+      scene = 'title'; R = null;
+      $('hud-top').hidden = $('hud-bot').hidden = true;
+      $('t-money').textContent = money(save.money);
+      $('t-stars').textContent = save.stars + ' ★';
+      $('t-day').textContent = 'Day ' + save.day;
+      $('t-play').textContent = save.stats.days ? `Continue: Day ${save.day}` : 'Open for business';
+      syncToggles();
+      showOverlay('title');
+    }
+    function syncToggles() { ['tg-sound', 'pa-sound'].forEach((id) => { $(id).classList.toggle('on', !save.muted); $(id).textContent = save.muted ? '🔇 Sound off' : '🔊 Sound on'; }); }
+    function showPlan(p) {
+      if (p) plan = p;
+      scene = 'plan'; R = null;
+      $('hud-top').hidden = $('hud-bot').hidden = true;
+      renderPlan();
+      showOverlay('plan');
+    }
+    function renderPlan() {
+      const t = plan.today, loc = locById(plan.loc), d = drinkById(plan.drink), rec = planRecipe();
+      const ch = plan.mode === 'challenge';
+      $('p-day').textContent = ch ? '🏆 ' + plan.ch.name : 'Day ' + plan.day;
+      $('p-money').textContent = money(plan.money);
+      $('p-rep').textContent = repText(plan.rep);
+      $('p-stars').textContent = ch ? `Goal: ${money(plan.ch.goal[0])} profit` : save.stars + ' ★';
+      $('p-stars').hidden = false;
+      // forecast
+      const radio = plan.ups.has('radio') || ch;
+      const fType = radio ? t.type : t.fType, fTemp = radio ? t.temp : t.fTemp;
+      const tempShown = fTemp + (loc.temp || 0);
+      iconCanvas($('wx-icon'), 'w-' + fType, 64);
+      $('wx-name').textContent = WEATHER[fType].name;
+      $('wx-temp').textContent = `${tempShown}°F (${Math.round((tempShown - 32) * 5 / 9)}°C)` + (radio ? ' · radio says' : ' · might change');
+      const ev = t.event ? EVENTS[t.event] : null;
+      $('wx-event').innerHTML = ev ? `<div class="event ${ev.good ? 'good' : ''}">${ev.good ? '🎉' : '⚠️'} ${ev.text}</div>` : '';
+      iconCanvas($('loc-icon'), 'loc-' + loc.id, 64);
+      $('loc-name').textContent = loc.name;
+      $('loc-info').textContent = (loc.rent ? `Rent ${money(loc.rent)} a day · ` : 'Free spot · ') + `${Math.round(loc.traffic * 100)}% crowds`;
+      // tabs with a red dot when something is missing
+      const need = neededItems(d).filter((k) => plan.inv[k] <= 0);
+      document.querySelectorAll('#tabs .tab').forEach((tb) => {
+        tb.classList.toggle('on', tb.dataset.tab === planTab);
+        const dot = tb.dataset.tab === 'buy' && need.length ? '<span class="dot"></span>' : '';
+        tb.innerHTML = { buy: '🛒 Supplies', recipe: '🥤 Recipe & Price', stand: '🔨 Stand', map: '🗺 Places' }[tb.dataset.tab] + dot;
+        tb.hidden = ch && (tb.dataset.tab === 'stand' || tb.dataset.tab === 'map');
+      });
+      const body = $('tab-body');
+      body.innerHTML = '';
+      if (planTab === 'buy') renderBuy(body, d);
+      else if (planTab === 'recipe') renderRecipe(body, d, rec, t, loc);
+      else if (planTab === 'stand') renderStand(body);
+      else renderMap(body);
+      // opening button + Zesty's tip
+      const can = cupsPossible(plan);
+      const rentOk = plan.money >= loc.rent || ch;
+      $('p-open').disabled = !rentOk;
+      $('p-open').textContent = can > 0 ? `Open the stand! ☀ (${can} cups)` : 'Open the stand! ☀';
+      drawZesty($('zesty'));
+      $('tip').textContent = zestyTip(can, need, d, rec, t, loc, rentOk);
+      $('p-menu').textContent = ch ? 'Quit' : 'Menu';
+    }
+    function zestyTip(can, need, d, rec, t, loc, rentOk) {
+      if (!rentOk) return `You need ${money(loc.rent)} to pay the rent here. Pick a cheaper spot in Places!`;
+      if (need.length) return `You still need ${need.map((k) => ITEMS[k].name.toLowerCase()).join(', ')}. Buy some in Supplies!`;
+      if (can < 10) return `You only have enough for ${can} cups. Buy a bit more, or open anyway!`;
+      const tas = tasteOf(rec, d, t.temp + (loc.temp || 0), d.hot ? 0 : rec.ice, 0, plan.ups.has('juicer'));
+      if (tas.mood === 'bad') return { sour: d.hot ? 'Your cocoa is too bitter. Add more sugar!' : 'Your recipe is too sour. Add sugar or use fewer lemons.', sweet: 'Your recipe is too sweet. Use less sugar.', watery: 'Your recipe is watery. Add more fruit and sugar!', strong: 'Too strong! Use a bit less fruit and sugar.', warm: 'It\'s warm out. Add more ice!', icy: d.hot ? 'Hot cocoa doesn\'t need ice!' : 'That\'s a lot of ice for today. Use a bit less.' }[tas.issue];
+      if (t.type === 'rainy' || t.type === 'cold') { if (!d.hot && drinkUnlocked(drinkById('cocoa'))) return 'Brr! Hot cocoa sells better than lemonade today.'; return 'Fewer people come out in this weather. Don\'t buy too much!'; }
+      if (t.type === 'hot') return 'It\'s hot! People are thirsty and will pay a bit more.';
+      return `Looking good! You can make about ${can} cups. Open your stand when you're ready.`;
+    }
+    function renderBuy(body, d) {
+      const kinds = Object.keys(ITEMS).filter((k) => {
+        if (k === 'sugar' || k === 'ice' || k === 'cups') return true;
+        return DRINKS.some((dd) => drinkUnlocked(dd) && (dd.fruit === k || dd.extra.includes(k)));
+      });
+      const need = neededItems(d);
+      const wrap = document.createElement('div'); wrap.className = 'items';
+      kinds.forEach((k) => {
+        const it = ITEMS[k];
+        const el = document.createElement('div');
+        el.className = 'item' + (need.includes(k) && plan.inv[k] <= 0 ? ' need' : '');
+        const cv = document.createElement('canvas'); el.appendChild(cv); iconCanvas(cv, k, 42);
+        const info = document.createElement('div'); info.className = 'info';
+        info.innerHTML = `<b>${it.name}</b><small>You have <b style="display:inline;font-size:14px">${plan.inv[k]}</b> ${it.unit}</small>${it.melts ? `<small>${plan.ups.has('cooler') ? 'Half melts overnight' : 'Melts overnight!'}</small>` : need.includes(k) ? '<small>Needed for ' + d.name + '</small>' : '<small>For other drinks</small>'}`;
+        el.appendChild(info);
+        const buys = document.createElement('div'); buys.className = 'buys';
+        it.packs.forEach(([n], i) => {
+          const price = itemPrice(k, i);
+          const b = document.createElement('button');
+          b.className = 'btn small' + (i ? ' ghost' : '');
+          b.textContent = `+${n} ${money(price)}`;
+          b.disabled = spendable() < price;
+          b.onclick = () => { audio(); if (spendable() < price) { $("tip").textContent = `Keep ${money(locById(plan.loc).rent)} for today's rent!`; return; } plan.money = cents(plan.money - price); plan.inv[k] += n; plan.spent = cents(plan.spent + price); sfx.buy(); commitPlan(); renderPlan(); };
+          buys.appendChild(b);
+        });
+        el.appendChild(buys);
+        wrap.appendChild(el);
+      });
+      body.appendChild(wrap);
+      // helper button: buy roughly what today needs
+      const est = estimateCups();
+      const row = document.createElement('div'); row.className = 'row'; row.style.marginTop = '10px';
+      const hb = document.createElement('button'); hb.className = 'btn small green';
+      hb.textContent = `🍋 Zesty, buy enough for ~${est} cups`;
+      hb.onclick = () => { audio(); helperBuy(est); };
+      row.appendChild(hb);
+      body.appendChild(row);
+    }
+    function estimateCups() {
+      const t = plan.today, loc = locById(plan.loc), d = drinkById(plan.drink);
+      const temp = t.fTemp + (loc.temp || 0);
+      const th = thirstOf(d, temp, t.fType);
+      const people = 72 * loc.traffic * WEATHER[t.fType].traffic * (t.event === 'fair' ? 1.6 : t.event === 'parade' ? 1.4 : 1);
+      const stop = clamp(0.12 + 0.55 * th + plan.rep / 100 * 0.3, 0.05, 0.9);
+      return Math.max(8, Math.round((people * stop * 0.85) / 4) * 4);
+    }
+    function helperBuy(target) {
+      const d = drinkById(plan.drink), rec = planRecipe();
+      const per = plan.ups.has('pitcher') ? 12 : 8;
+      const wantFor = (t) => { const pitchers = Math.ceil(t / per); const w = { [d.fruit]: pitchers * rec.fruit, sugar: pitchers * rec.sugar, cups: t }; d.extra.forEach((e) => (w[e] = pitchers * EXTRA_PER_PITCHER)); if (!d.hot) w.ice = t * rec.ice; return w; };
+      // shrink the order until we can afford a balanced set of everything (so we never end up with lemons but no cups)
+      const costOf = (w) => Object.keys(w).reduce((s, k) => s + Math.max(0, w[k] - plan.inv[k]) * itemPrice(k, 0) / ITEMS[k].packs[0][0], 0) * 1.1;
+      while (target > 4 && costOf(wantFor(target)) > spendable()) target = Math.floor(target * 0.85);
+      const want = wantFor(target);
+      let bought = 0, short = false;
+      for (const k of Object.keys(want)) {
+        while (plan.inv[k] < want[k]) {
+          // pick the big pack if we need lots of it, else the small one
+          const gap = want[k] - plan.inv[k];
+          const i = gap > ITEMS[k].packs[0][0] * 2.5 ? 1 : 0;
+          const price = itemPrice(k, i);
+          if (spendable() < price) { const p0 = itemPrice(k, 0); if (spendable() >= p0 && i === 1) { plan.money = cents(plan.money - p0); plan.inv[k] += ITEMS[k].packs[0][0]; plan.spent = cents(plan.spent + p0); bought++; continue; } short = true; break; }
+          plan.money = cents(plan.money - price); plan.inv[k] += ITEMS[k].packs[i][0]; plan.spent = cents(plan.spent + price); bought++;
+        }
+      }
+      if (bought) sfx.buy(); else sfx.click();
+      commitPlan(); renderPlan();
+      if (short) $('tip').textContent = 'I spent all the money I could! You might sell out early today.';
+      else if (bought) $('tip').textContent = 'All stocked up! Check your recipe and price, then open.';
+      else $('tip').textContent = 'You already have enough for that!';
+    }
+    function meter(label, left, right, val, lo, hi, min, max) {
+      const pc = (v) => clamp(((v - min) / (max - min)) * 100, 0, 100);
+      return `<div class="meter"><div class="lab"><span>${left}</span><b style="color:var(--text)">${label}</b><span>${right}</span></div><div class="bar"><div class="zone" style="left:${pc(lo)}%;width:${pc(hi) - pc(lo)}%"></div><div class="mark" style="left:${pc(val)}%"></div></div></div>`;
+    }
+    function renderRecipe(body, d, rec, t, loc) {
+      const temp = t.temp + (loc.temp || 0), ftemp = (plan.ups.has('radio') || plan.mode === 'challenge' ? t.temp : t.fTemp) + (loc.temp || 0);
+      const wrap = document.createElement('div'); wrap.className = 'recipe';
+      // left: drink and steppers
+      const L = document.createElement('div'); L.className = 'box';
+      L.innerHTML = '<h3>Drink</h3>';
+      const dr = document.createElement('div'); dr.className = 'drinks';
+      DRINKS.forEach((dd) => {
+        if (plan.mode === 'challenge' && !plan.ch.drinks.includes(dd.id)) return;
+        const open = drinkUnlocked(dd);
+        const b = document.createElement('button');
+        b.className = 'drink' + (dd.id === plan.drink ? ' on' : '') + (open ? '' : ' locked');
+        b.innerHTML = `<i style="background:${dd.col === 'rainbow' ? 'linear-gradient(90deg,#ff6f9a,#ffd43b,#4fd6a0,#4fa8ff)' : dd.col}"></i>${open ? dd.name : '🔒 ' + dd.stars + '★'}`;
+        b.title = open ? (dd.note || '') : `Earn ${dd.stars} stars to unlock ${dd.name}`;
+        if (open) b.onclick = () => { sfx.click(); plan.drink = dd.id; commitPlan(); renderPlan(); };
+        dr.appendChild(b);
+      });
+      L.appendChild(dr);
+      if (d.note) L.insertAdjacentHTML('beforeend', `<p style="margin:0 0 6px;font-size:13px">${d.note}</p>`);
+      const fruitName = ITEMS[d.fruit].name;
+      const stepper = (key, label, sub, min, max, stepv, fmt) => {
+        const s = document.createElement('div'); s.className = 'step';
+        s.innerHTML = `<label>${label}<small>${sub}</small></label>`;
+        const minus = document.createElement('button'); minus.textContent = '−';
+        const v = document.createElement('span'); v.className = 'v'; v.textContent = fmt(rec[key]);
+        const plus = document.createElement('button'); plus.textContent = '+';
+        const set = (nv) => { rec[key] = cents(clamp(nv, min, max)); sfx.click(); commitPlan(); renderPlan(); };
+        minus.onclick = () => set(rec[key] - stepv); plus.onclick = () => set(rec[key] + stepv);
+        s.append(minus, v, plus);
+        L.appendChild(s);
+      };
+      stepper('fruit', fruitName, 'per pitcher', 1, 8, 1, (x) => x);
+      stepper('sugar', 'Sugar', 'scoops per pitcher', 0, 8, 1, (x) => x);
+      if (!d.hot) stepper('ice', 'Ice', 'cubes per cup', 0, 6, 1, (x) => x);
+      stepper('price', 'Price', 'per cup', 0.1, 5, 0.05, (x) => money(x));
+      wrap.appendChild(L);
+      // right: taste meters and a verdict
+      const Rr = document.createElement('div'); Rr.className = 'box';
+      Rr.innerHTML = '<h3>Taste test</h3>';
+      const juicer = plan.ups.has('juicer');
+      const F = rec.fruit + (juicer ? 0.6 : 0), Sg = rec.sugar;
+      const tas = tasteOf(rec, d, ftemp, d.hot ? 0 : rec.ice, 0, juicer);
+      Rr.insertAdjacentHTML('beforeend', meter('Sweetness', d.hot ? 'bitter' : 'sour', 'sweet', Sg - F - d.b, -1.25, 1.25, -5, 5));
+      Rr.insertAdjacentHTML('beforeend', meter('Flavour', 'watery', 'strong', F + Sg, 5.5, 11.5, 0, 16));
+      if (!d.hot) { const want = idealIce(d, ftemp); Rr.insertAdjacentHTML('beforeend', meter(`Coldness (for ${ftemp}°F)`, 'warm', 'icy', rec.ice, want - 1, want + 2, 0, 7)); }
+      const words = { yum: 'Zesty says: "Yum! Perfect!" 😋', ok: 'Zesty says: "Pretty good!" 🙂' };
+      const bad = { sour: d.hot ? 'Too bitter! 😖' : 'Too sour! 😖', sweet: 'Too sweet! 🍬', watery: 'Too watery! 💧', strong: 'Too strong! 😵', warm: 'Not cold enough! 🥵', icy: d.hot ? 'No ice in cocoa! 🧊' : 'Too icy! 🥶' };
+      Rr.insertAdjacentHTML('beforeend', `<div class="verdict ${tas.mood === 'bad' ? 'bad' : ''}">${tas.mood === 'bad' ? bad[tas.issue] : words[tas.mood]}</div>`);
+      // cost per cup
+      const per = plan.ups.has('pitcher') ? 12 : 8;
+      const unit = (k) => ITEMS[k].packs[1][1] / ITEMS[k].packs[1][0];
+      const costCup = (rec.fruit * unit(d.fruit) + rec.sugar * unit('sugar') + d.extra.reduce((s, e) => s + EXTRA_PER_PITCHER * unit(e), 0)) / per + (d.hot ? 0 : rec.ice * unit('ice')) + unit('cups');
+      const wtp = 1 * locById(plan.loc).price * d.price * (0.55 + 0.75 * thirstOf(d, ftemp, t.fType)) * (0.85 + plan.rep / 100 * 0.35);
+      Rr.insertAdjacentHTML('beforeend', `<div class="cost">Each cup costs you about ${money(costCup)} to make.<br>Most people today will pay up to about <b>${money(Math.max(0.1, Math.round(wtp * 1.05 * 20) / 20))}</b>.</div>`);
+      wrap.appendChild(Rr);
+      body.appendChild(wrap);
+    }
+    function renderStand(body) {
+      const wrap = document.createElement('div'); wrap.className = 'shop';
+      UPGRADES.forEach((u) => {
+        const own = plan.ups.has(u.id);
+        const el = document.createElement('div'); el.className = 'up' + (own ? ' owned' : '');
+        el.innerHTML = `<b>${u.name}</b><small>${u.desc}</small>`;
+        const b = document.createElement('button'); b.className = 'btn small' + (own ? ' green' : '');
+        const locked = u.need && !plan.ups.has(u.need);
+        b.textContent = own ? 'Owned ✓' : locked ? 'Needs ' + UPGRADES.find((x) => x.id === u.need).name : money(u.cost);
+        b.disabled = own || locked || plan.money < u.cost;
+        b.onclick = () => { if (plan.money < u.cost) return; plan.money = cents(plan.money - u.cost); plan.ups.add(u.id); sfx.fanfare(); commitPlan(); checkBadges(); renderPlan(); };
+        el.appendChild(b); wrap.appendChild(el);
+      });
+      body.appendChild(wrap);
+      const h = document.createElement('h3'); h.textContent = 'Paint your stand'; h.style.marginTop = '12px'; body.appendChild(h);
+      const pw = document.createElement('div'); pw.className = 'row'; pw.style.justifyContent = 'flex-start';
+      PAINTS.forEach((pt) => {
+        const own = save.paints.includes(pt.id), eq = save.paint === pt.id;
+        const b = document.createElement('button'); b.className = 'drink' + (eq ? ' on' : '');
+        b.innerHTML = `<i style="background:${pt.a}"></i>${pt.name}${own ? '' : ' ' + money(pt.cost)}`;
+        b.onclick = () => {
+          if (!own) { if (plan.money < pt.cost) { sfx.nope(); return; } plan.money = cents(plan.money - pt.cost); save.paints.push(pt.id); }
+          save.paint = pt.id; plan.paint = pt.id; sfx.click(); commitPlan(); renderPlan();
+        };
+        pw.appendChild(b);
+      });
+      body.appendChild(pw);
+    }
+    function renderMap(body) {
+      const wrap = document.createElement('div'); wrap.className = 'shop';
+      LOCATIONS.forEach((l) => {
+        const own = save.locs.includes(l.id), here = plan.loc === l.id;
+        const el = document.createElement('div'); el.className = 'up loc' + (here ? ' here' : '');
+        const cv = document.createElement('canvas'); el.appendChild(cv);
+        el.insertAdjacentHTML('beforeend', `<b>${l.name}</b><small>${l.desc}<br>${l.rent ? 'Rent ' + money(l.rent) + '/day' : 'No rent'} · ${Math.round(l.traffic * 100)}% crowds · prices ×${l.price}</small>`);
+        const b = document.createElement('button'); b.className = 'btn small' + (own ? ' green' : '');
+        if (here) { b.textContent = 'You are here'; b.disabled = true; }
+        else if (own) { b.textContent = 'Move here'; b.onclick = () => { sfx.click(); plan.loc = l.id; save.loc = l.id; commitPlan(); renderPlan(); }; }
+        else if (plan.rep < l.rep) { b.textContent = `Needs ${Math.ceil(l.rep / 20)}★ reputation`; b.disabled = true; }
+        else { b.textContent = `Buy permit ${money(l.permit)}`; b.disabled = plan.money < l.permit; b.onclick = () => { if (plan.money < l.permit) return; plan.money = cents(plan.money - l.permit); save.locs.push(l.id); plan.loc = l.id; save.loc = l.id; sfx.fanfare(); commitPlan(); checkBadges(); renderPlan(); }; }
+        el.appendChild(b); wrap.appendChild(el);
+        requestAnimationFrame(() => {
+          const r = cv.getBoundingClientRect(); const w = Math.max(150, r.width || 200), h = 66;
+          cv.width = w * dpr; cv.height = h * dpr; const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+          const sc = h / 150; g.save(); g.scale(sc, sc);
+          drawBackdrop(g, l.id, w / sc, 150, 120, 'sunny', 13, 2.0);
+          g.restore();
+        });
+      });
+      body.appendChild(wrap);
+    }
+    function commitPlan() {
+      if (plan.mode !== 'career') return;
+      save.money = plan.money; save.inv = plan.inv; save.drink = plan.drink; save.loc = plan.loc; save.ups = [...plan.ups]; save.recipes = plan.recipes;
+      if (save.today) save.today.spent = plan.spent;
+      persist();
+    }
+
+    // =====================================================================
+    // Running a day
+    // =====================================================================
+    const DAY_SECONDS = 80;          // 9 AM to 5 PM at normal speed
+    const OPEN = 9, CLOSE = 17;
+    function openStand() {
+      const loc = locById(plan.loc);
+      if (plan.mode === 'career') {
+        if (plan.money < loc.rent) return;
+        plan.money = cents(plan.money - loc.rent);
+        if (!save.stats.places.includes(loc.id)) save.stats.places.push(loc.id);
+        commitPlan();
+      }
+      const t = plan.today, d = drinkById(plan.drink);
+      R = {
+        plan, mode: plan.mode, loc, drink: d, rec: Object.assign({}, planRecipe()), ups: plan.ups, inv: plan.inv, money: plan.money, startMoney: plan.money + plan.spent + (plan.mode === 'career' ? loc.rent : 0),
+        rent: plan.mode === 'career' ? loc.rent : 0, spent: plan.spent, rep: plan.rep, rep0: plan.rep, type: t.type, temp: t.temp + (loc.temp || 0), event: t.event,
+        hour: OPEN, speed: 1, people: [], queue: [], pitcher: 0, mixT: 0, serveT: 0, helperT: 0, soldOut: false, soldOutAt: null,
+        spawnAcc: 0, shoutT: 0, shoutCd: 0, pourAnim: 0, pourAnim2: 0, tips: [], shake: 0, done: false, criticDone: false, teamDone: false,
+        showerFrom: t.event === 'shower' ? 11.5 + Math.random() * 1.5 : 99, showerLen: 1.3,
+        st: { sold: 0, revenue: 0, tips: 0, tipCount: 0, yum: 0, ok: 0, bad: 0, fb: {}, passers: 0, criticYum: false, critic: false, cocoaCold: 0 },
+        sellerBob: 0, msg: null,
+      };
+      R.criticAt = t.event === 'critic' ? 10.5 + Math.random() * 4 : 99;
+      parts = []; floaters = []; cars = [];
+      scene = 'day';
+      showOverlay(null);
+      $('hud-top').hidden = $('hud-bot').hidden = false;
+      $('h-day').textContent = R.mode === 'challenge' ? R.plan.ch.name : 'Day ' + plan.day;
+      $('b-speed').textContent = '▶ 1×';
+      buildStockHud();
+      tryMix(true);
+      if (plan.mode === 'career' && save.day === 1 && !save.stats.days) say('Tap the stand to pour drinks faster!', 4);
+      sfx.fanfare();
+    }
+    function say(text, secs) { R.msg = { text, t: secs || 3 }; }
+    const weatherNow = () => (R.hour >= R.showerFrom && R.hour < R.showerFrom + R.showerLen ? 'rainy' : R.type);
+    function trafficRate() {
+      // people per game-hour
+      let r = 9 * R.loc.traffic * WEATHER[weatherNow()].traffic;
+      if (R.event === 'fair') r *= 1.7;
+      if (R.event === 'parade' && R.hour >= 14 && R.hour < 15.5) r *= 3;
+      if (R.loc.id === 'stadium' && R.hour >= 15 && R.hour < 16.5) r *= 1.8;
+      return r;
+    }
+    const perPitcher = () => (R.ups.has('pitcher') ? 12 : 8);
+    function tryMix(instant) {
+      if (R.pitcher > 0 || R.mixT > 0) return;
+      const d = R.drink, rec = R.rec;
+      const ok = R.inv[d.fruit] >= rec.fruit && R.inv.sugar >= rec.sugar && d.extra.every((e) => R.inv[e] >= EXTRA_PER_PITCHER) && R.inv.cups > 0;
+      if (!ok) {
+        if (!R.soldOut) {
+          R.soldOut = true; R.soldOutAt = R.hour;
+          const missing = R.inv.cups <= 0 ? 'cups' : R.inv[d.fruit] < rec.fruit ? ITEMS[d.fruit].name.toLowerCase() : R.inv.sugar < rec.sugar ? 'sugar' : 'extras';
+          say(`Out of ${missing}! Sold out.`, 3);
+          sfx.nope();
+        }
+        return;
+      }
+      R.inv[d.fruit] -= rec.fruit; R.inv.sugar -= rec.sugar; d.extra.forEach((e) => (R.inv[e] -= EXTRA_PER_PITCHER));
+      R.mixT = instant ? 0.01 : R.ups.has('juicer') ? 1.2 : 2.4;
+      buildStockHud();
+    }
+    function spawnPerson(opts) {
+      opts = opts || {};
+      const dir = opts.dir || (Math.random() < 0.5 ? 1 : -1);
+      const kid = Math.random() < 0.3;
+      const p = {
+        x: dir > 0 ? -40 : VW + 40, dir, sp: (opts.runner ? 120 : rand(66, 90)) * (kid ? 1.1 : 1), state: 'walk', t: 0, lane: Math.random() < 0.5 ? 0 : 1,
+        look: makeLook(kid, opts), kid, decided: false, pref: rand(-0.7, 0.7), wtpMul: rand(0.75, 1.3), bubble: null, cup: false, wait: 0, phase: Math.random() * 6,
+        critic: !!opts.critic, runner: !!opts.runner, dog: !opts.runner && !kid && Math.random() < 0.1, umbrella: weatherNow() === 'rainy' && Math.random() < 0.7,
+      };
+      R.people.push(p);
+      R.st.passers++;
+      return p;
+    }
+    const SKIN = ['#ffd9b8', '#f2c294', '#d9a06b', '#b5794a', '#8a5532', '#5e3a22'];
+    const HAIR = ['#2b1a10', '#5a3a1e', '#a0662e', '#e0b050', '#c84a2a', '#1a1a1a', '#e8e0d0'];
+    const SHIRT = ['#ff6f6f', '#4fa8ff', '#59d18a', '#ffcc33', '#b07aff', '#ff9a4a', '#2fc6c6', '#ff7ab8', '#ffffff', '#7a8cff'];
+    const PANTS = ['#3a4a7a', '#5a4030', '#2a2a3a', '#7a6a4a', '#4a7a5a', '#8a3a5a'];
+    function makeLook(kid, opts) {
+      if (opts.critic) return { skin: '#f2c294', hair: '#e8e0d0', style: 'short', shirt: '#2a2a3a', pants: '#2a2a3a', h: 1.02, hat: 'beret', glasses: true, bowtie: true };
+      if (opts.runner) return { skin: pick(SKIN), hair: pick(HAIR), style: pick(['short', 'pony']), shirt: '#ff5a5a', pants: '#ffffff', h: 0.98, hat: 'band', num: Math.floor(rand(1, 99)) };
+      return {
+        skin: pick(SKIN), hair: pick(HAIR), style: pick(['short', 'long', 'pony', 'curly', 'bun', 'short']), shirt: pick(SHIRT), pants: pick(PANTS),
+        h: kid ? rand(0.68, 0.78) : rand(0.92, 1.06), hat: Math.random() < 0.18 ? pick(['cap', 'sun', 'beanie']) : null,
+        glasses: (R && (R.type === 'hot' || R.type === 'sunny') && Math.random() < 0.25), dress: !kid && Math.random() < 0.2, old: !kid && Math.random() < 0.12,
+      };
+    }
+    function decide(p) {
+      p.decided = true;
+      const d = R.drink, w = weatherNow();
+      const th = thirstOf(d, R.temp, w);
+      let stop = (0.12 + 0.55 * th + R.rep / 100 * 0.3);
+      if (R.ups.has('sign')) stop *= 1.15;
+      if (R.ups.has('neon')) stop *= 1.15;
+      if (R.ups.has('umbrella') && R.temp >= 85) stop *= 1.1;
+      if (R.shoutT > 0) stop += 0.35;
+      if (p.runner || p.critic) stop = 1;
+      if (Math.random() > clamp(stop, 0.03, 0.95)) return;
+      if (R.soldOut) { bubble(p, 'soldout'); fb('soldout'); return; }
+      const wtp = 1 * R.loc.price * d.price * (0.55 + 0.75 * th) * (0.85 + R.rep / 100 * 0.35) * p.wtpMul * (R.event === 'truck' ? 0.85 : 1) * (p.runner ? 1.25 : 1);
+      if (R.rec.price > wtp && !p.critic) { bubble(p, 'pricey'); fb('pricey'); R.rep = clamp(R.rep - 0.08, 0, 100); return; }
+      if (R.queue.length >= 7 && !p.critic) { bubble(p, 'line'); fb('line'); return; }
+      p.state = 'queue';
+      R.queue.push(p);
+      bubble(p, 'want', 1.2);
+    }
+    function bubble(p, kind, secs) { p.bubble = { kind, t: secs || 2.2, max: secs || 2.2 }; }
+    function fb(k) { R.st.fb[k] = (R.st.fb[k] || 0) + 1; }
+    const queueX = (k) => SX - 128 - k * 30;
+    function serveFront() {
+      const p = R.queue[0];
+      if (!p || p.state !== 'order' || R.pitcher <= 0 || R.mixT > 0) return false;
+      R.queue.shift();
+      R.pitcher--; R.inv.cups--;
+      const iceWant = R.drink.hot ? 0 : R.rec.ice;
+      const iceUsed = Math.min(iceWant, R.inv.ice);
+      R.inv.ice -= iceUsed;
+      if (iceUsed < iceWant && !R.iceWarned) { R.iceWarned = true; say('Out of ice! Drinks are getting warm.', 3); }
+      R.money = cents(R.money + R.rec.price);
+      R.st.sold++; R.st.revenue = cents(R.st.revenue + R.rec.price);
+      if (R.drink.hot && (R.type === 'rainy' || R.type === 'cold')) R.st.cocoaCold++;
+      p.state = 'drink'; p.t = 0; p.cup = true; p.iceUsed = iceUsed;
+      p.dir = p.x < SX ? -1 : p.dir; // walk away from the stand
+      R.pourAnim = 1;
+      sfx.pour(); setTimeout(() => sfx.cash(), 120);
+      coinFly(p.x, GY - 110);
+      addFloater({ x: p.x, y: GY - 150, text: '+' + money(R.rec.price), col: '#1d8a4f', life: 1.2, size: 20 });
+      if (R.pitcher <= 0) tryMix(false);
+      buildStockHud();
+      return true;
+    }
+    // pop-up texts that appear at the same time stack upwards instead of overlapping
+    function addFloater(f) {
+      for (let k = 0; k < 6; k++) { const hit = floaters.some((o) => o.life > 0.35 && Math.abs(o.x - f.x) < 90 && Math.abs(o.y - f.y) < f.size + 4); if (!hit) break; f.y -= f.size + 6; }
+      floaters.push(f);
+    }
+    function coinFly(x, y) { for (let k = 0; k < 3; k++) parts.push({ kind: 'coin', x: x + k * 6, y, vx: rand(-40, 40), vy: rand(-160, -110), life: 0.8, max: 0.8 }); }
+    function react(p) {
+      const tas = tasteOf(R.rec, R.drink, R.temp, p.iceUsed, p.pref, R.ups.has('juicer'));
+      let mood = tas.mood;
+      if (mood === 'yum') { R.st.yum++; R.rep = clamp(R.rep + 0.15, 0, 100); bubble(p, 'yum', 2); fb('yum'); sfx.yum(); hearts(p); }
+      else if (mood === 'ok') { R.st.ok++; R.rep = clamp(R.rep + 0.04, 0, 100); bubble(p, 'ok', 2); fb('ok'); }
+      else { R.st.bad++; R.rep = clamp(R.rep - 0.4, 0, 100); bubble(p, tas.issue, 2.4); fb(tas.issue); sfx.meh(); }
+      p.say = mood === 'bad' ? (R.drink.hot && tas.issue === 'sour' ? 'Too bitter!' : pick(SAY[tas.issue])) : pick(SAY[mood]);
+      if (p.critic) {
+        R.st.critic = true;
+        if (mood === 'yum') { R.st.criticYum = true; R.rep = clamp(R.rep + 8, 0, 100); R.money = cents(R.money + 5); R.st.tips = cents(R.st.tips + 5); addFloater({ x: p.x, y: GY - 200, text: '★★★★★ Great review! +$5', col: '#d99a00', life: 2.5, size: 22 }); sfx.fanfare(); }
+        else { R.rep = clamp(R.rep - 3, 0, 100); addFloater({ x: p.x, y: GY - 200, text: 'The critic wasn\'t impressed...', col: '#e8484f', life: 2.5, size: 18 }); }
+      }
+      // happy customers sometimes leave a tip to catch
+      const tipChance = (mood === 'yum' ? 0.3 : mood === 'ok' ? 0.08 : 0) + (R.ups.has('music') ? 0.08 : 0);
+      if (Math.random() < tipChance) R.tips.push({ x: p.x, y: GY - 120, vy: -30, t: 0, life: 3.2, amt: pick([0.25, 0.25, 0.5, 0.5, 1]) });
+    }
+    function hearts(p) { for (let k = 0; k < 4; k++) parts.push({ kind: 'heart', x: p.x + rand(-10, 10), y: GY - 130, vx: rand(-20, 20), vy: rand(-60, -30), life: 1, max: 1 }); }
+
+    function update(dt) {
+      time += dt;
+      updateCars(dt);
+      if (scene !== 'day' || !R) { for (const p of parts) { p.life -= dt; } parts = parts.filter((p) => p.life > 0); return; }
+      const sdt = dt * R.speed;
+      const hours = (sdt / DAY_SECONDS) * (CLOSE - OPEN);
+      if (!R.done) R.hour = Math.min(CLOSE, R.hour + hours);
+      // spawn walkers
+      if (R.hour < CLOSE - 0.05) {
+        R.spawnAcc += trafficRate() * hours;
+        while (R.spawnAcc >= 1) { R.spawnAcc -= 1; if (R.people.length < 46) spawnPerson(); }
+        if (R.event === 'team' && !R.teamDone && R.hour >= 12) { R.teamDone = true; say('Here comes the sports team!', 3); const dir = Math.random() < 0.5 ? 1 : -1; for (let k = 0; k < 9; k++) { const p = spawnPerson({ runner: true, dir }); p.x -= dir * k * 34; } }
+        if (!R.criticDone && R.hour >= R.criticAt) { R.criticDone = true; spawnPerson({ critic: true }); say('The drink critic is here!', 3); }
+      }
+      if (R.shoutT > 0) R.shoutT -= sdt;
+      if (R.shoutCd > 0) R.shoutCd -= sdt;
+      if (R.msg) { R.msg.t -= dt; if (R.msg.t <= 0) R.msg = null; }
+      // mixing a new pitcher
+      if (R.mixT > 0) {
+        R.mixT -= sdt;
+        if (Math.random() < sdt * 8) sfx.mix();
+        if (R.mixT <= 0) { R.mixT = 0; R.pitcher = perPitcher(); }
+      }
+      // serving
+      const front = R.queue[0];
+      const serveTime = (R.ups.has('register') ? 0.9 : 1.4);
+      if (front && front.state === 'order' && R.pitcher > 0 && R.mixT <= 0) {
+        R.serveT += sdt;
+        if (R.serveT >= serveTime) { R.serveT = 0; serveFront(); }
+      } else R.serveT = 0;
+      if (R.ups.has('helper') && R.queue[1] && R.queue[0] && R.queue[0].state === 'order') {
+        R.helperT += sdt;
+        if (R.helperT >= serveTime * 1.1) { R.helperT = 0; R.serveT = serveTime; }
+      }
+      if (R.pourAnim > 0) R.pourAnim = Math.max(0, R.pourAnim - dt * 2.5);
+      // people
+      const patience = 13 + (R.ups.has('umbrella') ? 5 : 0) + (R.ups.has('music') ? 5 : 0);
+      for (const p of R.people) {
+        p.t += sdt; p.phase += sdt * (p.sp / 9);
+        if (p.bubble) { p.bubble.t -= sdt; if (p.bubble.t <= 0) p.bubble = null; }
+        if (p.state === 'walk') {
+          p.x += p.dir * p.sp * sdt;
+          const dist = (SX - p.x) * p.dir;
+          if (!p.decided && dist < 190 && dist > 40) decide(p);
+        } else if (p.state === 'queue' || p.state === 'order') {
+          const k = R.queue.indexOf(p);
+          const tx = queueX(k);
+          const dx = tx - p.x;
+          if (Math.abs(dx) > 2) { p.x += Math.sign(dx) * Math.min(Math.abs(dx), p.sp * 1.2 * sdt); p.moving = true; }
+          else { p.moving = false; if (k === 0) p.state = 'order'; }
+          p.lane = 0;
+          p.wait += sdt;
+          if (p.wait > patience && !p.critic) {
+            R.queue.splice(k, 1); p.state = 'walk'; p.dir = -1; p.decided = true; p.lane = 1;
+            bubble(p, 'slow'); fb('slow'); R.rep = clamp(R.rep - 0.4, 0, 100);
+          } else if (R.soldOut && R.pitcher <= 0 && R.mixT <= 0) {
+            R.queue.splice(k, 1); p.state = 'walk'; p.dir = -1; p.decided = true; p.lane = 1; bubble(p, 'soldout'); fb('soldout');
+          }
+        } else if (p.state === 'drink') {
+          if (p.t > 0.6 && !p.reacted) { p.reacted = true; react(p); }
+          p.x += p.dir * p.sp * 0.9 * sdt;
+          p.lane = 1;
+        }
+      }
+      R.people = R.people.filter((p) => p.x > -80 && p.x < VW + 80 || p.state === 'queue' || p.state === 'order');
+      // tips float up
+      for (const tp of R.tips) { tp.t += dt; tp.y += tp.vy * dt; tp.vy *= Math.pow(0.4, dt); }
+      R.tips = R.tips.filter((tp) => tp.t < tp.life);
+      // effects
+      for (const p of parts) { p.life -= dt; p.x += (p.vx || 0) * dt; p.y += (p.vy || 0) * dt; if (p.kind === 'coin') p.vy += 420 * dt; if (p.kind === 'rain') { if (p.y > GY + 40) p.life = 0; } }
+      parts = parts.filter((p) => p.life > 0);
+      for (const f of floaters) { f.life -= dt; f.y -= 26 * dt; }
+      floaters = floaters.filter((f) => f.life > 0);
+      // rain
+      if (weatherNow() === 'rainy') for (let k = 0; k < 60 * dt * 8; k++) parts.push({ kind: 'rain', x: rand(0, VW), y: rand(-20, GY - 200), vx: -40, vy: 520, life: 1.2, max: 1.2 });
+      // closing time
+      if (R.hour >= CLOSE && !R.done) {
+        R.done = true;
+        say('Closing time!', 2);
+        R.queue.slice().forEach((p) => { p.state = 'walk'; p.dir = -1; p.decided = true; p.lane = 1; });
+        R.queue = [];
+        R.endT = 1.6;
+      }
+      if (R.done && R.endT > 0) { R.endT -= dt; if (R.endT <= 0) { endDay(); return; } }
+      updateHud();
+    }
+    function updateCars(dt) {
+      if (Math.random() < dt * 0.25 && cars.length < 3) {
+        const dir = Math.random() < 0.5 ? 1 : -1;
+        cars.push({ x: dir > 0 ? -120 : VW + 120, dir, sp: rand(140, 220), col: pick(['#ff5a5a', '#4fa8ff', '#ffd43b', '#59d18a', '#b07aff', '#ffffff', '#ff9a4a']), kind: pick(['car', 'car', 'van', 'bus']) });
+      }
+      for (const c of cars) c.x += c.dir * c.sp * dt;
+      cars = cars.filter((c) => c.x > -200 && c.x < VW + 200);
+    }
+
+    // =====================================================================
+    // End of day
+    // =====================================================================
+    function endDay() {
+      if (!R || scene !== 'day') return;
+      scene = 'results';
+      $('hud-top').hidden = $('hud-bot').hidden = true;
+      const st = R.st, loc = R.loc;
+      // ice melts overnight
+      const iceLeft = R.inv.ice;
+      R.inv.ice = R.ups.has('cooler') ? Math.floor(R.inv.ice / 2) : 0;
+      const buyers = st.sold;
+      const happy = buyers ? (st.yum + st.ok) / buyers : 0;
+      const profit = cents(R.money - R.startMoney);
+      let goals, stars;
+      if (R.mode === 'challenge') {
+        const g = R.plan.ch.goal;
+        goals = g.map((v, i) => ({ text: `Make ${money(v)} profit`, ok: profit >= v, r: money(profit) }));
+        if (R.plan.ch.needCritic) goals[2] = { text: `Make ${money(g[2])} profit and wow the critic`, ok: profit >= g[2] && st.criticYum, r: st.criticYum ? 'Critic: Yum!' : 'Critic: no' };
+        stars = goals.filter((x) => x.ok).length;
+      } else {
+        const grow = 1 + Math.min(30, R.plan.day) * 0.04;
+        const cupGoal = Math.max(8, Math.round(12 * loc.traffic * WEATHER[R.type].traffic * grow));
+        const profitGoal = Math.max(3, Math.round(5 * loc.traffic * loc.price * grow * (R.type === 'rainy' || R.type === 'cold' ? 0.5 : 1)));
+        goals = [
+          { text: `Sell ${cupGoal} cups`, ok: buyers >= cupGoal, r: `${buyers}` },
+          { text: `Make ${money(profitGoal)} profit`, ok: profit >= profitGoal, r: money(profit) },
+          { text: R.plan.day >= 8 ? 'Make 4 out of 5 buyers happy' : 'Keep 3 out of 4 buyers happy', ok: buyers >= 5 && happy >= (R.plan.day >= 8 ? 0.8 : 0.75), r: buyers ? Math.round(happy * 100) + '%' : '-' },
+        ];
+        stars = goals.filter((x) => x.ok).length;
+      }
+      // rewards and saving
+      let spuds = 0;
+      const newBadges = [];
+      if (R.mode === 'career') {
+        save.money = cents(R.money);
+        save.inv = R.inv;
+        save.rep = R.rep;
+        save.stars += stars;
+        save.stats.cups += st.sold; save.stats.earned = cents(save.stats.earned + Math.max(0, profit)); save.stats.days++; save.stats.tips += st.tipCount;
+        save.day++;
+        save.today = null;
+        spuds = 1 + stars * 2;
+        newBadges.push(...checkBadges({ st, profit, buyers, iceLeft }));
+        persist();
+        Potato.score(save.stats.cups);
+      } else {
+        const id = R.plan.ch.id, prev = Number(save.ch[id]) || 0;
+        if (stars > prev) { save.ch[id] = stars; spuds = (stars - prev) * 3; }
+        save.stats.cups += st.sold; save.stats.tips += st.tipCount;
+        newBadges.push(...checkBadges({ st, profit, buyers, iceLeft }));
+        persist();
+        Potato.score(save.stats.cups);
+      }
+      if (spuds > 0) Potato.earn(spuds);
+      // fill in the card
+      $('r-title').textContent = R.mode === 'challenge' ? `${R.plan.ch.name}: done!` : `Day ${save.day - 1} is done!`;
+      $('r-stars').innerHTML = [0, 1, 2].map((k) => `<span class="${k < stars ? 'on' : ''}">★</span>`).join('');
+      const spentToday = cents(R.spent + R.rent);
+      $('r-ledger').innerHTML = `<div><span>Cups sold</span><b>${st.sold}</b></div><div><span>Money in</span><b class="pos">${money(cents(st.revenue + st.tips))}</b></div><div><span>Spent today</span><b class="neg">${money(spentToday)}</b></div><div><span>Profit</span><b class="${profit >= 0 ? 'pos' : 'neg'}">${money(profit)}</b></div>`;
+      $('r-goals').innerHTML = goals.map((g) => `<div><span class="s ${g.ok ? 'on' : ''}">★</span>${g.text}<span class="r">${g.r}</span></div>`).join('');
+      const FBL = { yum: '😋 Yum!', ok: '🙂 Good', sour: '😖 Too sour', sweet: '🍬 Too sweet', watery: '💧 Watery', strong: '😵 Too strong', warm: '🥵 Not cold', icy: '🥶 Too icy', pricey: '💸 Too pricey', line: '⏳ Long line', slow: '🐢 Too slow', soldout: '🚫 Sold out' };
+      const keys = Object.keys(FBL).filter((k) => st.fb[k]);
+      $('r-fb').innerHTML = keys.length ? keys.map((k) => `<div class="${k === 'yum' || k === 'ok' ? 'good' : 'bad'}"><span>${FBL[k]}</span><b>${st.fb[k]}</b></div>`).join('') : '<div><span>Nobody stopped by...</span></div>';
+      $('r-badges').innerHTML = newBadges.map((b) => `<div class="badge-new">🎖 New badge: <b>${b.name}</b>!</div>`).join('') + (spuds && Potato.inHub ? `<div style="color:#d99a00;font:700 16px var(--display);margin:4px 0">+${spuds} Spuds</div>` : '');
+      drawZesty($('zesty2'));
+      $('r-tip').textContent = endTip(st, profit, iceLeft);
+      $('r-next').textContent = R.mode === 'challenge' ? 'Back to challenges' : `Plan day ${save.day} ☀`;
+      showOverlay('results');
+      if (stars) confetti(stars * 22);
+      sfx.fanfare();
+    }
+    function endTip(st, profit, iceLeft) {
+      const f = st.fb;
+      const sorted = ['pricey', 'sour', 'sweet', 'watery', 'warm', 'icy', 'strong', 'slow', 'line', 'soldout'].filter((k) => f[k]).sort((a, b) => f[b] - f[a]);
+      const top = sorted[0];
+      if (st.passers > 0 && st.sold === 0 && !f.pricey) return 'Nobody bought anything today. Did you have supplies? Check the Supplies tab tomorrow!';
+      if (top === 'soldout' && f.soldout >= 3) return `You sold out${R.soldOutAt ? ' at ' + clockText(R.soldOutAt) : ''}! Buy more supplies next time to sell all day.`;
+      if (top === 'pricey' && f.pricey >= 4) return `${f.pricey} people said it was too pricey. Try a lower price tomorrow!`;
+      if (top && ['sour', 'sweet', 'watery', 'warm', 'icy', 'strong'].includes(top) && f[top] >= 3) return { sour: 'Lots of people said "too sour". Add more sugar!', sweet: 'People said "too sweet". Use less sugar!', watery: 'People said it was watery. Use more fruit and sugar!', warm: 'People wanted it colder. Add more ice on warm days!', icy: 'Too much ice! Use a bit less when it\'s cool out.', strong: 'Too strong! Use a bit less fruit and sugar.' }[top];
+      if (top === 'slow' || top === 'line') return 'Your line got too long! Tap the stand to pour faster, or get a Cash Register.';
+      if (iceLeft > 40 && !R.ups.has('cooler')) return `${iceLeft} ice cubes melted overnight. Buy less ice, or get a Cooler Box!`;
+      if (f.yum >= st.sold * 0.8 && st.sold >= 10) return 'Everyone loved it! Maybe you can raise your price a little?';
+      if (profit > 0) return 'Nice work! Save up for stand upgrades and new places to sell.';
+      return 'Every day is practice. Check the weather and adjust your recipe!';
+    }
+    function checkBadges(ctxd) {
+      const got = [];
+      const give = (id) => { if (!save.badges.includes(id)) { save.badges.push(id); got.push(BADGES.find((b) => b.id === id)); } };
+      const s = save.stats;
+      if (s.cups >= 1) give('first');
+      if (s.cups >= 100) give('c100');
+      if (s.cups >= 1000) give('c1000');
+      if (save.money >= 500) give('tycoon');
+      if (s.tips >= 25) give('tips');
+      if (s.places.length >= 3) give('mover');
+      if (save.rep >= 99) give('allstar');
+      if (ctxd) {
+        const st = ctxd.st;
+        if (st.sold >= 15 && st.yum === st.sold) give('perfect');
+        if (R && R.soldOut && R.soldOutAt != null && st.sold >= 10) give('soldout');
+        if (st.cocoaCold >= 15) give('cocoa');
+        if (ctxd.profit >= 50) give('big');
+        if (st.criticYum) give('critic');
+      }
+      return got;
+    }
+    const clockText = (h) => { const hh = Math.floor(h), mm = Math.floor((h - hh) * 60 / 15) * 15; return `${((hh + 11) % 12) + 1}:${String(mm).padStart(2, '0')} ${hh >= 12 ? 'PM' : 'AM'}`; };
+
+    // =====================================================================
+    // HUD
+    // =====================================================================
+    function buildStockHud() {
+      const el = $('h-stock'); if (!el || !R) return;
+      const d = R.drink;
+      const kinds = [d.fruit, 'sugar', ...(d.hot ? [] : ['ice']), 'cups', ...d.extra];
+      el.innerHTML = '';
+      kinds.forEach((k) => {
+        const sp = document.createElement('span');
+        const low = k === 'cups' ? R.inv.cups < 5 : k === 'ice' ? R.inv.ice < R.rec.ice * 5 : R.inv[k] < (k === 'sugar' ? R.rec.sugar : k === d.fruit ? R.rec.fruit : EXTRA_PER_PITCHER);
+        if (low) sp.className = 'low';
+        const cv = document.createElement('canvas'); iconCanvas(cv, k, 20);
+        sp.appendChild(cv); sp.appendChild(document.createTextNode(R.inv[k]));
+        el.appendChild(sp);
+      });
+    }
+    let hudT = 0;
+    function updateHud() {
+      hudT -= 1;
+      if (hudT > 0) return;
+      hudT = 6;
+      $('h-money').textContent = money(R.money);
+      $('h-time').textContent = clockText(R.hour);
+      $('h-fill').style.width = ((R.hour - OPEN) / (CLOSE - OPEN)) * 100 + '%';
+      $('h-rep').textContent = repText(R.rep);
+      const b = $('b-shout');
+      b.disabled = R.shoutCd > 0 || R.done;
+      b.textContent = R.shoutCd > 0 ? `📣 ${Math.ceil(R.shoutCd)}s` : '📣 Shout!';
+    }
+
+    // =====================================================================
+    // Input
+    // =====================================================================
+    function toWorld(e) { return { x: e.clientX / S, y: e.clientY / S }; }
+    canvas.addEventListener('pointerdown', (e) => {
+      audio();
+      if (scene !== 'day' || !R) return;
+      const p = toWorld(e);
+      // tips first
+      for (const tp of R.tips) {
+        if (Math.hypot(p.x - tp.x, p.y - tp.y) < 34) {
+          R.tips.splice(R.tips.indexOf(tp), 1);
+          R.money = cents(R.money + tp.amt); R.st.tips = cents(R.st.tips + tp.amt); R.st.tipCount++;
+          sfx.tip(); addFloater({ x: tp.x, y: tp.y - 10, text: 'Tip! +' + money(tp.amt), col: '#d99a00', life: 1.2, size: 20 });
+          for (let k = 0; k < 8; k++) parts.push({ kind: 'spark', x: tp.x, y: tp.y, vx: rand(-90, 90), vy: rand(-90, 90), life: 0.5, max: 0.5 });
+          return;
+        }
+      }
+      // the stand: pour now, or stir faster
+      if (Math.abs(p.x - SX) < 120 && p.y > GY - 250 && p.y < GY + 30) {
+        if (R.mixT > 0) { R.mixT = Math.max(0.01, R.mixT - 0.45); sfx.mix(); parts.push({ kind: 'drop', x: SX + 40, y: GY - 100, vx: rand(-30, 30), vy: -80, life: 0.5, max: 0.5 }); return; }
+        if (R.queue[0] && R.queue[0].state === 'order') { if (serveFront()) { R.serveT = 0; R.shake = 3; } }
+        else { R.pourAnim = 0.5; sfx.click(); }
+      }
+    });
+    function shout() {
+      if (!R || scene !== 'day' || R.shoutCd > 0 || R.done) return;
+      R.shoutT = 5; R.shoutCd = 16;
+      sfx.shout();
+      addFloater({ x: SX + 10, y: GY - 270, text: pick(['Fresh drinks here!', 'Ice cold and tasty!', 'Get your drinks!', 'Come and try it!']), col: '#ff6f9a', life: 2, size: 24 });
+      updateHud();
+    }
+    function cycleSpeed() { if (!R) return; R.speed = R.speed === 1 ? 2 : R.speed === 2 ? 4 : 1; $('b-speed').textContent = '▶ ' + R.speed + '×'; $('b-speed').classList.toggle('on', R.speed > 1); }
+    $('b-shout').onclick = () => { audio(); shout(); };
+    $('b-speed').onclick = () => { audio(); cycleSpeed(); };
+    $('b-pause').onclick = () => pause();
+    function pause() { if (scene !== 'day') return; scene = 'paused'; syncToggles(); showOverlay('pause'); }
+    function resume() { if (scene !== 'paused') return; scene = 'day'; showOverlay(null); }
+    $('pa-resume').onclick = resume;
+    $('pa-end').onclick = () => { resume(); if (R) { R.hour = CLOSE - 0.001; } };
+    window.addEventListener('keydown', (e) => {
+      const k = e.key.toLowerCase();
+      if (k === 'm') { toggleMute(); return; }
+      if (scene === 'paused' && (k === 'p' || k === 'escape')) { resume(); return; }
+      if (scene !== 'day') return;
+      if (k === 'p' || k === 'escape') pause();
+      else if (k === ' ') { e.preventDefault(); shout(); }
+      else if (k === 'f') cycleSpeed();
+      else if (k === 'enter') { if (R.queue[0] && R.queue[0].state === 'order') serveFront(); }
+    });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+    function toggleMute() { save.muted = !save.muted; persist(); syncToggles(); }
+
+    // =====================================================================
+    // Drawing helpers
+    // =====================================================================
+    function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+    function circ(g, x, y, r, col) { g.fillStyle = col; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
+    function ell(g, x, y, rx, ry, col) { g.fillStyle = col; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fill(); }
+    function shade(hex, amt) { return Potato.shade ? Potato.shade(hex, amt) : hex; }
+
+    // little item icons (also used in the planner)
+    function drawIcon(g, kind, x, y, r) {
+      g.save(); g.translate(x, y);
+      g.lineJoin = 'round'; g.lineCap = 'round';
+      const outline = (w) => { g.strokeStyle = 'rgba(80,50,0,0.45)'; g.lineWidth = w || Math.max(1, r * 0.08); g.stroke(); };
+      if (kind === 'lemon' || kind === 'orange') {
+        const c = kind === 'lemon' ? ['#fff3a0', '#ffd400', '#d9a400'] : ['#ffd9a0', '#ff9a1a', '#d96a00'];
+        const gr = g.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r);
+        gr.addColorStop(0, c[0]); gr.addColorStop(0.6, c[1]); gr.addColorStop(1, c[2]);
+        g.fillStyle = gr; g.beginPath();
+        if (kind === 'lemon') g.ellipse(0, 0, r * 0.95, r * 0.72, -0.3, 0, Math.PI * 2); else g.arc(0, 0, r * 0.85, 0, Math.PI * 2);
+        g.fill(); outline();
+        g.fillStyle = '#4caf50'; g.beginPath(); g.ellipse(r * 0.45, -r * 0.62, r * 0.32, r * 0.14, -0.6, 0, Math.PI * 2); g.fill();
+        g.fillStyle = 'rgba(255,255,255,0.6)'; g.beginPath(); g.ellipse(-r * 0.35, -r * 0.25, r * 0.22, r * 0.12, -0.5, 0, Math.PI * 2); g.fill();
+      } else if (kind === 'sugar') {
+        g.fillStyle = '#f4f0e6'; rr(g, -r * 0.7, -r * 0.55, r * 1.4, r * 1.4, r * 0.25); g.fill(); outline();
+        g.fillStyle = '#4fa8ff'; g.fillRect(-r * 0.7, -r * 0.05, r * 1.4, r * 0.4);
+        g.fillStyle = '#fff'; g.font = `700 ${r * 0.36}px Fredoka, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('SUGAR', 0, r * 0.15);
+        g.fillStyle = '#e8e2d2'; g.beginPath(); g.moveTo(-r * 0.7, -r * 0.55); g.lineTo(-r * 0.45, -r * 0.85); g.lineTo(r * 0.45, -r * 0.85); g.lineTo(r * 0.7, -r * 0.55); g.fill(); outline();
+      } else if (kind === 'ice') {
+        for (const [dx, dy, s] of [[-0.35, 0.2, 0.55], [0.32, 0.25, 0.5], [0, -0.3, 0.52]]) {
+          const gr = g.createLinearGradient(dx * r - s * r, dy * r - s * r, dx * r + s * r, dy * r + s * r);
+          gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, '#9fdcff');
+          g.fillStyle = gr; rr(g, dx * r - s * r / 2 * 1.4, dy * r - s * r / 2 * 1.4, s * r * 1.4, s * r * 1.4, r * 0.15); g.fill();
+          g.strokeStyle = 'rgba(60,140,200,0.6)'; g.lineWidth = Math.max(1, r * 0.06); g.stroke();
+        }
+      } else if (kind === 'cups') {
+        g.fillStyle = '#ff6f9a'; g.beginPath(); g.moveTo(-r * 0.6, -r * 0.7); g.lineTo(r * 0.6, -r * 0.7); g.lineTo(r * 0.42, r * 0.85); g.lineTo(-r * 0.42, r * 0.85); g.closePath(); g.fill(); outline();
+        g.fillStyle = '#fff'; g.fillRect(-r * 0.55, -r * 0.3, r * 1.1, r * 0.3);
+        g.fillStyle = '#ffd400'; g.beginPath(); g.arc(0, -r * 0.15, r * 0.12, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#ffe0eb'; rr(g, -r * 0.68, -r * 0.82, r * 1.36, r * 0.16, r * 0.08); g.fill();
+      } else if (kind === 'cocoa') {
+        g.fillStyle = '#7a4a2a'; rr(g, -r * 0.6, -r * 0.6, r * 1.2, r * 1.45, r * 0.18); g.fill(); outline();
+        g.fillStyle = '#f2d6b0'; g.fillRect(-r * 0.6, -r * 0.2, r * 1.2, r * 0.42);
+        g.fillStyle = '#7a4a2a'; g.font = `700 ${r * 0.32}px Fredoka, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('COCOA', 0, 0.02 * r);
+        g.fillStyle = '#5a321a'; rr(g, -r * 0.66, -r * 0.82, r * 1.32, r * 0.26, r * 0.1); g.fill();
+      } else if (kind === 'berry') {
+        for (const [dx, dy] of [[-0.35, 0.15], [0.3, 0.2], [0, -0.25]]) {
+          const gr = g.createRadialGradient(dx * r - r * 0.12, dy * r - r * 0.12, 1, dx * r, dy * r, r * 0.42);
+          gr.addColorStop(0, '#ff9ab8'); gr.addColorStop(1, '#c8104a');
+          g.fillStyle = gr; g.beginPath(); g.arc(dx * r, dy * r, r * 0.4, 0, Math.PI * 2); g.fill();
+          g.fillStyle = 'rgba(255,255,255,0.7)'; g.beginPath(); g.arc(dx * r - r * 0.12, dy * r - r * 0.12, r * 0.08, 0, Math.PI * 2); g.fill();
+        }
+        g.fillStyle = '#4caf50'; g.beginPath(); g.ellipse(0, -r * 0.62, r * 0.25, r * 0.1, 0.3, 0, Math.PI * 2); g.fill();
+      } else if (kind === 'mint') {
+        for (const a of [-0.6, 0.6, 0]) {
+          g.save(); g.rotate(a);
+          const gr = g.createLinearGradient(0, -r, 0, r * 0.2); gr.addColorStop(0, '#7af0a8'); gr.addColorStop(1, '#2a9a5a');
+          g.fillStyle = gr; g.beginPath(); g.ellipse(0, -r * 0.42, r * 0.3, r * 0.52, 0, 0, Math.PI * 2); g.fill();
+          g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = Math.max(1, r * 0.05); g.beginPath(); g.moveTo(0, -r * 0.05); g.lineTo(0, -r * 0.85); g.stroke();
+          g.restore();
+        }
+      } else if (kind.startsWith('w-')) {
+        const w = kind.slice(2);
+        if (w === 'sunny' || w === 'hot') {
+          g.fillStyle = w === 'hot' ? '#ff8a1a' : '#ffcc1a';
+          for (let k = 0; k < 10; k++) { g.save(); g.rotate(k * Math.PI / 5 + time * 0.5); g.fillRect(-r * 0.07, -r * 0.98, r * 0.14, r * 0.3); g.restore(); }
+          const gr = g.createRadialGradient(-r * 0.15, -r * 0.15, 1, 0, 0, r * 0.6); gr.addColorStop(0, '#fff6a0'); gr.addColorStop(1, w === 'hot' ? '#ff7a1a' : '#ffc400');
+          g.fillStyle = gr; g.beginPath(); g.arc(0, 0, r * 0.58, 0, Math.PI * 2); g.fill();
+          if (w === 'hot') { g.fillStyle = '#c84a00'; g.font = `700 ${r * 0.4}px Fredoka, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('HOT', 0, r * 0.03); }
+        } else {
+          if (w === 'cloudy') { g.fillStyle = '#ffcc1a'; g.beginPath(); g.arc(r * 0.35, -r * 0.3, r * 0.4, 0, Math.PI * 2); g.fill(); }
+          const cc = w === 'rainy' ? '#9aa8b8' : w === 'cold' ? '#d8e6f4' : '#e8eef4';
+          g.fillStyle = cc; g.beginPath(); g.arc(-r * 0.35, r * 0.05, r * 0.35, 0, Math.PI * 2); g.arc(r * 0.05, -r * 0.15, r * 0.45, 0, Math.PI * 2); g.arc(r * 0.45, r * 0.08, r * 0.33, 0, Math.PI * 2); g.rect(-r * 0.6, r * 0.05, r * 1.3, r * 0.35); g.fill();
+          if (w === 'rainy') { g.strokeStyle = '#3a8aff'; g.lineWidth = r * 0.1; for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(-r * 0.4 + k * r * 0.4, r * 0.55); g.lineTo(-r * 0.5 + k * r * 0.4, r * 0.85); g.stroke(); } }
+          if (w === 'cold') { g.fillStyle = '#4fa8ff'; g.font = `700 ${r * 0.5}px Fredoka, sans-serif`; g.textAlign = 'center'; g.fillText('❄', 0, r * 0.95); }
+        }
+      } else if (kind.startsWith('loc-')) {
+        g.restore(); g.save(); g.translate(x - r * 1.2, y - r * 1.2);
+        const sc = (r * 2.4) / 150;
+        g.scale(sc, sc);
+        g.beginPath(); g.arc(75, 75, 72, 0, Math.PI * 2); g.clip();
+        drawBackdrop(g, kind.slice(4), 150, 150, 120, 'sunny', 13, 1.5);
+      }
+      g.restore();
+    }
+    // Zesty: a friendly lemon helper
+    function drawZestyAt(g, x, y, r, talk) {
+      g.save(); g.translate(x, y);
+      const gr = g.createRadialGradient(-r * 0.3, -r * 0.3, 1, 0, 0, r);
+      gr.addColorStop(0, '#fff6a8'); gr.addColorStop(0.7, '#ffd400'); gr.addColorStop(1, '#e0a800');
+      g.fillStyle = gr; g.beginPath(); g.ellipse(0, 0, r, r * 0.8, 0, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#b37d00'; g.lineWidth = r * 0.06; g.stroke();
+      g.fillStyle = '#4caf50'; g.beginPath(); g.ellipse(r * 0.4, -r * 0.82, r * 0.3, r * 0.13, -0.5, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#3b2a10';
+      g.beginPath(); g.arc(-r * 0.3, -r * 0.1, r * 0.11, 0, Math.PI * 2); g.arc(r * 0.3, -r * 0.1, r * 0.11, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(-r * 0.27, -r * 0.14, r * 0.04, 0, Math.PI * 2); g.arc(r * 0.33, -r * 0.14, r * 0.04, 0, Math.PI * 2); g.fill();
+      g.fillStyle = 'rgba(255,120,120,0.5)'; g.beginPath(); g.arc(-r * 0.55, r * 0.15, r * 0.12, 0, Math.PI * 2); g.arc(r * 0.55, r * 0.15, r * 0.12, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#3b2a10'; g.lineWidth = r * 0.07; g.beginPath(); g.arc(0, r * 0.08, r * 0.25, 0.15 * Math.PI, 0.85 * Math.PI); g.stroke();
+      g.restore();
+    }
+    function drawZesty(cv) { cv.width = 40 * dpr; cv.height = 40 * dpr; const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); drawZestyAt(g, 20, 21, 16); }
+
+    // ---------- background for each place ----------
+    function drawBackdrop(g, id, w, h, gy, wtype, hour, sc) {
+      // gy = where the far scenery meets the street
+      const dusk = clamp((hour - 15.5) / 1.5, 0, 1);
+      const WT = WEATHER[wtype] || WEATHER.sunny;
+      const sky = g.createLinearGradient(0, 0, 0, gy);
+      sky.addColorStop(0, mix(WT.sky[0], '#ff9a6a', dusk * 0.45)); sky.addColorStop(1, mix(WT.sky[1], '#ffd2a0', dusk * 0.6));
+      g.fillStyle = sky; g.fillRect(0, 0, w, gy + 2);
+      // sun
+      if (wtype !== 'rainy') {
+        const t = clamp((hour - 8) / 10, 0, 1);
+        const sx = lerp(w * 0.08, w * 0.92, t), sy = gy * (0.75 - Math.sin(t * Math.PI) * 0.55);
+        const sg = g.createRadialGradient(sx, sy, 2, sx, sy, 70);
+        sg.addColorStop(0, 'rgba(255,250,200,0.95)'); sg.addColorStop(0.3, 'rgba(255,230,120,0.5)'); sg.addColorStop(1, 'rgba(255,230,120,0)');
+        g.fillStyle = sg; g.fillRect(sx - 70, sy - 70, 140, 140);
+        circ(g, sx, sy, 22, wtype === 'cloudy' || wtype === 'cold' ? 'rgba(255,248,210,0.7)' : '#fff6b0');
+      }
+      // clouds
+      const nC = wtype === 'cloudy' || wtype === 'rainy' ? 7 : wtype === 'cold' ? 5 : 3;
+      for (let k = 0; k < nC; k++) {
+        const cx = (((k * 173 + time * (6 + k * 2)) % (w + 260)) + w + 260) % (w + 260) - 130, cy = 30 + ((k * 57) % Math.max(40, gy * 0.45));
+        const col = wtype === 'rainy' ? 'rgba(120,135,150,0.85)' : 'rgba(255,255,255,0.88)';
+        ell(g, cx, cy, 52, 16, col); ell(g, cx + 26, cy - 10, 30, 16, col); ell(g, cx - 24, cy - 6, 24, 13, col);
+      }
+      // a hot air balloon drifting by, and kites at the park and beach
+      if (wtype !== 'rainy' && sc === 1) {
+        const bx = ((time * 9 + 260) % (w + 240)) - 120, by = Math.max(70, gy * 0.32) + Math.sin(time * 0.6) * 8;
+        g.save(); g.translate(bx, by);
+        const cols = ['#ff6f9a', '#ffd43b', '#4fa8ff', '#59d18a', '#ff9a4a'];
+        for (let k = 0; k < 5; k++) { g.fillStyle = cols[k]; g.beginPath(); g.moveTo(0, 30); g.bezierCurveTo(-34 + k * 17, 20, -38 + k * 17, -36, -15 + k * 7.5, -40); g.lineTo(-7.5 + k * 7.5 - 7.5 + 7.5, -40); g.bezierCurveTo(-30 + k * 17 + 17, -36, -26 + k * 17 + 17, 20, 0, 30); g.fill(); }
+        g.fillStyle = 'rgba(255,255,255,0.25)'; g.beginPath(); g.ellipse(-12, -12, 6, 16, 0.2, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = '#7a5030'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(-6, 28); g.lineTo(-6, 42); g.moveTo(6, 28); g.lineTo(6, 42); g.stroke();
+        g.fillStyle = '#a0662e'; rr(g, -8, 42, 16, 11, 2); g.fill();
+        g.restore();
+        if (id === 'park' || id === 'beach') {
+          const kx = w * 0.18 + Math.sin(time * 0.7) * 20, ky = Math.max(60, gy * 0.42) + Math.cos(time * 0.9) * 10;
+          g.strokeStyle = 'rgba(80,60,40,0.5)'; g.lineWidth = 1; g.beginPath(); g.moveTo(kx, ky + 14); g.quadraticCurveTo(kx + 40, gy - 40, kx + 60, gy + 30); g.stroke();
+          g.fillStyle = '#ff6f9a'; g.beginPath(); g.moveTo(kx, ky - 16); g.lineTo(kx + 12, ky); g.lineTo(kx, ky + 14); g.lineTo(kx - 12, ky); g.fill();
+          g.fillStyle = '#ffd43b'; g.beginPath(); g.moveTo(kx, ky - 16); g.lineTo(kx + 12, ky); g.lineTo(kx, ky); g.fill();
+          for (let k = 1; k <= 4; k++) { g.fillStyle = k % 2 ? '#4fa8ff' : '#59d18a'; g.beginPath(); g.arc(kx - 3 + Math.sin(time * 3 + k) * 4, ky + 14 + k * 9, 2.5, 0, Math.PI * 2); g.fill(); }
+        }
+      }
+      const night = dusk * 0.5;
+      if (id === 'street') {
+        // houses
+        const cols = ['#ffb4a0', '#a8d8ff', '#ffe0a0', '#c8f0c0', '#e8c8ff', '#ffd0e0'];
+        let x = -20, k = 0;
+        while (x < w + 40) {
+          const hw = 110 + ((k * 37) % 40), hh = 70 + ((k * 53) % 30);
+          const base = gy;
+          g.fillStyle = shade(cols[k % cols.length], -10); g.fillRect(x, base - hh, hw, hh);
+          g.fillStyle = cols[k % cols.length]; g.fillRect(x + 4, base - hh, hw - 8, hh);
+          g.fillStyle = ['#c0504a', '#6a5acd', '#8a5a3a', '#3a8a6a'][k % 4];
+          g.beginPath(); g.moveTo(x - 8, base - hh + 2); g.lineTo(x + hw / 2, base - hh - 44); g.lineTo(x + hw + 8, base - hh + 2); g.fill();
+          g.fillStyle = mix('#bfe6ff', '#ffe08a', night * 2);
+          g.fillRect(x + 16, base - hh + 16, 22, 18); g.fillRect(x + hw - 38, base - hh + 16, 22, 18);
+          g.strokeStyle = '#fff'; g.lineWidth = 2; g.strokeRect(x + 16, base - hh + 16, 22, 18); g.strokeRect(x + hw - 38, base - hh + 16, 22, 18);
+          g.fillStyle = '#8a5a3a'; g.fillRect(x + hw / 2 - 10, base - 34, 20, 34);
+          // tree between houses
+          const tx = x + hw + 22;
+          g.fillStyle = '#8a5a3a'; g.fillRect(tx - 4, base - 40, 8, 40);
+          circ(g, tx, base - 52, 22, '#4fae5a'); circ(g, tx - 12, base - 42, 15, '#45a050'); circ(g, tx + 12, base - 44, 16, '#58bc66');
+          x += hw + 46; k++;
+        }
+        g.fillStyle = '#7fc46a'; g.fillRect(0, gy - 6, w, 8);
+      } else if (id === 'park') {
+        g.fillStyle = '#8fd47a'; g.beginPath(); g.moveTo(0, gy); for (let x = 0; x <= w; x += 20) g.lineTo(x, gy - 30 - Math.sin(x * 0.01) * 18); g.lineTo(w, gy); g.fill();
+        // pond
+        ell(g, w * 0.7, gy - 14, 80, 12, '#5ab8e8'); ell(g, w * 0.7 - 20, gy - 16, 30, 4, 'rgba(255,255,255,0.6)');
+        for (let k = 0; k < 6; k++) {
+          const tx = ((k * 211) % (w + 60)) - 20, th = 60 + (k % 3) * 14;
+          g.fillStyle = '#7a5030'; g.fillRect(tx - 5, gy - th, 10, th);
+          circ(g, tx, gy - th - 10, 30, '#3f9a4a'); circ(g, tx - 18, gy - th + 4, 22, '#49a855'); circ(g, tx + 18, gy - th + 2, 24, '#55b860');
+        }
+        // fountain
+        const fx = w * 0.3;
+        ell(g, fx, gy - 4, 34, 7, '#c8ccd8'); g.fillStyle = '#d8dce6'; g.fillRect(fx - 5, gy - 34, 10, 30);
+        g.strokeStyle = 'rgba(160,220,255,0.9)'; g.lineWidth = 3;
+        for (let k = -1; k <= 1; k += 2) { g.beginPath(); g.moveTo(fx, gy - 34); g.quadraticCurveTo(fx + k * 20, gy - 56 - Math.sin(time * 5) * 3, fx + k * 30, gy - 8); g.stroke(); }
+      } else if (id === 'beach') {
+        const sea = g.createLinearGradient(0, gy - 60, 0, gy); sea.addColorStop(0, '#2a9ad8'); sea.addColorStop(1, '#7fd4f0');
+        g.fillStyle = sea; g.fillRect(0, gy - 60, w, 60);
+        g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 2;
+        for (let k = 0; k < 4; k++) { g.beginPath(); for (let x = 0; x <= w; x += 12) g.lineTo(x, gy - 50 + k * 13 + Math.sin(x * 0.05 + time * 2 + k) * 2); g.stroke(); }
+        g.fillStyle = '#f6dfa0'; g.fillRect(0, gy - 10, w, 12);
+        for (let k = 0; k < 4; k++) { // umbrellas
+          const ux = ((k * 263) + 60) % (w + 40);
+          g.fillStyle = '#8a8a8a'; g.fillRect(ux - 1.5, gy - 40, 3, 34);
+          g.fillStyle = k % 2 ? '#ff6f6f' : '#4fa8ff'; g.beginPath(); g.arc(ux, gy - 40, 24, Math.PI, 0); g.fill();
+          g.fillStyle = '#fff'; g.beginPath(); g.moveTo(ux, gy - 64); g.lineTo(ux - 8, gy - 40); g.lineTo(ux + 8, gy - 40); g.fill();
+        }
+        for (let k = 0; k < 3; k++) { // seagulls
+          const bx = ((time * 30 + k * 220) % (w + 100)) - 50, by = 60 + k * 26 + Math.sin(time * 2 + k) * 6;
+          g.strokeStyle = '#3a4a5a'; g.lineWidth = 2; g.beginPath(); g.moveTo(bx - 9, by); g.quadraticCurveTo(bx - 4, by - 6, bx, by); g.quadraticCurveTo(bx + 4, by - 6, bx + 9, by); g.stroke();
+        }
+      } else if (id === 'downtown') {
+        let x = -10, k = 0;
+        while (x < w + 20) {
+          const bw = 60 + ((k * 31) % 50), bh = 120 + ((k * 71) % 110);
+          g.fillStyle = ['#8aa0c0', '#a0b4cc', '#7a8aa8', '#b8c4d4'][k % 4]; g.fillRect(x, gy - bh, bw, bh);
+          g.fillStyle = mix('#dff2ff', '#ffe08a', night * 2);
+          for (let yy = gy - bh + 10; yy < gy - 20; yy += 18) for (let xx = x + 8; xx < x + bw - 10; xx += 14) g.fillRect(xx, yy, 8, 10);
+          x += bw + 6; k++;
+        }
+        g.fillStyle = '#6a7a8a'; g.fillRect(0, gy - 8, w, 10);
+      } else if (id === 'stadium') {
+        const cx = w / 2;
+        g.fillStyle = '#c8ccd8'; g.beginPath(); g.ellipse(cx, gy, w * 0.42, 95, 0, Math.PI, 0); g.fill();
+        g.fillStyle = '#a8b0c0'; g.beginPath(); g.ellipse(cx, gy, w * 0.42, 95, 0, Math.PI, Math.PI * 1.08); g.fill();
+        g.fillStyle = '#e6e8f0'; g.fillRect(cx - w * 0.42, gy - 30, w * 0.84, 30);
+        g.fillStyle = '#ff6f6f'; for (let xx = cx - w * 0.4; xx < cx + w * 0.4; xx += 26) g.fillRect(xx, gy - 26, 14, 6);
+        for (const lx of [cx - w * 0.35, cx + w * 0.35]) {
+          g.fillStyle = '#7a8090'; g.fillRect(lx - 3, gy - 150, 6, 150);
+          g.fillStyle = '#fff6c0'; rr(g, lx - 18, gy - 165, 36, 18, 3); g.fill();
+        }
+        for (let k = 0; k < 5; k++) { const fx = cx - w * 0.3 + k * w * 0.15; g.fillStyle = '#7a8090'; g.fillRect(fx, gy - 120, 2, 30); g.fillStyle = ['#ff6f9a', '#4fa8ff', '#ffd43b', '#59d18a', '#b07aff'][k]; g.beginPath(); g.moveTo(fx + 2, gy - 120); g.lineTo(fx + 18 + Math.sin(time * 4 + k) * 3, gy - 114); g.lineTo(fx + 2, gy - 108); g.fill(); }
+      } else if (id === 'fair') {
+        // ferris wheel
+        const cx = w * 0.72, cy = gy - 110, R0 = 80;
+        g.strokeStyle = '#ff6f9a'; g.lineWidth = 5; g.beginPath(); g.arc(cx, cy, R0, 0, Math.PI * 2); g.stroke();
+        g.strokeStyle = '#ffcc1a'; g.lineWidth = 2;
+        for (let k = 0; k < 8; k++) { const a = time * 0.3 + k * Math.PI / 4; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * R0, cy + Math.sin(a) * R0); g.stroke(); }
+        for (let k = 0; k < 8; k++) { const a = time * 0.3 + k * Math.PI / 4; g.fillStyle = ['#4fa8ff', '#59d18a', '#ffcc1a', '#b07aff'][k % 4]; rr(g, cx + Math.cos(a) * R0 - 9, cy + Math.sin(a) * R0 - 4, 18, 14, 4); g.fill(); }
+        g.strokeStyle = '#8a8aa0'; g.lineWidth = 6; g.beginPath(); g.moveTo(cx - 40, gy); g.lineTo(cx, cy); g.lineTo(cx + 40, gy); g.stroke();
+        // tents
+        for (let k = 0; k < 3; k++) {
+          const tx = w * 0.08 + k * 120, tw = 90;
+          g.fillStyle = '#fff'; g.fillRect(tx, gy - 50, tw, 50);
+          for (let s = 0; s < 6; s++) { g.fillStyle = s % 2 ? '#ff5a5a' : '#fff'; g.beginPath(); g.moveTo(tx + s * tw / 6, gy - 50); g.lineTo(tx + tw / 2, gy - 92); g.lineTo(tx + (s + 1) * tw / 6, gy - 50); g.fill(); }
+          g.fillStyle = '#ffcc1a'; g.beginPath(); g.arc(tx + tw / 2, gy - 94, 4, 0, Math.PI * 2); g.fill();
+        }
+        // bunting
+        g.strokeStyle = '#8a5a3a'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(0, gy - 140); g.quadraticCurveTo(w / 2, gy - 110, w, gy - 140); g.stroke();
+        for (let x = 10; x < w; x += 24) { const yy = gy - 140 + Math.sin((x / w) * Math.PI) * 15 * 2 * 0.98; g.fillStyle = ['#ff6f9a', '#ffcc1a', '#4fa8ff', '#59d18a'][Math.floor(x / 24) % 4]; g.beginPath(); g.moveTo(x - 7, yy); g.lineTo(x + 7, yy); g.lineTo(x, yy + 12); g.fill(); }
+        // balloons
+        for (let k = 0; k < 3; k++) { const bx = w * 0.45 + k * 30, by = gy - 150 - ((time * 10 + k * 40) % 100); circ(g, bx, by, 9, ['#ff6f9a', '#4fa8ff', '#ffcc1a'][k]); g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 1; g.beginPath(); g.moveTo(bx, by + 9); g.lineTo(bx, by + 30); g.stroke(); }
+      }
+      // evening tint
+      if (dusk > 0) { g.fillStyle = `rgba(255,120,60,${dusk * 0.12})`; g.fillRect(0, 0, w, gy); }
+      if (sc !== 1) { g.fillStyle = { street: '#d8d2c2', park: '#8fd47a', beach: '#f2d9a0', downtown: '#c8ccd4', stadium: '#d8d2c2', fair: '#e8d6a8' }[id] || '#d8d2c2'; g.fillRect(0, gy, w, h - gy); }
+    }
+    function mix(a, b, t) {
+      t = clamp(t, 0, 1);
+      const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+      const r = Math.round(lerp(pa >> 16, pb >> 16, t)), gg = Math.round(lerp((pa >> 8) & 255, (pb >> 8) & 255, t)), bb = Math.round(lerp(pa & 255, pb & 255, t));
+      return `rgb(${r},${gg},${bb})`;
+    }
+
+    // ---------- the street, the stand and people ----------
+    function drawStreet(g, id) {
+      const roadTop = GY - 64, roadBot = GY - 18;
+      if (id === 'beach') {
+        g.fillStyle = '#c89a6a'; g.fillRect(0, roadTop, VW, VH - roadTop);
+        g.strokeStyle = '#a87a4a'; g.lineWidth = 2;
+        for (let y = roadTop + 10; y < VH; y += 14) { g.beginPath(); g.moveTo(0, y); g.lineTo(VW, y); g.stroke(); }
+        for (let x = 0; x < VW; x += 70) { g.beginPath(); g.moveTo(x, roadTop); g.lineTo(x, VH); g.stroke(); }
+        return;
+      }
+      if (id === 'park') {
+        g.fillStyle = '#7cc46a'; g.fillRect(0, roadTop, VW, VH - roadTop);
+        g.fillStyle = '#e8d6a8'; g.fillRect(0, GY - 22, VW, VH - GY + 22);
+        g.fillStyle = 'rgba(0,0,0,0.05)'; for (let x = 0; x < VW; x += 18) g.fillRect(x, GY - 22, 2, VH);
+        for (let k = 0; k < 12; k++) { const fx = (k * 97) % VW, fy = roadTop + 8 + (k * 13) % 30; circ(g, fx, fy, 3, ['#ff6f9a', '#ffcc1a', '#ffffff'][k % 3]); }
+        return;
+      }
+      // road with cars
+      g.fillStyle = '#5a6070'; g.fillRect(0, roadTop, VW, roadBot - roadTop);
+      g.fillStyle = '#ffd43b'; for (let x = (-time * 0) % 60; x < VW; x += 60) g.fillRect(x, (roadTop + roadBot) / 2 - 2, 30, 4);
+      for (const c of cars) drawCar(g, c, roadTop + 26);
+      // curb and sidewalk
+      g.fillStyle = '#c8ccd4'; g.fillRect(0, roadBot, VW, 6);
+      const sw = g.createLinearGradient(0, roadBot + 6, 0, VH); sw.addColorStop(0, '#e6e2d8'); sw.addColorStop(1, '#d4cebe');
+      g.fillStyle = sw; g.fillRect(0, roadBot + 6, VW, VH - roadBot);
+      g.strokeStyle = 'rgba(120,110,90,0.25)'; g.lineWidth = 1.5;
+      for (let x = 0; x < VW; x += 46) { g.beginPath(); g.moveTo(x, roadBot + 6); g.lineTo(x - 30, VH); g.stroke(); }
+      if (id === 'fair' || id === 'stadium') { g.fillStyle = 'rgba(255,111,154,0.12)'; g.fillRect(0, GY + 40, VW, VH); }
+    }
+    function drawCar(g, c, y) {
+      g.save(); g.translate(c.x, y); g.scale(c.dir, 1);
+      const L = c.kind === 'bus' ? 120 : c.kind === 'van' ? 80 : 66, Hh = c.kind === 'bus' ? 40 : c.kind === 'van' ? 30 : 22;
+      g.fillStyle = 'rgba(0,0,0,0.2)'; g.beginPath(); g.ellipse(0, 12, L * 0.55, 5, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = c.kind === 'bus' ? '#ffcc1a' : c.col; rr(g, -L / 2, -Hh + 4, L, Hh, 8); g.fill();
+      if (c.kind === 'car') { g.beginPath(); g.moveTo(-L * 0.25, -Hh + 6); g.lineTo(-L * 0.15, -Hh - 10); g.lineTo(L * 0.2, -Hh - 10); g.lineTo(L * 0.32, -Hh + 6); g.fill(); g.fillStyle = '#bfe6ff'; g.beginPath(); g.moveTo(-L * 0.12, -Hh + 4); g.lineTo(-L * 0.08, -Hh - 6); g.lineTo(L * 0.18, -Hh - 6); g.lineTo(L * 0.26, -Hh + 4); g.fill(); }
+      else { g.fillStyle = '#bfe6ff'; for (let x = -L / 2 + 8; x < L / 2 - 14; x += 16) g.fillRect(x, -Hh + 9, 11, 9); }
+      g.fillStyle = '#fff6b0'; g.fillRect(L / 2 - 4, -6, 4, 5);
+      circ(g, -L * 0.3, 6, 7, '#2a2a33'); circ(g, L * 0.3, 6, 7, '#2a2a33'); circ(g, -L * 0.3, 6, 3, '#aaa'); circ(g, L * 0.3, 6, 3, '#aaa');
+      g.restore();
+    }
+    function drawStand(g) {
+      const pt = PAINTS.find((p) => p.id === (R ? R.plan.paint : save.paint)) || PAINTS[0];
+      const x = SX, base = GY + 6, w = 200;
+      const ups = R ? R.ups : new Set();
+      // shade umbrella behind
+      if (ups.has('umbrella')) {
+        g.fillStyle = '#9a9aa8'; g.fillRect(x + w / 2 + 18, base - 230, 5, 230);
+        g.save(); g.translate(x + w / 2 + 20, base - 230);
+        for (let k = 0; k < 6; k++) { g.fillStyle = k % 2 ? '#ffffff' : pt.a; g.beginPath(); g.moveTo(0, -12); g.lineTo(-90 + k * 30, 18); g.lineTo(-60 + k * 30, 18); g.fill(); }
+        g.restore();
+      }
+      // shadow
+      g.fillStyle = 'rgba(0,0,0,0.18)'; g.beginPath(); g.ellipse(x, base + 4, w * 0.62, 12, 0, 0, Math.PI * 2); g.fill();
+      // back posts
+      g.fillStyle = shade(pt.wood, -30); g.fillRect(x - w / 2 + 6, base - 196, 10, 196); g.fillRect(x + w / 2 - 16, base - 196, 10, 196);
+      // the seller (behind the counter)
+      drawSeller(g, x - 20, base - 92, 0);
+      if (ups.has("helper")) drawSeller(g, x + 76, base - 92, 1);
+      // counter
+      const cg = g.createLinearGradient(0, base - 92, 0, base);
+      cg.addColorStop(0, pt.wood); cg.addColorStop(1, shade(pt.wood, -40));
+      g.fillStyle = cg; g.fillRect(x - w / 2, base - 92, w, 92);
+      g.strokeStyle = shade(pt.wood, -55); g.lineWidth = 2;
+      for (let k = 1; k < 4; k++) { g.beginPath(); g.moveTo(x - w / 2, base - 92 + k * 23); g.lineTo(x + w / 2, base - 92 + k * 23); g.stroke(); }
+      // painted front panel with the drink name
+      g.fillStyle = pt.a; rr(g, x - w / 2 + 14, base - 82, w - 28, 54, 8); g.fill();
+      g.strokeStyle = shade(pt.a, -50); g.lineWidth = 2.5; g.stroke();
+      g.fillStyle = '#fff'; g.font = '700 19px Fredoka, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      // the front panel is just decoration (people walk past it); the drink and price are on the big sign up top
+      const slogan = R && R.drink.hot ? 'Hot & cosy!' : 'Fresh & cold!';
+      g.lineWidth = 4; g.strokeStyle = shade(pt.a, -70); g.strokeText(slogan, x, base - 56); g.fillText(slogan, x, base - 56);
+      drawIcon(g, R && R.drink.hot ? 'cocoa' : 'lemon', x - 74, base - 56, 11);
+      drawIcon(g, R && R.drink.fruit === 'orange' ? 'orange' : 'lemon', x + 74, base - 56, 11);
+      // counter top
+      g.fillStyle = shade(pt.wood, 25); rr(g, x - w / 2 - 8, base - 100, w + 16, 12, 4); g.fill();
+      // pitcher, cups, register, cooler, music box
+      drawPitcher(g, x + 34, base - 100);
+      for (let k = 0; k < 4; k++) drawCupStack(g, x - 78 + k * 0, base - 100 - k * 0, k);
+      if (ups.has('register')) { g.fillStyle = '#5a6070'; rr(g, x - 50, base - 128, 34, 28, 4); g.fill(); g.fillStyle = '#9fe2bd'; g.fillRect(x - 46, base - 124, 26, 8); g.fillStyle = '#cfd4e2'; g.fillRect(x - 46, base - 112, 26, 8); }
+      if (ups.has('cooler')) { g.fillStyle = '#4fa8ff'; rr(g, x - w / 2 - 44, base - 40, 46, 40, 6); g.fill(); g.fillStyle = '#fff'; g.fillRect(x - w / 2 - 44, base - 40, 46, 9); g.fillStyle = '#2a7ad8'; g.fillRect(x - w / 2 - 28, base - 24, 14, 5); }
+      if (ups.has('music')) {
+        g.fillStyle = '#b07aff'; rr(g, x + w / 2 + 4, base - 34, 34, 34, 6); g.fill(); circ(g, x + w / 2 + 21, base - 17, 9, '#3a2a5a'); circ(g, x + w / 2 + 21, base - 17, 4, '#e6d6ff');
+        if (scene === 'day') { const k = (time * 1.2) % 1; g.fillStyle = `rgba(120,70,220,${1 - k})`; g.font = '700 16px Fredoka, sans-serif'; g.fillText('♪', x + w / 2 + 30 + k * 10, base - 44 - k * 30); g.fillText('♫', x + w / 2 + 10 - k * 6, base - 50 - ((k + 0.5) % 1) * 30); }
+      }
+      // posts and awning
+      g.fillStyle = pt.wood; g.fillRect(x - w / 2 - 4, base - 196, 10, 100); g.fillRect(x + w / 2 - 6, base - 196, 10, 100);
+      const aw = w + 36, ay = base - 214;
+      for (let k = 0; k < 8; k++) {
+        g.fillStyle = k % 2 ? pt.b : pt.a;
+        g.beginPath(); g.moveTo(x - aw / 2 + k * aw / 8, ay); g.lineTo(x - aw / 2 + (k + 1) * aw / 8, ay); g.lineTo(x - aw / 2 + (k + 1) * aw / 8 + 2, ay + 26); g.lineTo(x - aw / 2 + k * aw / 8 - 2, ay + 26); g.fill();
+        // scalloped edge
+        g.beginPath(); g.arc(x - aw / 2 + (k + 0.5) * aw / 8, ay + 26, aw / 16, 0, Math.PI); g.fill();
+      }
+      g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(x - aw / 2, ay + 22, aw, 4);
+      // sign on top
+      const sy = ay - 58;
+      const glow = ups.has('neon') ? 0.5 + 0.5 * Math.sin(time * 4) : 0;
+      if (ups.has('neon')) { g.save(); g.shadowColor = '#ff6f9a'; g.shadowBlur = 18 + glow * 12; }
+      g.fillStyle = ups.has('sign') ? '#fff8e0' : '#f4e6c0'; rr(g, x - 104, sy, 208, 54, 12); g.fill();
+      g.strokeStyle = ups.has('neon') ? '#ff6f9a' : ups.has('sign') ? '#ffcc1a' : shade(pt.wood, -30); g.lineWidth = ups.has('sign') ? 4 : 3; g.stroke();
+      if (ups.has('neon')) g.restore();
+      g.fillStyle = shade(pt.a, -60); g.font = '700 20px Fredoka, sans-serif'; g.textAlign = 'center';
+      const sold = R && R.soldOut && R.pitcher <= 0 && R.mixT <= 0;
+      const signName = R ? R.drink.name.replace('Classic ', '') : 'Fresh Drinks';
+      g.textBaseline = 'middle';
+      g.font = `700 ${signName.length > 13 ? 18 : 20}px Fredoka, sans-serif`; g.fillText(sold ? 'SOLD OUT' : signName, x, sy + 19);
+      g.font = '700 15px Fredoka, sans-serif'; g.fillStyle = sold ? '#e8484f' : '#1d8a4f'; g.fillText(sold ? 'Back tomorrow!' : R ? money(R.rec.price) + ' a cup' : 'Ice cold!', x, sy + 39);
+      if (ups.has('sign')) { for (let k = 0; k < 7; k++) circ(g, x - 96 + k * 32, sy - 2, 3, Math.sin(time * 6 + k) > 0 ? '#ffcc1a' : '#fff3b0'); }
+      // a little lemon mascot on the counter
+      drawZestyAt(g, x - 6, base - 112, 12);
+    }
+    function drawPitcher(g, x, y) {
+      const full = R ? clamp(R.pitcher / perPitcher(), 0, 1) : 0.8;
+      const mixing = R && R.mixT > 0;
+      const tilt = R ? Math.sin(R.pourAnim * Math.PI) * 0.6 : 0;
+      g.save(); g.translate(x, y); g.rotate(-tilt);
+      // glass
+      g.fillStyle = 'rgba(220,240,255,0.55)'; g.beginPath(); g.moveTo(-16, -50); g.lineTo(16, -50); g.lineTo(14, 0); g.lineTo(-14, 0); g.closePath(); g.fill();
+      const col = R ? R.drink.col : '#ffe45c';
+      g.save(); g.clip();
+      const lev = mixing ? 0.5 + Math.sin(time * 12) * 0.08 : full;
+      if (col === 'rainbow') { const gr = g.createLinearGradient(-16, 0, 16, 0); ['#ff6f9a', '#ffd43b', '#59d18a', '#4fa8ff'].forEach((c, i) => gr.addColorStop(i / 3, c)); g.fillStyle = gr; } else g.fillStyle = col;
+      g.fillRect(-18, -50 * lev, 36, 50 * lev);
+      if (!(R && R.drink.hot)) { g.fillStyle = 'rgba(255,255,255,0.8)'; for (let k = 0; k < 3; k++) g.fillRect(-10 + k * 7, -50 * lev + 4 + (k % 2) * 5, 6, 6); }
+      g.restore();
+      g.strokeStyle = 'rgba(80,110,140,0.6)'; g.lineWidth = 2; g.beginPath(); g.moveTo(-16, -50); g.lineTo(-14, 0); g.lineTo(14, 0); g.lineTo(16, -50); g.stroke();
+      g.beginPath(); g.moveTo(16, -42); g.quadraticCurveTo(30, -36, 15, -14); g.stroke();
+      g.fillStyle = 'rgba(255,255,255,0.5)'; g.fillRect(-11, -44, 4, 36);
+      if (mixing) { g.strokeStyle = '#c98a50'; g.lineWidth = 3; const a = Math.sin(time * 14) * 0.4; g.beginPath(); g.moveTo(0, -20); g.lineTo(Math.sin(a) * 30, -64); g.stroke(); }
+      g.restore();
+      if (mixing) { g.fillStyle = 'rgba(255,253,245,0.92)'; rr(g, x - 52, y - 80, 56, 18, 9); g.fill(); g.fillStyle = '#3b2a10'; g.font = '700 12px Fredoka, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('Mixing...', x - 24, y - 71); }
+    }
+    function drawCupStack(g, x, y, k) {
+      if (k > 0) return;
+      const n = R ? Math.min(6, Math.ceil(R.inv.cups / 10)) : 4;
+      for (let i = 0; i < n; i++) {
+        const yy = y - i * 5;
+        g.fillStyle = i % 2 ? '#ff8fb0' : '#ff6f9a'; g.beginPath(); g.moveTo(x - 9, yy - 18); g.lineTo(x + 9, yy - 18); g.lineTo(x + 7, yy); g.lineTo(x - 7, yy); g.fill();
+      }
+    }
+    function drawSeller(g, x, y, variant) {
+      const bob = Math.sin(time * 3 + variant) * 1.5;
+      const pour = R && R.pourAnim > 0 ? Math.sin(R.pourAnim * Math.PI) : 0;
+      g.save(); g.translate(x, y + bob);
+      // body
+      g.fillStyle = variant ? '#59d18a' : '#ff6f9a'; rr(g, -18, -40, 36, 44, 12); g.fill();
+      g.fillStyle = '#fff'; rr(g, -12, -26, 24, 30, 6); g.fill(); // apron
+      g.fillStyle = variant ? '#ffcc1a' : '#ffd400'; circ(g, 0, -12, 5, variant ? '#ffcc1a' : '#ffd400');
+      // arms
+      g.strokeStyle = variant ? '#d9a06b' : '#ffd9b8'; g.lineWidth = 7;
+      g.beginPath(); g.moveTo(-16, -32); g.lineTo(-24, -12 - pour * 10); g.stroke();
+      g.beginPath(); g.moveTo(16, -32); g.lineTo(28 + pour * 8, -16 - pour * 18); g.stroke();
+      // head
+      const skin = variant ? '#d9a06b' : '#ffd9b8';
+      circ(g, 0, -58, 18, skin);
+      g.fillStyle = variant ? '#2b1a10' : '#c84a2a';
+      g.beginPath(); g.arc(0, -62, 18, Math.PI * 1.05, Math.PI * 1.95); g.fill();
+      // straw hat
+      if (!variant) { ell(g, 0, -72, 27, 6, '#f2d27a'); g.fillStyle = '#f2d27a'; rr(g, -14, -88, 28, 16, 6); g.fill(); g.fillStyle = '#ff6f9a'; g.fillRect(-14, -77, 28, 4); }
+      else { g.fillStyle = '#4fa8ff'; g.beginPath(); g.arc(0, -66, 17, Math.PI, 0); g.fill(); g.fillRect(0, -68, 22, 4); }
+      // face
+      g.fillStyle = '#3b2a10'; circ(g, -6, -58, 2.4, '#3b2a10'); circ(g, 6, -58, 2.4, '#3b2a10');
+      g.strokeStyle = '#3b2a10'; g.lineWidth = 2; g.beginPath(); g.arc(0, -53, 5, 0.15 * Math.PI, 0.85 * Math.PI); g.stroke();
+      circ(g, -11, -52, 3, 'rgba(255,120,120,0.45)'); circ(g, 11, -52, 3, 'rgba(255,120,120,0.45)');
+      g.restore();
+    }
+    function drawPerson(g, p) {
+      const L = p.look, s = L.h;
+      const y = GY + (p.lane ? 28 : -4);
+      const walking = p.state === 'walk' || p.state === 'drink' || p.moving;
+      const sw = walking ? Math.sin(p.phase) : 0;
+      const bounce = walking ? Math.abs(Math.cos(p.phase)) * 2.5 : 0;
+      const ls = p.lane ? 1 : 0.93;
+      g.save(); g.translate(p.x, y); g.scale(s * ls * (p.dir < 0 && walking ? -1 : 1), s * ls);
+      if (p.state === 'queue' || p.state === 'order') g.scale(p.x < SX ? 1 : -1, 1);
+      // shadow
+      g.fillStyle = 'rgba(0,0,0,0.18)'; g.beginPath(); g.ellipse(0, 0, 16, 4, 0, 0, Math.PI * 2); g.fill();
+      // dog on a leash
+      if (p.dog) {
+        const dx = 34;
+        g.strokeStyle = '#3b2a10'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(10, -46); g.quadraticCurveTo(24, -20, dx - 6, -14); g.stroke();
+        g.fillStyle = '#c98a50'; rr(g, dx - 12, -20, 24, 11, 5); g.fill(); circ(g, dx + 12, -22, 7, '#c98a50'); g.fillStyle = '#8a5a30'; g.beginPath(); g.ellipse(dx + 9, -27, 3, 5, -0.4, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#c98a50'; g.fillRect(dx - 10, -10, 3, 10 + sw * 2); g.fillRect(dx + 6, -10, 3, 10 - sw * 2);
+        g.strokeStyle = '#c98a50'; g.lineWidth = 3; g.beginPath(); g.moveTo(dx - 12, -16); g.lineTo(dx - 18, -24 + Math.sin(time * 14) * 3); g.stroke();
+        circ(g, dx + 16, -22, 1.5, '#3b2a10');
+      }
+      g.translate(0, -bounce);
+      // legs
+      g.strokeStyle = L.pants; g.lineWidth = 7; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(-4, -34); g.lineTo(-4 + sw * 7, -3); g.stroke();
+      g.beginPath(); g.moveTo(4, -34); g.lineTo(4 - sw * 7, -3); g.stroke();
+      g.fillStyle = '#3b2a10'; ell(g, -3 + sw * 7, -2, 5, 3, '#3b2a10'); ell(g, 5 - sw * 7, -2, 5, 3, '#3b2a10');
+      // body
+      g.fillStyle = L.shirt;
+      if (L.dress) { g.beginPath(); g.moveTo(-10, -64); g.lineTo(10, -64); g.lineTo(15, -30); g.lineTo(-15, -30); g.fill(); }
+      else rr(g, -11, -66, 22, 36, 8), g.fill();
+      if (L.num) { g.fillStyle = '#fff'; g.font = '700 11px Fredoka, sans-serif'; g.textAlign = 'center'; g.fillText(L.num, 0, -46); }
+      if (L.bowtie) { g.fillStyle = '#e8484f'; g.beginPath(); g.moveTo(0, -62); g.lineTo(-6, -66); g.lineTo(-6, -58); g.fill(); g.beginPath(); g.moveTo(0, -62); g.lineTo(6, -66); g.lineTo(6, -58); g.fill(); }
+      // arms
+      g.strokeStyle = L.skin; g.lineWidth = 5;
+      const holding = p.cup;
+      g.beginPath(); g.moveTo(-9, -60); g.lineTo(-12 - sw * 5, -38); g.stroke();
+      g.beginPath(); g.moveTo(9, -60);
+      if (holding) { const sip = p.state === 'drink' && p.t < 1.2 ? 1 : 0; g.lineTo(16, -50 - sip * 10); g.stroke(); drawCup(g, 18, -50 - sip * 10); }
+      else if (p.umbrella) { g.lineTo(14, -56); g.stroke(); }
+      else { g.lineTo(12 + sw * 5, -38); g.stroke(); }
+      // notepad for the critic
+      if (p.critic) { g.fillStyle = '#fff'; g.fillRect(-20, -48, 10, 13); g.strokeStyle = '#3b2a10'; g.lineWidth = 1; g.strokeRect(-20, -48, 10, 13); }
+      // head
+      circ(g, 0, -78, 12, L.skin);
+      g.fillStyle = L.hair;
+      if (L.old) { g.fillStyle = '#e8e0d0'; g.beginPath(); g.arc(0, -80, 12.5, Math.PI * 0.9, Math.PI * 2.1); g.fill(); }
+      else if (L.style === 'long') { g.beginPath(); g.arc(0, -80, 13, Math.PI, 0); g.fill(); g.fillRect(-13, -80, 6, 18); g.fillRect(7, -80, 6, 18); }
+      else if (L.style === 'pony') { g.beginPath(); g.arc(0, -80, 12.5, Math.PI, 0); g.fill(); g.beginPath(); g.ellipse(-14, -76, 5, 9, 0.4, 0, Math.PI * 2); g.fill(); }
+      else if (L.style === 'curly') { for (let k = 0; k < 7; k++) circ(g, -11 + k * 3.6, -88 + Math.abs(k - 3) * 1.3, 5, L.hair); }
+      else if (L.style === 'bun') { g.beginPath(); g.arc(0, -80, 12.5, Math.PI, 0); g.fill(); circ(g, 0, -94, 6, L.hair); }
+      else { g.beginPath(); g.arc(0, -81, 12.5, Math.PI * 1.05, Math.PI * 1.95); g.fill(); }
+      // face (looks the way they walk)
+      g.fillStyle = '#2a1a10'; circ(g, 4, -79, 1.8, '#2a1a10'); circ(g, -3, -79, 1.8, '#2a1a10');
+      const mood = p.bubble ? p.bubble.kind : '';
+      g.strokeStyle = '#2a1a10'; g.lineWidth = 1.6; g.beginPath();
+      if (mood === 'yum' || mood === 'ok' || mood === 'want') g.arc(1, -74, 4, 0.15 * Math.PI, 0.85 * Math.PI);
+      else if (['sour', 'sweet', 'watery', 'warm', 'icy', 'strong', 'pricey', 'slow', 'line', 'soldout'].includes(mood)) g.arc(1, -70, 4, 1.15 * Math.PI, 1.85 * Math.PI);
+      else { g.moveTo(-2, -73); g.lineTo(4, -73); }
+      g.stroke();
+      if (L.glasses) { g.fillStyle = '#1a1a2a'; rr(g, -7, -83, 7, 5, 2); g.fill(); rr(g, 2, -83, 7, 5, 2); g.fill(); g.fillRect(-1, -82, 3, 1.5); }
+      if (L.hat === 'cap') { g.fillStyle = pick2(L, ['#ff5a5a', '#4fa8ff', '#59d18a']); g.beginPath(); g.arc(0, -84, 12.5, Math.PI, 0); g.fill(); g.fillRect(0, -86, 18, 4); }
+      else if (L.hat === 'sun') { ell(g, 0, -88, 20, 4.5, '#f2d27a'); g.fillStyle = '#f2d27a'; rr(g, -9, -99, 18, 12, 5); g.fill(); }
+      else if (L.hat === 'beanie') { g.fillStyle = '#7a8cff'; g.beginPath(); g.arc(0, -85, 12.5, Math.PI, 0); g.fill(); circ(g, 0, -98, 4, '#fff'); }
+      else if (L.hat === 'band') { g.fillStyle = '#fff'; g.fillRect(-12.5, -88, 25, 4); }
+      else if (L.hat === 'beret') { ell(g, -2, -90, 14, 5, '#e8484f'); }
+      // umbrella on rainy days
+      if (p.umbrella && !holding) {
+        g.strokeStyle = '#3b2a10'; g.lineWidth = 2; g.beginPath(); g.moveTo(14, -56); g.lineTo(14, -112); g.stroke();
+        g.fillStyle = pick2(L, ['#ff6f9a', '#4fa8ff', '#ffcc1a', '#59d18a']); g.beginPath(); g.arc(14, -112, 30, Math.PI, 0); g.fill();
+        g.fillStyle = 'rgba(255,255,255,0.3)'; g.beginPath(); g.arc(14, -112, 30, Math.PI * 1.35, Math.PI * 1.6); g.lineTo(14, -112); g.fill();
+      }
+      g.restore();
+    }
+    const pick2 = (L, arr) => arr[(L.shirt.charCodeAt(2) + L.skin.charCodeAt(3)) % arr.length];
+    function drawCup(g, x, y) {
+      const col = R ? R.drink.col : '#ffe45c';
+      g.fillStyle = '#fff'; g.beginPath(); g.moveTo(x - 6, y - 14); g.lineTo(x + 6, y - 14); g.lineTo(x + 5, y); g.lineTo(x - 5, y); g.fill();
+      g.fillStyle = col === 'rainbow' ? '#ff9ab8' : col; g.fillRect(x - 5, y - 12, 10, 4);
+      g.strokeStyle = '#ff6f9a'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x + 2, y - 14); g.lineTo(x + 5, y - 22); g.stroke();
+    }
+    let placed = [];
+    const bubbleHidden = (p) => !p.lane && Math.abs(p.x - SX) < 112 && p.state !== 'queue' && p.state !== 'order';
+    // at most 3 bubbles at once, the most important and newest first, and never on top of each other
+    function drawBubbles(g, people) {
+      placed = [];
+      const prio = (p) => (p.critic ? 3 : p.bubble.kind === 'want' ? 1 : 2);
+      const cand = people.filter((p) => p.bubble && !bubbleHidden(p)).sort((a, b) => prio(b) - prio(a) || (a.bubble.max - a.bubble.t) - (b.bubble.max - b.bubble.t));
+      let shown = 0;
+      for (const p of cand) { if (shown >= 3) break; if (drawBubble(g, p)) shown++; }
+    }
+    function drawBubble(g, p) {
+      const b = p.bubble; if (!b) return false;
+      const s = p.look.h;
+      const y = GY + (p.lane ? 28 : -4) - 112 * s * (p.lane ? 1 : 0.93) - (p.umbrella && !p.cup ? 34 : 0);
+      const a = clamp(b.t / 0.3, 0, 1) * clamp((b.max - b.t) / 0.15, 0, 1);
+      const pop = b.max - b.t < 0.15 ? (b.max - b.t) / 0.15 : 1;
+      const hasText = p.say && b.kind !== 'want';
+      g.font = '700 13px Fredoka, sans-serif';
+      const halfW = Math.max(26, hasText ? g.measureText(p.say).width / 2 + 6 : 0);
+      const bx = clamp(p.x, halfW + 4, VW - halfW - 4);
+      const top = hasText ? 56 : 42;
+      let by = null;
+      for (const tryY of [y, y - 60, y - 120]) {
+        const hit = placed.some((q) => bx - halfW < q.x2 && bx + halfW > q.x1 && tryY - top < q.y2 && tryY + 6 > q.y1);
+        if (!hit) { by = tryY; break; }
+      }
+      if (by === null) return false;
+      placed.push({ x1: bx - halfW - 4, x2: bx + halfW + 4, y1: by - top - 4, y2: by + 8 });
+      g.save(); g.globalAlpha = a; g.translate(bx, by); g.scale(pop, pop);
+      const good = b.kind === 'yum' || b.kind === 'ok' || b.kind === 'want';
+      g.fillStyle = '#fff'; rr(g, -22, -38, 44, 34, 12); g.fill();
+      g.strokeStyle = good ? '#59d18a' : '#ff8a8a'; g.lineWidth = 2.5; g.stroke();
+      g.fillStyle = '#fff'; g.beginPath(); g.moveTo(-5, -5); g.lineTo(5, -5); g.lineTo(0, 4); g.fill();
+      drawMoodIcon(g, b.kind, 0, -21, 12);
+      if (p.say && (b.kind !== 'want')) {
+        g.font = '700 13px Fredoka, sans-serif'; g.textAlign = 'center';
+        g.lineWidth = 3.5; g.strokeStyle = '#fff'; g.strokeText(p.say, 0, -46); g.fillStyle = good ? '#1d8a4f' : '#c83a40'; g.fillText(p.say, 0, -46);
+      }
+      g.restore();
+      return true;
+    }
+    function drawMoodIcon(g, k, x, y, r) {
+      g.save(); g.translate(x, y);
+      const face = (col, mouth) => {
+        circ(g, 0, 0, r, col);
+        g.fillStyle = '#3b2a10'; circ(g, -r * 0.35, -r * 0.2, r * 0.13, '#3b2a10'); circ(g, r * 0.35, -r * 0.2, r * 0.13, '#3b2a10');
+        g.strokeStyle = '#3b2a10'; g.lineWidth = r * 0.14; g.beginPath();
+        if (mouth === 'smile') g.arc(0, r * 0.05, r * 0.45, 0.15 * Math.PI, 0.85 * Math.PI);
+        else if (mouth === 'frown') g.arc(0, r * 0.6, r * 0.4, 1.2 * Math.PI, 1.8 * Math.PI);
+        else if (mouth === 'o') g.arc(0, r * 0.4, r * 0.18, 0, Math.PI * 2);
+        else { g.moveTo(-r * 0.35, r * 0.35); g.lineTo(r * 0.35, r * 0.35); }
+        g.stroke();
+      };
+      if (k === 'yum') { g.fillStyle = '#ff4f86'; g.beginPath(); g.moveTo(0, r * 0.95); g.bezierCurveTo(-r * 1.5, -r * 0.05, -r * 0.7, -r * 1.25, 0, -r * 0.45); g.bezierCurveTo(r * 0.7, -r * 1.25, r * 1.5, -r * 0.05, 0, r * 0.95); g.fill(); circ(g, -r * 0.4, -r * 0.35, r * 0.18, 'rgba(255,255,255,0.7)'); }
+      else if (k === 'ok') face('#ffd43b', 'smile');
+      else if (k === 'want') { drawCup(g, 0, r * 0.8); }
+      else if (k === 'sour') { face('#d4f04a', 'frown'); }
+      else if (k === 'sweet') { g.fillStyle = '#fff'; rr(g, -r * 0.7, -r * 0.7, r * 1.4, r * 1.4, r * 0.2); g.fill(); g.strokeStyle = '#c8b8a0'; g.lineWidth = 1.5; g.stroke(); g.fillStyle = '#e8484f'; g.font = `700 ${r}px Fredoka`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('!', 0, 1); }
+      else if (k === 'watery') { g.fillStyle = '#4fa8ff'; g.beginPath(); g.moveTo(0, -r); g.quadraticCurveTo(r, r * 0.2, 0, r); g.quadraticCurveTo(-r, r * 0.2, 0, -r); g.fill(); }
+      else if (k === 'warm') { face('#ff8a3a', 'o'); g.fillStyle = '#4fa8ff'; g.beginPath(); g.ellipse(r * 0.85, -r * 0.5, r * 0.18, r * 0.3, 0, 0, Math.PI * 2); g.fill(); }
+      else if (k === 'icy') { face('#a8dcff', 'line'); }
+      else if (k === 'strong') { face('#c890ff', 'frown'); }
+      else if (k === 'pricey') { circ(g, 0, 0, r, '#ffcc1a'); g.fillStyle = '#8a6000'; g.font = `700 ${r * 1.2}px Fredoka`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('$', 0, 1); g.strokeStyle = '#e8484f'; g.lineWidth = r * 0.2; g.beginPath(); g.moveTo(-r, -r); g.lineTo(r, r); g.stroke(); }
+      else if (k === 'line' || k === 'slow') { circ(g, 0, 0, r, '#fff'); g.strokeStyle = '#3b2a10'; g.lineWidth = r * 0.15; g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.moveTo(0, 0); g.lineTo(0, -r * 0.6); g.moveTo(0, 0); g.lineTo(r * 0.45, r * 0.2); g.stroke(); }
+      else if (k === 'soldout') { face('#c8ccd8', 'frown'); }
+      g.restore();
+    }
+
+    function frame() {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.save();
+      ctx.scale(S, S);
+      const id = R ? R.loc.id : locById(save.loc).id;
+      const w = R ? weatherNow() : (plan ? plan.today.type : 'sunny');
+      const hour = R ? R.hour : 10.5;
+      if (R && R.shake > 0) { ctx.translate((Math.random() - 0.5) * R.shake, 0); R.shake = Math.max(0, R.shake - 0.4); }
+      drawBackdrop(ctx, id, VW, VH, GY - 64, w, hour, 1);
+      drawStreet(ctx, id);
+      // people behind (back lane) then the stand then the front lane
+      const people = R ? R.people : demoPeople;
+      for (const p of people) if (!p.lane) drawPerson(ctx, p);
+      drawStand(ctx);
+      for (const p of people) if (p.lane) drawPerson(ctx, p);
+      drawBubbles(ctx, people);
+      // tips
+      if (R) for (const tp of R.tips) {
+        const a = clamp((tp.life - tp.t) / 0.5, 0, 1);
+        ctx.globalAlpha = a;
+        const pulse = 1 + Math.sin(time * 10) * 0.08;
+        circ(ctx, tp.x, tp.y, 18 * pulse, 'rgba(255,220,80,0.35)');
+        coinIcon(ctx, tp.x, tp.y, 13 * pulse);
+        ctx.globalAlpha = 1;
+      }
+      // particles
+      for (const p of parts) {
+        const a = clamp(p.life / (p.max || 1), 0, 1);
+        if (p.kind === 'rain') { ctx.strokeStyle = 'rgba(180,210,255,0.6)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - 3, p.y + 12); ctx.stroke(); continue; }
+        ctx.globalAlpha = a;
+        if (p.kind === 'coin') coinIcon(ctx, p.x, p.y, 7);
+        else if (p.kind === 'heart') { ctx.fillStyle = '#ff6f9a'; ctx.beginPath(); ctx.moveTo(p.x, p.y + 6); ctx.bezierCurveTo(p.x - 9, p.y - 1, p.x - 4, p.y - 8, p.x, p.y - 3); ctx.bezierCurveTo(p.x + 4, p.y - 8, p.x + 9, p.y - 1, p.x, p.y + 6); ctx.fill(); }
+        else if (p.kind === 'spark') { ctx.fillStyle = '#ffcc1a'; ctx.fillRect(p.x - 2, p.y - 2, 4, 4); }
+        else if (p.kind === 'drop') circ(ctx, p.x, p.y, 3, R ? (R.drink.col === 'rainbow' ? '#ff9ab8' : R.drink.col) : '#ffe45c');
+      }
+      ctx.globalAlpha = 1;
+      for (const f of floaters) {
+        ctx.globalAlpha = clamp(f.life, 0, 1);
+        ctx.font = `700 ${f.size}px Fredoka, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.strokeText(f.text, f.x, f.y);
+        ctx.fillStyle = f.col; ctx.fillText(f.text, f.x, f.y);
+      }
+      ctx.globalAlpha = 1;
+      // heat shimmer on hot days
+      if (w === 'hot') { ctx.fillStyle = 'rgba(255,200,120,0.06)'; ctx.fillRect(0, 0, VW, VH); }
+      if (w === 'rainy') { ctx.fillStyle = 'rgba(60,80,110,0.12)'; ctx.fillRect(0, 0, VW, VH); }
+      // a message banner
+      if (R && R.msg) {
+        const m = R.msg;
+        ctx.globalAlpha = clamp(m.t * 2, 0, 1);
+        ctx.font = '700 22px Fredoka, sans-serif'; ctx.textAlign = 'center';
+        const tw = Math.min(VW - 20, ctx.measureText(m.text).width + 34);
+        const y = Math.max(70 / S + 30, GY - 330);
+        ctx.fillStyle = 'rgba(255,253,245,0.95)'; rr(ctx, VW / 2 - tw / 2, y - 22, tw, 42, 16); ctx.fill();
+        ctx.strokeStyle = '#ffcc1a'; ctx.lineWidth = 3; ctx.stroke();
+        ctx.fillStyle = '#3b2a10'; ctx.fillText(m.text, VW / 2, y + 1);
+        ctx.globalAlpha = 1;
+      }
+      // shout rings
+      if (R && R.shoutT > 0) { const k = (time * 2) % 1; ctx.strokeStyle = `rgba(255,111,154,${1 - k})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(SX - 20, GY - 150, 40 + k * 120, -2.4, -0.7); ctx.stroke(); }
+      ctx.restore();
+    }
+    function coinIcon(g, x, y, r) {
+      const gr = g.createRadialGradient(x - r * 0.4, y - r * 0.4, 1, x, y, r * 1.2);
+      gr.addColorStop(0, '#fff3b0'); gr.addColorStop(0.5, '#ffd43b'); gr.addColorStop(1, '#d99a0e');
+      g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = 'rgba(150,95,0,0.7)'; g.lineWidth = Math.max(1, r * 0.12); g.beginPath(); g.arc(x, y, r * 0.65, 0, Math.PI * 2); g.stroke();
+    }
+    // people strolling past the title screen
+    let demoPeople = [];
+    function updateDemo(dt) {
+      if (scene === 'day' || scene === 'paused') return;
+      if (Math.random() < dt * 0.7 && demoPeople.length < 8) {
+        const dir = Math.random() < 0.5 ? 1 : -1;
+        demoPeople.push({ x: dir > 0 ? -40 : VW + 40, dir, sp: rand(40, 60), state: 'walk', phase: 0, lane: Math.random() < 0.5 ? 0 : 1, look: makeLook(Math.random() < 0.3, {}), bubble: null, cup: Math.random() < 0.3 });
+      }
+      for (const p of demoPeople) { p.x += p.dir * p.sp * dt; p.phase += dt * p.sp / 9; }
+      demoPeople = demoPeople.filter((p) => p.x > -60 && p.x < VW + 60);
+    }
+
+    function confetti(n) {
+      const cols = ['#ffcc1a', '#ff6f9a', '#59d18a', '#4fa8ff', '#ff9a4a'];
+      for (let i = 0; i < n; i++) { const c = document.createElement('div'); c.className = 'confetti'; c.style.left = Math.random() * 100 + 'vw'; c.style.background = cols[i % cols.length]; c.style.animationDuration = 1.6 + Math.random() * 1.8 + 's'; c.style.animationDelay = Math.random() * 0.4 + 's'; document.body.appendChild(c); setTimeout(() => c.remove(), 4000); }
+    }
+
+    // =====================================================================
+    // Menus
+    // =====================================================================
+    function showChallenges() {
+      scene = 'challenges';
+      const list = $('ch-list'); list.innerHTML = '';
+      CHALLENGES.forEach((c, i) => {
+        const st = Number(save.ch[c.id]) || 0;
+        const open = i === 0 || (Number(save.ch[CHALLENGES[i - 1].id]) || 0) > 0;
+        const el = document.createElement('div'); el.className = 'ch' + (open ? '' : ' locked');
+        el.innerHTML = `<b>${open ? '' : '🔒 '}${c.name}</b><small>${c.desc}</small><small>Start with ${money(c.money)} · ${locById(c.loc).name}</small><span class="st">${'<i>★</i>'.repeat(st)}${'★'.repeat(3 - st)}</span>`;
+        if (open) el.onclick = () => { audio(); sfx.click(); planTab = 'buy'; showPlan(newPlan(c)); };
+        list.appendChild(el);
+      });
+      showOverlay('challenges');
+    }
+    function showBadges() {
+      scene = 'badges';
+      $('b-list').innerHTML = BADGES.map((b) => `<div class="bdg ${save.badges.includes(b.id) ? 'got' : ''}"><b>${save.badges.includes(b.id) ? '🎖' : '🔒'} ${b.name}</b>${b.desc}</div>`).join('') +
+        `<div class="bdg got"><b>📊 Your stats</b>${save.stats.cups} cups sold · ${money(save.stats.earned)} earned · ${save.stats.days} days · ${save.stats.tips} tips</div>`;
+      showOverlay('badges');
+    }
+    $('t-play').onclick = () => { audio(); planTab = 'buy'; showPlan(newPlan(null)); };
+    $('t-ch').onclick = () => { audio(); showChallenges(); };
+    $('t-badges').onclick = () => { audio(); showBadges(); };
+    $('ch-back').onclick = showTitle;
+    $('b-back').onclick = showTitle;
+    $('tg-sound').onclick = $('pa-sound').onclick = () => { audio(); toggleMute(); };
+    $('tg-reset').onclick = () => {
+      if (!confirm('Start a brand new game? Your money, stand and progress will be reset (badges and challenge stars stay).')) return;
+      const keep = { badges: save.badges, ch: save.ch, muted: save.muted };
+      save = Object.assign(freshSave(), keep); persist(); showTitle();
+    };
+    document.querySelectorAll('#tabs .tab').forEach((t) => (t.onclick = () => { sfx.click(); planTab = t.dataset.tab; renderPlan(); }));
+    $('p-open').onclick = () => { audio(); openStand(); };
+    $('p-menu').onclick = () => { if (plan && plan.mode === 'challenge') showChallenges(); else showTitle(); };
+    $('r-next').onclick = () => { if (R && R.mode === 'challenge') { R = null; showChallenges(); } else { R = null; planTab = 'buy'; showPlan(newPlan(null)); } };
+    $('r-menu').onclick = () => { R = null; showTitle(); };
+
+    // =====================================================================
+    // Loop
+    // =====================================================================
+    function resize() {
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      W = window.innerWidth; H = window.innerHeight;
+      canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+      const land = W / H >= 1.15;
+      S = land ? H / 560 : W / 440;
+      VW = W / S; VH = H / S;
+      GY = VH - (land ? 118 : 170);
+      SX = land ? VW / 2 + 40 : VW / 2 + 70;
+    }
+    window.addEventListener('resize', resize);
+    let last = performance.now();
+    function loop(now) {
+      requestAnimationFrame(loop);
+      const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+      last = now;
+      update(dt);
+      updateDemo(dt);
+      frame();
+    }
+
+    // Handy for testing: LemonadeStand.open(), LemonadeStand.step(20), LemonadeStand.sim()
+    window.LemonadeStand = {
+      get state() { return { scene, R, save, plan }; },
+      plan: () => showPlan(newPlan(null)), open: () => openStand(), title: showTitle, challenges: showChallenges, badges: showBadges,
+      step(sec) { for (let k = 0; k < Math.round(sec * 30); k++) update(1 / 30); frame(); },
+      helperBuy: (n) => helperBuy(n || estimateCups()), shout, tab: (t) => { planTab = t; renderPlan(); },
+      tasteOf, estimateCups,
+      // plays many career days with a simple "sensible kid" strategy and reports how it went
+      selftest(days, smart) {
+        const out = [];
+        for (let d = 0; d < days; d++) {
+          planTab = 'buy'; showPlan(newPlan(null));
+          // buy upgrades/places the way a player might
+          if (smart) {
+            for (const u of ['pitcher', 'sign', 'register', 'umbrella', 'cooler', 'juicer', 'radio', 'music', 'helper', 'neon']) { const U = UPGRADES.find((x) => x.id === u); if (!plan.ups.has(u) && plan.money > U.cost + 25 && (!U.need || plan.ups.has(U.need))) { plan.money = cents(plan.money - U.cost); plan.ups.add(u); } }
+            for (const l of LOCATIONS) if (!save.locs.includes(l.id) && plan.rep >= l.rep && plan.money > l.permit + 40) { plan.money = cents(plan.money - l.permit); save.locs.push(l.id); }
+            const best = LOCATIONS.filter((l) => save.locs.includes(l.id) && plan.money > l.rent + 15).pop(); if (best) plan.loc = save.loc = best.id;
+            const t = plan.today; const cold = t.fType === 'rainy' || t.fType === 'cold';
+            const dr = DRINKS.filter((x) => drinkUnlocked(x) && !!x.hot === cold).pop(); if (dr) plan.drink = dr.id;
+            commitPlan();
+          }
+          const dd = drinkById(plan.drink), rec = planRecipe(), t = plan.today, loc = locById(plan.loc);
+          const temp = (plan.ups.has('radio') ? t.temp : t.fTemp) + (loc.temp || 0);
+          if (!dd.hot) rec.ice = idealIce(dd, temp);
+          const wtp = loc.price * dd.price * (0.55 + 0.75 * thirstOf(dd, temp, t.fType)) * (0.85 + plan.rep / 100 * 0.35);
+          rec.price = Math.max(0.25, Math.round(wtp * 0.85 * 20) / 20);
+          helperBuy(estimateCups());
+          const m0 = plan.money;
+          if (spendable() < 0 || plan.money < loc.rent) { plan.loc = save.loc = 'street'; }
+          openStand();
+          if (scene !== 'day') { out.push(`day ${save.day}: could not open`); break; }
+          R.speed = 4;
+          let guard = 0;
+          while (scene === 'day' && guard++ < 20000) { update(1 / 30); if (R && R.queue[0] && R.queue[0].state === 'order' && Math.random() < 0.05) serveFront(); }
+          if (scene !== 'results') { out.push(`day ${save.day}: stuck in ${scene}`); break; }
+          const st = R.st;
+          out.push(`d${save.day - 1} ${loc.id} ${t.type} ${t.temp}F ${dd.id} $${rec.price.toFixed(2)} sold=${st.sold} yum=${st.yum} bad=${st.bad} pricey=${st.fb.pricey || 0} soldout=${st.fb.soldout || 0} money=${save.money.toFixed(2)} rep=${save.rep.toFixed(0)} stars=${save.stars} ups=${save.ups.length}${isFinite(save.money) ? '' : ' NaN!'}`);
+          R = null;
+        }
+        return out;
+      },
+    };
+
+    resize();
+    const q = params.get('scene');
+    if (params.get('money')) save.money = Number(params.get('money'));
+    if (params.get('stars')) save.stars = Number(params.get('stars'));
+    if (params.get('rep')) save.rep = Number(params.get('rep'));
+    if (params.get('day')) { save.day = Number(params.get('day')); save.today = null; save.stats.days = save.day - 1; }
+    if (params.get('loc')) { save.loc = params.get('loc'); if (!save.locs.includes(save.loc)) save.locs.push(save.loc); }
+    if (params.get('ups')) save.ups = params.get('ups').split(',');
+    if (params.get('drink')) save.drink = params.get('drink');
+    if (params.get('wx') && q) { save.today = null; today(); save.today.type = save.today.fType = params.get('wx'); const W0 = WEATHER[params.get('wx')]; save.today.temp = save.today.fTemp = Math.round((W0.t[0] + W0.t[1]) / 2); if (params.get('ev')) save.today.event = params.get('ev'); }
+    if (q === 'plan') { planTab = params.get('tab') || 'buy'; showPlan(newPlan(null)); if (params.get('buy')) helperBuy(estimateCups()); else if (params.get('tab')) renderPlan(); }
+    else if (q === 'day') {
+      planTab = "buy"; const chp = params.get("ch") ? CHALLENGES.find((c) => c.id === params.get("ch")) : null; showPlan(newPlan(chp)); if (params.get("drink2")) plan.drink = params.get("drink2"); helperBuy(estimateCups()); openStand();
+      if (params.get('sim')) { const n = Number(params.get('sim')); let t = 0; while (t < n && scene === 'day') { update(1 / 30); updateDemo(1 / 30); t += 1 / 30; } }
+      if (params.get('speed')) { R.speed = Number(params.get('speed')); }
+    }
+    else if (q === 'results') {
+      planTab = 'buy'; showPlan(newPlan(null)); helperBuy(estimateCups()); openStand();
+      R.speed = 4; let t = 0; while (scene === 'day' && t < 40) { update(1 / 30); t += 1 / 30; }
+      if (scene === 'day') { R.hour = CLOSE; update(0.01); }
+      endDay();
+    }
+    else if (q === "challenges") showChallenges();
+    else if (params.get("selftest")) { const r = window.LemonadeStand.selftest(Number(params.get("selftest")), !!params.get("smart")); const pre = document.createElement("pre"); pre.id = "selftest"; pre.textContent = r.join(String.fromCharCode(10)); document.body.appendChild(pre); }
+    else if (q === 'badges') showBadges();
+    else showTitle();
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

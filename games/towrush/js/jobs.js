@@ -85,7 +85,9 @@ const Jobs = (() => {
       j.elapsed = 0;
       j.condition = 1;
       j.grab = 0;
-      j.startReward = Math.round(((C.rewardBase + far * C.rewardPerDistance) * K[type].pay) / 10) * 10;
+      j.startReward = Math.round(((C.rewardBase + far * C.rewardPerDistance) * K[type].pay * (Extras.rushOn(g) ? C.rushHour.payMul : 1)) / 10) * 10;
+      j.rushBonus = Extras.rushOn(g);
+      j.towCrashes = 0;
       j.reward = j.startReward;
       j.rivalTimer = Math.max(C.rivalDelayMin, C.rivalDelay - g.jobsDone * C.rivalDelayPerJob);
       // Nobody else is coming for an illegally parked car; it's your contract.
@@ -157,6 +159,7 @@ const Jobs = (() => {
     r.maxSpeed *= 0.85;
     for (const o of g.rivals) if (o.state === 'toJob') sendHome(o);
     g.jobsLost++;
+    Extras.streakLost(g, 'a rival got that one');
     g.toast('TOO SLOW!', `${r.company.name} hooked the car first`, '#ff6b5a');
     Sound.lose();
     endJob(g, 3.5);
@@ -177,7 +180,11 @@ const Jobs = (() => {
     j.car.broken = false;
     j.car.towDist = dist(t, j.car);
     t.towing = j.car;
+    // Beat rivals who were already on their way? That counts for the contract.
+    if (g.rivals.some((r) => r.state === 'toJob')) g.track.beatRivals++;
     for (const r of g.rivals) if (r.state === 'toJob') sendHome(r);
+    j.towCrashes = 0;
+    j.hookedAt = g.clock;
     clearScene(g);
     Sound.hook();
     if (j.type === 'parked') {
@@ -194,22 +201,31 @@ const Jobs = (() => {
   // A crash while towing a VIP car knocks money off the payout.
   function towCrash(g) {
     const j = g.job;
-    if (j.state !== 'towing' || j.type !== 'vip') return;
+    if (j.state !== 'towing') return;
+    j.towCrashes = (j.towCrashes || 0) + 1;
+    if (j.type !== 'vip') return;
     const before = j.condition;
-    j.condition = Math.max(K.vip.minCondition, j.condition - K.vip.hitDamage);
+    j.condition = Math.max(K.vip.minCondition, j.condition - K.vip.hitDamage * (g.stats.vipDamageMul || 1));
     if (j.condition < before) g.notice(`VIP car damaged! Condition ${Math.round(j.condition * 100)}%`, '#ff6b5a');
   }
 
   function deliver(g) {
     const j = g.job, t = g.truck;
-    const jobPay = Math.round(j.payout * (j.type === 'vip' ? j.condition : 1));
+    // Delivery streak: every car in a row without losing one pays a little more.
+    const mul = Extras.streakMul(g.streak);
+    const jobPay = Math.round(j.payout * (j.type === 'vip' ? j.condition : 1) * mul);
     const total = jobPay + C.towFee;
     g.money += total;
     g.earned += total;
     g.jobsDone++;
+    g.streak++;
+    g.track.bestStreak = Math.max(g.track.bestStreak, g.streak);
+    if (j.type === 'vip' && j.condition >= 0.8) g.track.vipGood = 1;
+    if (j.elapsed + (g.clock - (j.hookedAt || g.clock)) <= 45) g.track.fast = 1;
+    if (!j.towCrashes) g.track.cleanTows++;
     g.yardCars.push(j.car.color);
     g.float(t.x, t.y - 40, `+$${total}`, '#5ee07a');
-    const note = j.type === 'vip' ? ` (${Math.round(j.condition * 100)}% condition)` : '';
+    const note = (j.type === 'vip' ? ` (${Math.round(j.condition * 100)}% condition)` : '') + (mul > 1 ? ` x${mul.toFixed(1)} streak` : '');
     g.toast('DELIVERED!', `+$${jobPay} job${note} + $${C.towFee} tow fee`, '#5ee07a');
     Sound.cash();
     t.towing = null;
@@ -221,6 +237,7 @@ const Jobs = (() => {
     if (g.job.state !== 'towing') return;
     g.truck.towing = null;
     g.jobsLost++;
+    Extras.streakLost(g);
     endJob(g, 3);
   }
 

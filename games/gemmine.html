@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Gem Mine – Match-3 Puzzle Game | Potato Games</title>
-  <meta name="description" content="Dig deep in Gem Mine! Swap shiny gems to make matches, build line blasters, bombs and rainbow gems, dig through dirt, smash stones and bring gold to the surface. 24 levels across four mines. A free match-3 puzzle game on Potato.">
+  <meta name="description" content="Dig deep in Gem Mine! Swap shiny gems to make matches, build line blasters, bombs and rainbow gems, charge your Mega Drill, pop spreading goo and open treasure chests. 30 levels across five mines plus a new Daily Dig every day. A free match-3 puzzle game on Potato.">
   <link rel="icon" href="gemmine-icon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
@@ -74,6 +74,13 @@
     .lvl.next { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.25), 0 0 18px rgba(255,230,140,0.55); animation: nextpulse 1.4s ease-in-out infinite; }
     @keyframes nextpulse { 50% { transform: translateY(-2px) scale(1.04); } }
     .lvl.locked { opacity: 0.45; cursor: default; }
+    .daily { display: flex; align-items: center; gap: 12px; margin: 4px 0 10px; padding: 10px 14px; border-radius: 16px; text-align: left; background: linear-gradient(135deg, #5a3a0e, #2a1b08); border: 2px solid rgba(255,212,59,0.6); box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), 0 6px 16px rgba(0,0,0,0.3); }
+    .daily .dicon canvas { display: block; }
+    .daily .dtext { flex: 1; display: flex; flex-direction: column; }
+    .daily b { font: 700 21px var(--display); color: #ffe58a; text-shadow: 0 2px 0 rgba(0,0,0,0.5); }
+    .daily small { font-weight: 800; font-size: 13px; color: rgba(255,240,200,0.8); }
+    .daily.done { border-color: rgba(62,207,142,0.6); }
+    .daily .btn { padding: 9px 20px; font-size: 17px; }
     .tip { display: flex; gap: 10px; align-items: flex-start; text-align: left; margin: 0 0 14px; padding: 10px 14px; border-radius: 14px; background: rgba(122,215,255,0.12); border: 1px solid rgba(122,215,255,0.35); color: #d8f3ff; font-weight: 800; font-size: 15px; line-height: 1.4; }
     .tip[hidden] { display: none; }
     .tip b { flex: none; padding: 2px 8px; border-radius: 8px; background: #7ad7ff; color: #0b2a3a; font: 700 14px var(--display); }
@@ -112,6 +119,15 @@
     .up small { color: var(--muted); margin: 6px 0 10px; flex: 1; }
     .up button { align-self: flex-start; padding: 7px 16px; font-size: 15px; }
     .up.owned { border-color: rgba(62,207,142,0.5); }
+    @media (max-width: 560px) {
+      .card { padding: 18px 14px; border-radius: 20px; }
+      .levels { grid-template-columns: repeat(3, 1fr); }
+      .logo { font-size: 48px; }
+      .how { font-size: 14px; }
+      .btn { padding: 11px 20px; font-size: 18px; }
+      .goal { width: 100px; }
+      .stats b { font-size: 18px; }
+    }
     .confetti { position: fixed; top: -12px; width: 10px; height: 14px; border-radius: 2px; pointer-events: none; animation: fall linear forwards; z-index: 50; }
     @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
   </style>
@@ -129,10 +145,13 @@
         <li><b>Match 4</b> for a line blaster, an <b>L or T</b> for a bomb, and <b>5 in a row</b> for a rainbow gem!</li>
         <li>Finish the <b>goals</b> before you run out of moves: collect gems, dig dirt, smash stones, free <b>frozen gems</b> and drop gold to the bottom.</li>
         <li>Moves left over turn into a <b>Gem Rush</b> for bonus points. Big scores earn <b>3 stars</b>.</li>
-        <li>Spend coins on <b>pickaxes, dynamite</b> and lucky perks in the Shop.</li>
+        <li>Clearing gems charges your <b>Mega Drill</b>. When it glows, use it to blast a whole row and column!</li>
+        <li>Pop the sticky <b>goo</b> before it spreads, and crack open <b>treasure chests</b> for prizes.</li>
+        <li>Play the <b>Daily Dig</b> every day for bonus coins and a free booster. Spend coins in the Shop!</li>
       </ul>
       <div class="row">
         <button class="btn" id="play-btn">Play</button>
+        <button class="btn gold" id="t-daily-btn">Daily Dig</button>
         <button class="btn ghost" id="t-shop-btn">Shop</button>
       </div>
     </div>
@@ -142,6 +161,7 @@
     <div class="card wide">
       <h2>The Mine</h2>
       <div class="pills"><span class="pill stars" id="m-stars">0 ★</span><span class="pill coins" id="m-coins">0 coins</span></div>
+      <div class="daily" id="m-daily"><span class="dicon" id="d-icon"></span><div class="dtext"><b>Daily Dig</b><small id="d-info"></small></div><button class="btn gold" id="d-btn">Dig!</button></div>
       <div id="worlds"></div>
       <div class="row" style="margin-top:14px">
         <button class="btn ghost" id="m-shop-btn">Shop</button>
@@ -227,8 +247,10 @@
     // =====================================================================
     // Tuning
     // =====================================================================
-    const VW = 1000, VH = 640, HUD_H = 44;
-    const N = 8, CELL = 66, BX = 418, BY = 74;   // the board is 8x8 cells
+    const HUD_H = 44;
+    const N = 8, CELL = 66;   // the board is 8x8 cells
+    // Two layouts: wide screens get the side panel, tall phone screens get the panel on top and the board below.
+    let VW = 1000, VH = 640, BX = 418, BY = 74, portrait = false;
     const PANEL = { x: 20, y: 58, w: 374, h: 558 };
 
     const GEMS = [
@@ -246,6 +268,7 @@
       { name: 'Crystal Cavern', sub: 'Frozen gems and six colours', top: '#323a7a', bot: '#0d0f2c', rock: '#434d8f', glow: '#7ad7ff', crystal: ['#a6ecff', '#c49cff'], tile: ['#343866', '#292c55'], frame: 'crystal', amb: 'glint' },
       { name: 'Lava Depths', sub: 'Hot rocks and tight tunnels', top: '#55201a', bot: '#150605', rock: '#6e2b1a', glow: '#ff6a2a', crystal: ['#ffb02e', '#ff5a1e'], tile: ['#3e2a2c', '#312123'], frame: 'basalt', amb: 'ember' },
       { name: 'Diamond Core', sub: 'Everything at once!', top: '#185461', bot: '#06161b', rock: '#2a6a75', glow: '#c4f7ff', crystal: ['#ffffff', '#9ff0ff'], tile: ['#24444f', '#1c3842'], frame: 'silver', amb: 'twinkle' },
+      { name: 'Goo Grotto', sub: 'Sticky goo and treasure chests', top: '#1d5a3c', bot: '#05170d', rock: '#2f6b48', glow: '#8dff9a', crystal: ['#d4ffb0', '#5dffa0'], tile: ['#2b4a3b', '#223e31'], frame: 'moss', amb: 'spore' },
     ];
 
     const SHAPES = {
@@ -297,8 +320,42 @@
       { moves: 34, colors: 6, shape: 'full', stones: 6, hp: 2, ice: 5, goals: [['stone'], ['ice']], s: [8000, 11000] },
       { moves: 27, colors: 6, shape: 'plus', goals: [['color', 1, 16], ['color', 4, 16], ['score', 3500]], s: [5000, 6500] },
       { moves: 38, colors: 5, shape: 'octagon', dirt: 'all', stones: 6, hp: 2, gold: 2, goals: [['dirt'], ['stone'], ['gold']], s: [14000, 17000] },
+
+      { moves: 22, colors: 5, shape: 'full', goo: 4, goals: [['goo']], s: [6000, 8500], tip: 'Green goo! Match right next to it to pop it. If a move pops no goo at all, the goo grows!' },
+      { moves: 24, colors: 5, shape: 'corners', goo: 3, chests: 4, goals: [['goo'], ['color', 3, 15]], s: [7000, 9500], tip: 'Treasure chests! Match next to one to open it for coins, moves, boosters or a special gem.' },
+      { moves: 26, colors: 5, shape: 'octagon', dirt: 'center', goo: 4, chests: 2, goals: [['goo'], ['dirt']], s: [7500, 10500], tip: 'Your Mega Drill fills up as you clear gems. When it glows, tap it, then tap the board!' },
+      { moves: 26, colors: 6, shape: 'plus', goo: 5, stones: 3, chests: 2, goals: [['goo'], ['stone']], s: [6000, 8000] },
+      { moves: 30, colors: 5, shape: 'valley', gold: 2, goo: 4, chests: 3, goals: [['gold'], ['goo']], s: [9500, 12500] },
+      { moves: 34, colors: 5, shape: 'full', dirt: 'ring', goo: 6, stones: 4, hp: 2, chests: 3, ice: 4, goals: [['goo'], ['dirt'], ['stone']], s: [12000, 16000] },
     ];
-    const worldOf = (n) => Math.floor((n - 1) / 6);
+    const worldOf = (n) => (n === 0 ? dailyDef().wi : Math.floor((n - 1) / 6));
+    const levelDef = (n) => (n === 0 ? dailyDef() : LEVELS[n - 1]);
+
+    // ---- Daily Dig: a fresh mine every day, built from the date ----
+    const dayNum = (ms = Date.now()) => Math.floor((ms - new Date(ms).getTimezoneOffset() * 60000) / 86400000);
+    let dailyCache = null;
+    function dailyDef() {
+      const d = dayNum();
+      if (dailyCache && dailyCache.day === d) return dailyCache;
+      const rnd = seeded(d * 31 + 7);
+      const shape = ['full', 'corners', 'octagon', 'plus', 'valley', 'peak', 'wide'][Math.floor(rnd() * 7)];
+      const pool = ['dirt', 'stone', 'gold', 'ice', 'goo', 'color'];
+      const feats = [];
+      while (feats.length < 2) { const f = pool[Math.floor(rnd() * pool.length)]; if (!feats.includes(f)) feats.push(f); }
+      const L = { moves: 24, colors: 5, shape, chests: 2 + Math.floor(rnd() * 2), goals: [], day: d };
+      for (const f of feats) {
+        if (f === 'dirt') { L.dirt = ['center', 'bottom', 'rows', 'checker'][Math.floor(rnd() * 4)]; L.goals.push(['dirt']); L.moves += 5; }
+        else if (f === 'stone') { L.stones = 5; L.hp = rnd() < 0.5 ? 2 : 1; L.goals.push(['stone']); L.moves += 3; }
+        else if (f === 'gold') { L.gold = 2; L.goals.push(['gold']); L.moves += 5; }
+        else if (f === 'ice') { L.ice = 6; L.goals.push(['ice']); L.moves += 3; }
+        else if (f === 'goo') { L.goo = 4; L.goals.push(['goo']); L.moves += 3; }
+        else L.goals.push(['color', Math.floor(rnd() * 5), 15]);
+      }
+      L.s = [Math.round(L.moves * 230 / 500) * 500, Math.round(L.moves * 330 / 500) * 500];
+      L.wi = d % WORLDS.length;
+      dailyCache = L;
+      return L;
+    }
 
     const BOOSTERS = {
       pick: { name: 'Pickaxe', key: '1', price: 60, desc: 'Smash any one gem or stone. Doesn\'t use a move.' },
@@ -309,8 +366,10 @@
       { id: 'lamp', name: 'Lucky Lamp', price: 400, desc: 'Start every level with 2 special gems already on the board.' },
       { id: 'cart', name: 'Big Mine Cart', price: 350, desc: 'Earn 25% more coins from every level.' },
       { id: 'boots', name: 'Speedy Boots', price: 600, desc: 'Get 2 extra moves on every level.' },
+      { id: 'battery', name: 'Drill Battery', price: 450, desc: 'Your Mega Drill starts every level half charged.' },
     ];
     const MORE_MOVES_PRICE = 80;
+    const POWER_MAX = 48;   // gems to clear before the Mega Drill is ready
 
     const $ = (id) => document.getElementById(id);
     const canvas = $('game');
@@ -332,6 +391,10 @@
     save.boosters = Object.assign({ pick: 2, dyn: 1, shuf: 1 }, save.boosters || {});
     save.perks = Array.isArray(save.perks) ? save.perks : [];
     save.muted = !!save.muted;
+    // the Goo Grotto (levels 25-30) came later: players who already beat level 24 get it opened right away
+    if ((Number(save.stars[24]) || 0) > 0 && save.unlocked < 25) save.unlocked = 25;
+    save.daily = save.daily && typeof save.daily === 'object' ? save.daily : { day: -1, streak: 0, best: 0 };
+    save.chests = Number(save.chests) || 0;
     const persist = () => Potato.save('save', save);
     const hasPerk = (id) => save.perks.includes(id);
     const totalStars = () => Object.values(save.stars).reduce((s, n) => s + (Number(n) || 0), 0);
@@ -405,6 +468,11 @@
       star: (i) => tone(880 * Math.pow(1.26, i), 0.2, 'triangle', 0.07),
       fanfare: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.22, 'triangle', 0.09, i * 0.1)),
       sad: () => [392, 349, 311, 262].forEach((f, i) => tone(f, 0.3, 'triangle', 0.07, i * 0.2)),
+      goo: () => ok('goo', 50) && (tone(260, 0.14, 'sine', 0.07, 0, 300), noise(0.08, 0.04, 900)),
+      gooGrow: () => { tone(180, 0.25, 'sine', 0.06, 0, -60); tone(140, 0.3, 'triangle', 0.04, 0.08, -40); },
+      chest: () => { noise(0.12, 0.05, 1500); [784, 988, 1319, 1568, 1976].forEach((f, i) => tone(f, 0.14, 'triangle', 0.05, 0.08 + i * 0.05)); },
+      power: () => [523, 784, 1047, 1568].forEach((f, i) => tone(f, 0.18, 'square', 0.035, i * 0.07)),
+      drill: () => { noise(0.6, 0.09, 2200); tone(90, 0.6, 'sawtooth', 0.05, 0, 260); },
     };
 
     // =====================================================================
@@ -637,6 +705,86 @@
       sparkle4(-s * 0.62, -s * 0.62, R * 0.24, '#ffffff');
     }
 
+    // A blob of green goo with a sleepy little face. It spreads if you leave it alone!
+    function drawGoo(R, eyes = 'open') {
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = R * 0.25; ctx.shadowOffsetY = R * 0.12;
+      const blob = () => {
+        ctx.beginPath();
+        ctx.moveTo(-R * 1.05, R * 0.75);
+        ctx.bezierCurveTo(-R * 1.25, R * 0.1, -R * 0.95, -R * 0.55, -R * 0.45, -R * 0.75);
+        ctx.bezierCurveTo(-R * 0.25, -R * 1.2, R * 0.35, -R * 1.15, R * 0.5, -R * 0.72);
+        ctx.bezierCurveTo(R * 1.0, -R * 0.55, R * 1.25, R * 0.1, R * 1.05, R * 0.75);
+        ctx.bezierCurveTo(R * 0.9, R * 1.05, -R * 0.9, R * 1.05, -R * 1.05, R * 0.75);
+        ctx.closePath();
+      };
+      blob(); ctx.fillStyle = '#1f7a2e'; ctx.fill();
+      ctx.restore();
+      blob();
+      ctx.fillStyle = rad(-R * 0.3, -R * 0.45, R * 0.1, R * 1.4, [[0, '#d4ffb0'], [0.35, '#7be35a'], [0.8, '#2fa53a'], [1, '#17621f']]);
+      ctx.fill();
+      ctx.save(); blob(); ctx.clip();
+      for (const [x, y, r] of [[0.55, 0.35, 0.16], [-0.6, 0.5, 0.12], [0.2, 0.7, 0.09], [-0.15, -0.6, 0.08]]) {
+        circle(x * R, y * R, r * R, 'rgba(255,255,255,0.18)');
+        ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = R * 0.03; ctx.beginPath(); ctx.arc(x * R, y * R, r * R, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(10,60,20,0.25)'; ctx.fillRect(-R * 1.3, R * 0.55, R * 2.6, R);
+      ctx.restore();
+      blob(); ctx.strokeStyle = '#0f4a18'; ctx.lineWidth = R * 0.07; ctx.lineJoin = 'round'; ctx.stroke();
+      ellipse(-R * 0.45, -R * 0.55, R * 0.28, R * 0.14, 'rgba(255,255,255,0.7)');
+      // face
+      for (const s of [-1, 1]) {
+        if (eyes === 'open') { ellipse(s * R * 0.32, -R * 0.08, R * 0.15, R * 0.19, '#0e2a12'); circle(s * R * 0.32 + R * 0.05, -R * 0.15, R * 0.06, '#ffffff'); }
+        else { ctx.strokeStyle = '#0e2a12'; ctx.lineWidth = R * 0.07; ctx.lineCap = 'round'; line(s * R * 0.32 - R * 0.13, -R * 0.06, s * R * 0.32 + R * 0.13, -R * 0.06); }
+      }
+      ctx.strokeStyle = '#0e2a12'; ctx.lineWidth = R * 0.07; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(0, R * 0.18, R * 0.18, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+      circle(-R * 0.6, R * 0.22, R * 0.09, 'rgba(255,140,160,0.45)'); circle(R * 0.6, R * 0.22, R * 0.09, 'rgba(255,140,160,0.45)');
+      ctx.lineCap = 'butt';
+    }
+
+    // A little treasure chest. Match next to it to pop it open.
+    function drawChest(R) {
+      const w = R * 1.0, top = -R * 0.55, bot = R * 0.85, lid = -R * 0.95;
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = R * 0.25; ctx.shadowOffsetY = R * 0.12;
+      ctx.fillStyle = '#4a2a10'; rr(-w, lid, w * 2, bot - lid, R * 0.2); ctx.fill();
+      ctx.restore();
+      // box
+      ctx.fillStyle = lin(0, top, 0, bot, [[0, '#b0723a'], [0.5, '#8a5326'], [1, '#5e3515']]);
+      rr(-w, top, w * 2, bot - top, R * 0.14); ctx.fill();
+      ctx.strokeStyle = 'rgba(60,30,8,0.55)'; ctx.lineWidth = R * 0.04;
+      for (const y of [0.0, 0.42]) line(-w * 0.9, y * R, w * 0.9, y * R);
+      // lid
+      ctx.fillStyle = lin(0, lid, 0, top, [[0, '#d08a48'], [1, '#93582a']]);
+      ctx.beginPath(); ctx.moveTo(-w, top); ctx.lineTo(-w, lid + R * 0.25); ctx.quadraticCurveTo(0, lid - R * 0.2, w, lid + R * 0.25); ctx.lineTo(w, top); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.beginPath(); ctx.moveTo(-w * 0.85, lid + R * 0.22); ctx.quadraticCurveTo(0, lid - R * 0.12, w * 0.85, lid + R * 0.22); ctx.lineTo(w * 0.85, lid + R * 0.3); ctx.quadraticCurveTo(0, lid - R * 0.02, -w * 0.85, lid + R * 0.3); ctx.closePath(); ctx.fill();
+      // gold bands and lock
+      const gold = lin(0, lid, 0, bot, [[0, '#fff3b0'], [0.4, '#ffc93b'], [1, '#a06a00']]);
+      ctx.fillStyle = gold;
+      for (const x of [-0.72, 0.72]) { ctx.fillRect(x * w - R * 0.1, lid + R * 0.12, R * 0.2, bot - lid - R * 0.14); }
+      ctx.fillRect(-w, top - R * 0.06, w * 2, R * 0.14);
+      rr(-R * 0.2, top - R * 0.15, R * 0.4, R * 0.46, R * 0.08); ctx.fill();
+      circle(0, top + R * 0.05, R * 0.07, '#4a2a10'); ctx.fillStyle = '#4a2a10'; ctx.fillRect(-R * 0.025, top + R * 0.05, R * 0.05, R * 0.14);
+      ctx.strokeStyle = '#3a1e08'; ctx.lineWidth = R * 0.06; ctx.lineJoin = 'round';
+      ctx.beginPath(); ctx.moveTo(-w, bot); ctx.lineTo(-w, lid + R * 0.25); ctx.quadraticCurveTo(0, lid - R * 0.2, w, lid + R * 0.25); ctx.lineTo(w, bot); ctx.closePath(); ctx.stroke();
+      sparkle4(w * 0.72, lid + R * 0.3, R * 0.22, '#ffffff');
+      sparkle4(-w * 0.5, bot - R * 0.2, R * 0.12, 'rgba(255,255,255,0.8)');
+    }
+
+    // The Mega Drill power: a spinning drill bit.
+    function drawDrill(x, y, r, spin = 0) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(-0.6);
+      ctx.fillStyle = lin(-r * 0.3, 0, r * 0.3, 0, [[0, '#d23a2a'], [0.5, '#ff7a5a'], [1, '#9a1f14']]);
+      rr(-r * 0.32, r * 0.1, r * 0.64, r * 0.75, r * 0.12); ctx.fill();
+      ctx.fillStyle = '#2b2f36'; ctx.fillRect(-r * 0.22, r * 0.78, r * 0.44, r * 0.18);
+      ctx.fillStyle = lin(-r * 0.3, -r, r * 0.3, 0, [[0, '#ffffff'], [0.5, '#b9c2cc'], [1, '#5d6670']]);
+      ctx.beginPath(); ctx.moveTo(-r * 0.3, r * 0.12); ctx.lineTo(0, -r * 0.95); ctx.lineTo(r * 0.3, r * 0.12); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(40,46,56,0.75)'; ctx.lineWidth = r * 0.07;
+      for (let i = 0; i < 4; i++) { const k = ((i / 4 + spin) % 1); const yy = r * 0.1 - k * r * 0.95, hw = r * 0.3 * (1 - k); line(-hw, yy + r * 0.08, hw, yy - r * 0.08); }
+      ctx.restore();
+    }
+
     const SPR = 3;                      // sprites are drawn at 3x for crisp edges on big screens
     const SPR_SIZE = CELL * SPR;
     function sprite(fn) {
@@ -665,6 +813,9 @@
       stone: [null, sprite((R) => drawStone(1, R)), sprite((R) => drawStone(2, R))],
       gold: sprite((R) => drawGold(R)),
       ice: sprite((R) => drawIce(R)),
+      goo: sprite((R) => drawGoo(R, 'open')),
+      gooBlink: sprite((R) => drawGoo(R, 'shut')),
+      chest: sprite((R) => drawChest(R)),
     };
     SPRITES.white = SPRITES.gem.map(whiteOf);
     function stripes(t, R, horiz) {
@@ -721,9 +872,9 @@
     const gemPiece = (t, r, c, sp = null) => newPiece('gem', r, c, { t, sp });
 
     function buildLevel(n) {
-      const L = LEVELS[n - 1];
+      const L = levelDef(n);
       const shape = SHAPES[L.shape];
-      const rnd = seeded(n * 7919);
+      const rnd = seeded(n ? n * 7919 : L.day * 7919 + 3);
       const cells = [];
       for (let r = 0; r < N; r++) {
         cells.push([]);
@@ -749,6 +900,21 @@
         const r = 1 + Math.floor(rnd() * 5), c = Math.floor(rnd() * N);
         if (!cells[r][c].on || grid[r][c]) continue;
         grid[r][c] = newPiece('stone', r, c, { hp: L.hp || 1 });
+        placed++;
+      }
+      // goo starts low on the board, chests sit in the middle
+      placed = 0; tries = 0;
+      while (placed < (L.goo || 0) && tries++ < 500) {
+        const r = 4 + Math.floor(rnd() * 4), c = Math.floor(rnd() * N);
+        if (!cells[r][c].on || grid[r][c]) continue;
+        grid[r][c] = newPiece('goo', r, c);
+        placed++;
+      }
+      placed = 0; tries = 0;
+      while (placed < (L.chests || 0) && tries++ < 500) {
+        const r = 1 + Math.floor(rnd() * 5), c = 1 + Math.floor(rnd() * (N - 2));
+        if (!cells[r][c].on || grid[r][c]) continue;
+        grid[r][c] = newPiece('chest', r, c);
         placed++;
       }
       // frozen gems sit in the lower part of the board
@@ -786,6 +952,7 @@
         if (x[0] === 'dirt') return 'dig all the dirt';
         if (x[0] === 'stone') return 'smash the stones';
         if (x[0] === 'gold') return 'drop the gold';
+        if (x[0] === 'goo') return 'pop all the goo';
         return 'free the frozen gems';
       });
       const s = g.length > 1 ? g.slice(0, -1).join(', ') + ' and ' + g[g.length - 1] : g[0];
@@ -797,8 +964,9 @@
       const { L, cells, grid, ice } = buildLevel(n);
       const moves = L.moves + (hasPerk('boots') ? 2 : 0);
       run = {
-        n, L, cells, grid,
+        n, L, cells, grid, wi: worldOf(n),
         moves, maxMoves: moves,
+        power: hasPerk('battery') ? Math.floor(POWER_MAX / 2) : 0, powerFull: false, gooLeft: 0, gooMax: 0, gooHit: false, moveMade: false, chestsOpened: 0,
         score: 0, shown: 0, scoreBump: 0, movesBump: 0,
         got: [0, 0, 0, 0, 0, 0],
         dirtLeft: 0, dirtTotal: 0, stonesLeft: 0, stonesTotal: 0, goldLeft: 0, goldTotal: L.gold || 0, iceLeft: 0, iceTotal: 0,
@@ -809,7 +977,8 @@
         fx: [], parts: [], floaters: [], flyers: [], word: null, shake: 0, flash: 0,
         goalBump: L.goals.map(() => 0), starLit: [false, false, false], lowWarned: false,
         banner: { title: `Level ${n}`, sub: goalBanner(L), t: 0 },
-        mascot: { mood: 'idle', t: 0, say: '', sayT: 0 },
+        mascot: { mood: 'idle', t: 0, say: '', sayT: 0, swing: 0 },
+        coinFly: [], boostBump: null, powerFlash: 0,
         rushing: false, rushLeft: 0, rushT: 0,
         endT: 0, ended: null, bought: 0,
         time: 0,
@@ -820,6 +989,7 @@
         const p = grid[r][c];
         if (p && p.kind === 'stone') { run.stonesLeft += p.hp; run.stonesTotal += p.hp; }
         if (p && p.ice) { run.iceLeft++; run.iceTotal++; }
+        if (p && p.kind === 'goo') { run.gooLeft++; run.gooMax++; }
       }
       run.goldLeft = run.goldTotal;
       // new gems drop in from above at the start
@@ -831,7 +1001,8 @@
       }
       mode = 'play';
       hideOverlays();
-      say(n === 1 ? "Let's dig! Make a line of 3." : pick(['Ready to dig!', 'Gems ahoy!', 'Let\'s go!', 'Into the mine!']));
+      if (n === 0) run.banner = { title: 'Daily Dig', sub: goalBanner(L), t: 0 };
+      say(n === 1 ? "Let's dig! Make a line of 3." : n === 0 ? 'A brand new mine, just for today!' : pick(['Ready to dig!', 'Gems ahoy!', 'Let\'s go!', 'Into the mine!']));
     }
 
     // =====================================================================
@@ -858,6 +1029,8 @@
       return Math.max(h, v);
     }
     function swappable(p) { return p && p.kind === 'gem' && !p.clearing && !p.ice; }
+    // things that can't move but break when you match right next to them
+    function isBlocker(p) { return !!p && (p.kind === 'stone' || p.kind === 'goo' || p.kind === 'chest'); }
     function findMoveIn(grid, cells) {
       const moves = allMovesIn(grid, cells);
       if (!moves.length) return null;
@@ -965,7 +1138,7 @@
         const rr2 = Math.floor(k / N), cc = k % N;
         const p = r.grid[rr2][cc];
         if (!p) continue;
-        if (p.kind === 'stone') { if (!stoneHits.has(k)) stones.set(k, (stones.get(k) || 0) + 1); continue; }
+        if (isBlocker(p)) { if (!stoneHits.has(k)) stones.set(k, (stones.get(k) || 0) + 1); continue; }
         if (p.kind === 'gold' && !p.clearing) { p.clearing = true; p.ct = 0; grabGold(p); continue; }
         if (p.kind !== 'gem' || p.clearing) continue;
         // a gem that's about to become a special can only be taken by a blast
@@ -986,6 +1159,10 @@
       for (const k of seen) {
         const rr2 = Math.floor(k / N), cc = k % N, p = r.grid[rr2][cc];
         if (!p || !p.clearing || p.kind !== 'gem') continue;
+        if (!r.rushing && !r.powerFull) {
+          r.power = Math.min(POWER_MAX, r.power + 1);
+          if (r.power >= POWER_MAX) { r.powerFull = true; r.powerFlash = 1; sfx.power(); cheer('Mega Drill ready! Tap it!'); for (let k2 = 0; k2 < 18; k2++) sparkleAt(POWER_BTN.x, POWER_BTN.y, k2 % 2 ? '#fff3b0' : '#ff8a5a'); }
+        }
         if (p.sp !== 'rainbow') {
           r.got[p.t]++;
           const gi = r.L.goals.findIndex((g) => g[0] === 'color' && g[1] === p.t);
@@ -1010,7 +1187,27 @@
       }
       for (const [k, hits] of stones) {
         const rr2 = Math.floor(k / N), cc = k % N, p = r.grid[rr2][cc];
-        if (!p || p.kind !== 'stone' || p.clearing) continue;
+        if (!p || p.clearing || !isBlocker(p)) continue;
+        if (p.kind === 'goo') {
+          p.clearing = true; p.ct = 0;
+          r.gooLeft--; r.gooHit = true;
+          r.score += 60 * mult;
+          gooSplat(p.x, p.y);
+          sfx.goo();
+          const gi = r.L.goals.findIndex((g) => g[0] === 'goo');
+          if (gi >= 0) flyTo(p.x, p.y, gi, SPRITES.goo, 0.8);
+          const cell = r.cells[rr2][cc];
+          if (cell.dirt > 0) { cell.dirt--; r.dirtLeft--; dirtBurst(p.x, p.y, cell.dirt); }
+          continue;
+        }
+        if (p.kind === 'chest') {
+          p.clearing = true; p.ct = 0;
+          const cell = r.cells[rr2][cc];
+          if (cell.dirt > 0) { cell.dirt--; r.dirtLeft--; dirtBurst(p.x, p.y, cell.dirt); }
+          const sp = openChest(p);
+          if (sp) creates.push({ r: rr2, c: cc, t: Math.floor(Math.random() * r.L.colors), sp });
+          continue;
+        }
         const dmg = Math.min(hits, p.hp);
         p.hp -= dmg;
         r.stonesLeft -= dmg;
@@ -1116,7 +1313,7 @@
           const k = key(cell.r, cell.c);
           matched.push(k);
           if (!(at && cell.r === at.r && cell.c === at.c)) clear.add(k);
-          for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const q = pieceAt(cell.r + dr, cell.c + dc); if (q && q.kind === 'stone') stoneHits.add(key(cell.r + dr, cell.c + dc)); }
+          for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const q = pieceAt(cell.r + dr, cell.c + dc); if (isBlocker(q)) stoneHits.add(key(cell.r + dr, cell.c + dc)); }
           cx += cellX(cell.c); cy += cellY(cell.r); n++;
         }
       }
@@ -1198,7 +1395,7 @@
         sfx.nope();
         for (const q of [A, B]) if (q) q.wob = 0.35;
         const odd = [A, B].find((q) => q && (q.kind !== 'gem' || q.ice));
-        if (odd) say(odd.kind === 'gold' ? 'Gold can\'t be moved. Dig under it!' : odd.ice ? 'Frozen gems can\'t move. Line them up with other gems!' : 'Stones can\'t be moved. Match next to them!');
+        if (odd) say(odd.kind === 'gold' ? 'Gold can\'t be moved. Dig under it!' : odd.ice ? 'Frozen gems can\'t move. Line them up with other gems!' : odd.kind === 'goo' ? 'Goo is sticky! Match right next to it to pop it.' : odd.kind === 'chest' ? 'Match right next to the chest to open it!' : 'Stones can\'t be moved. Match next to them!');
         return;
       }
       r.sel = null;
@@ -1226,7 +1423,63 @@
       sfx.nope();
       if (r.n === 1) say('That doesn\'t make a line of 3. Try another!');
     }
-    function useMove() { run.moves--; run.swapped = true; run.movesBump = 0.3; }
+    function useMove() { run.moves--; run.swapped = true; run.movesBump = 0.3; run.moveMade = true; run.gooHit = false; run.mascot.swing = 0.45; }
+
+    // After a move that popped no goo, one goo blob creeps onto a neighbouring gem.
+    function spreadGoo() {
+      const r = run;
+      const spots = [];
+      for (let rr2 = 0; rr2 < N; rr2++) for (let c = 0; c < N; c++) {
+        const p = r.grid[rr2][c];
+        if (!p || p.kind !== 'goo') continue;
+        for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const q = pieceAt(rr2 + dr, c + dc);
+          if (q && q.kind === 'gem' && !q.sp && !q.ice && !q.clearing) spots.push({ from: p, r: rr2 + dr, c: c + dc });
+        }
+      }
+      if (!spots.length) return false;
+      const s = pick(spots);
+      const g = newPiece('goo', s.r, s.c);
+      g.pop = 0.4;
+      r.grid[s.r][s.c] = g;
+      r.gooLeft++; r.gooMax = Math.max(r.gooMax, r.gooLeft);
+      for (let k = 0; k < 10; k++) addPart({ type: 'dirt', x: g.x + (Math.random() - 0.5) * 30, y: g.y + (Math.random() - 0.5) * 30, vx: (Math.random() - 0.5) * 120, vy: -60 - Math.random() * 80, life: 0.5, max: 0.5, size: 3 + Math.random() * 4, color: pick(['#7be35a', '#2fa53a', '#c8ff9a']), g: 500 });
+      float(g.x, g.y - 30, 'Goo grew!', '#b8ff9a', 18);
+      sfx.gooGrow();
+      say(pick(['The goo grew! Pop some goo each move.', 'Uh oh, sticky! Match next to the goo.']));
+      return true;
+    }
+
+    // A chest pops open with a surprise. Returns a special gem to drop in its place, if that's the prize.
+    function openChest(p) {
+      const r = run;
+      r.chestsOpened++; save.chests++;
+      for (let k = 0; k < 22; k++) sparkleAt(p.x, p.y, pick(['#ffd43b', '#fff3b0', '#ffffff', '#ffb02e']));
+      r.fx.push({ type: 'chest', x: p.x, y: p.y, t: 0, life: 0.9 });
+      sfx.chest();
+      const roll = Math.random();
+      let sp = null;
+      if (roll < 0.34) {
+        const n = 10 + Math.floor(Math.random() * 3) * 5;
+        save.coins += n; persist();
+        float(p.x, p.y - 30, `+${n} coins!`, '#ffe58a', 22);
+        for (let k = 0; k < 6; k++) r.coinFly.push({ x0: p.x + (Math.random() - 0.5) * 30, y0: p.y, t: -k * 0.06, dur: 0.7 });
+      } else if (roll < 0.58) {
+        const id = pick(['pick', 'pick', 'dyn', 'shuf']);
+        save.boosters[id] = (save.boosters[id] || 0) + 1; persist();
+        float(p.x, p.y - 30, `+1 ${BOOSTERS[id].name}!`, '#ffd29a', 22);
+        r.boostBump = { id, t: 0.6 };
+      } else if (roll < 0.8) {
+        r.moves += 3; r.movesBump = 0.3;
+        float(p.x, p.y - 30, '+3 moves!', '#b8f0ff', 24);
+      } else {
+        sp = Math.random() < 0.35 ? 'rainbow' : 'bomb';
+        float(p.x, p.y - 30, 'Surprise gem!', '#ffffff', 22);
+      }
+      r.score += 150;
+      cheer(pick(['Treasure!', 'Ooh, a chest!', 'Loot!']));
+      return sp;
+    }
 
     function goalsDone() {
       const r = run;
@@ -1240,6 +1493,7 @@
       if (g[0] === 'stone') return Math.max(0, r.stonesLeft);
       if (g[0] === 'gold') return Math.max(0, r.goldLeft);
       if (g[0] === 'ice') return Math.max(0, r.iceLeft);
+      if (g[0] === 'goo') return Math.max(0, r.gooLeft);
       return 0;
     }
 
@@ -1288,6 +1542,11 @@
         return;
       }
       if (r.moves <= 0 && !r.ended) { finish(false); return; }
+      if (r.moveMade) {
+        r.moveMade = false;
+        if (r.gooLeft > 0 && !r.gooHit) spreadGoo();
+        r.gooHit = false;
+      }
       if (!r.lowWarned && r.moves <= 5 && r.moves > 0 && r.maxMoves > 10) { r.lowWarned = true; r.banner = { title: `${r.moves} moves left!`, sub: '', t: 0, small: true }; sfx.warn(); say('Only a few moves left. Make them count!'); }
       if (!findMove()) { shuffle(); return; }
       r.phase = 'idle';
@@ -1327,18 +1586,26 @@
     function useBooster(id, cell) {
       const r = run;
       if (r.phase !== 'idle' || r.ended) return;
-      if ((save.boosters[id] || 0) <= 0) { say(`No ${BOOSTERS[id].name.toLowerCase()}s left. Get more in the Shop!`); sfx.nope(); r.booster = null; return; }
+      if (id === 'drill') {
+        if (!r.powerFull) { say(`Clear ${POWER_MAX - r.power} more gems to charge the Mega Drill!`); sfx.nope(); r.booster = null; return; }
+      } else if ((save.boosters[id] || 0) <= 0) { say(`No ${BOOSTERS[id].name.toLowerCase()}s left. Get more in the Shop!`); sfx.nope(); r.booster = null; return; }
       if (id === 'shuf') { save.boosters.shuf--; persist(); r.booster = null; shuffle(true); return; }
-      if (!cell) { r.booster = r.booster === id ? null : id; sfx.click(); return; }
+      if (!cell) { r.booster = r.booster === id ? null : id; sfx.click(); if (r.booster === 'drill') say('Tap any spot. The drill blasts its whole row and column!'); return; }
       const p = pieceAt(cell.r, cell.c);
-      if (!p || !isOn(cell.r, cell.c)) return;
+      if (!isOn(cell.r, cell.c) || (!p && id !== 'drill')) return;
       if (id === 'pick' && p.kind === 'gold') { say('The pickaxe bounces off gold! Dig under it, or blast it.'); sfx.nope(); return; }
-      save.boosters[id]--;
-      persist();
+      if (id === 'drill') { r.power = 0; r.powerFull = false; }
+      else { save.boosters[id]--; persist(); }
       r.booster = null;
       r.cascade = 0;
       const keys = new Set(), stones = new Set();
-      if (id === 'pick') {
+      if (id === 'drill') {
+        for (let k = 0; k < N; k++) { if (isOn(cell.r, k)) keys.add(key(cell.r, k)); if (isOn(k, cell.c)) keys.add(key(k, cell.c)); }
+        r.fx.push({ type: 'beamH', r: cell.r, t: 0, life: 0.5, color: '#ffb03a' }, { type: 'beamV', c: cell.c, t: 0, life: 0.5, color: '#ffb03a' });
+        r.fx.push({ type: 'drill', x: cellX(cell.c), y: cellY(cell.r), t: 0, life: 0.6 });
+        sfx.drill(); r.shake = 10; r.flash = 0.25;
+        r.word = { text: 'MEGA DRILL!', t: 0 }; cheer('Drill time!');
+      } else if (id === 'pick') {
         const k = key(cell.r, cell.c);
         if (p.kind === 'stone') { stones.add(k); r.stonesLeft -= p.hp - 1; p.hp = 1; }
         else keys.add(k);
@@ -1370,6 +1637,13 @@
     }
     function dirtBurst(x, y, left) {
       for (let k = 0; k < 10; k++) { const a = Math.random() * Math.PI * 2, s = 40 + Math.random() * 120; addPart({ type: 'dirt', x: x + (Math.random() - 0.5) * 40, y: y + (Math.random() - 0.5) * 40, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60, life: 0.6, max: 0.6, size: 3 + Math.random() * 4, color: pick(['#7a5232', '#5c3c22', '#9a6e44']), g: 500 }); }
+    }
+    function gooSplat(x, y) {
+      for (let k = 0; k < 14; k++) {
+        const a = Math.random() * Math.PI * 2, s = 60 + Math.random() * 200;
+        addPart({ type: 'dirt', x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 120, life: 0.7, max: 0.7, size: 3 + Math.random() * 6, color: pick(['#7be35a', '#2fa53a', '#c8ff9a', '#1f7a2e']), g: 650 });
+      }
+      run.fx.push({ type: 'pop', x, y, t: 0, life: 0.35, color: '#9dff7a' });
     }
     function rocks(x, y, n) {
       for (let k = 0; k < n; k++) { const a = Math.random() * Math.PI * 2, s = 60 + Math.random() * 160; addPart({ type: 'dirt', x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 100, life: 0.8, max: 0.8, size: 4 + Math.random() * 5, color: pick(['#8c8f99', '#6b6e78', '#b9a88c']), g: 700 }); }
@@ -1403,6 +1677,11 @@
       if (r.shake > 0) r.shake = Math.max(0, r.shake - dt * 30);
       if (r.mascot.t > 0) { r.mascot.t -= dt; if (r.mascot.t <= 0 && !r.ended) r.mascot.mood = 'idle'; }
       if (r.mascot.sayT > 0) r.mascot.sayT -= dt;
+      if (r.mascot.swing > 0) r.mascot.swing = Math.max(0, r.mascot.swing - dt);
+      if (r.powerFlash > 0) r.powerFlash = Math.max(0, r.powerFlash - dt);
+      if (r.boostBump) { r.boostBump.t -= dt; if (r.boostBump.t <= 0) r.boostBump = null; }
+      for (const f of r.coinFly) { f.t += dt; if (f.t >= f.dur && !f.done) { f.done = true; sfx.coin(); } }
+      r.coinFly = r.coinFly.filter((f) => !f.done);
       if (r.word) { r.word.t += dt; if (r.word.t > 1.3) r.word = null; }
       if (r.banner) { r.banner.t += dt; if (r.banner.t > (r.banner.small ? 1.6 : 2.4)) r.banner = null; }
       if (r.flash > 0) r.flash = Math.max(0, r.flash - dt * 1.6);
@@ -1511,40 +1790,60 @@
       const r = run;
       mode = 'results';
       const stars = starsFor(r);
-      const before = Number(save.stars[r.n]) || 0;
-      const newStars = Math.max(0, stars - before);
-      save.stars[r.n] = Math.max(before, stars);
-      const best = Math.max(Number(save.best[r.n]) || 0, r.score);
-      const record = r.score > (Number(save.best[r.n]) || 0) && before > 0;
-      save.best[r.n] = best;
+      const daily = r.n === 0;
+      const before = daily ? 0 : Number(save.stars[r.n]) || 0;
+      const newStars = daily ? 0 : Math.max(0, stars - before);
+      const oldBest = daily ? (save.daily.day === r.L.day ? Number(save.daily.best) || 0 : 0) : Number(save.best[r.n]) || 0;
+      const best = Math.max(oldBest, r.score);
+      const record = r.score > oldBest && (daily ? save.daily.day === r.L.day : before > 0);
       let coins = 20 + stars * 10 + newStars * 15;
-      if (hasPerk('cart')) coins = Math.round(coins * 1.25);
-      save.coins += coins;
       const unlock = $('r-unlock');
       unlock.textContent = '';
-      if (r.n >= save.unlocked && r.n < LEVELS.length) {
-        save.unlocked = r.n + 1;
-        unlock.textContent = worldOf(r.n + 1) !== worldOf(r.n) ? `New mine unlocked: ${WORLDS[worldOf(r.n + 1)].name}!` : `Level ${r.n + 1} unlocked!`;
+      let spuds = 2 + newStars * 3 + Math.floor(r.score / 2500);
+      if (daily) {
+        const first = save.daily.day !== r.L.day;
+        if (first) {
+          const streak = save.daily.day === r.L.day - 1 ? save.daily.streak + 1 : 1;
+          const bonus = 50 + Math.min(5, streak - 1) * 10;
+          const prize = pick(['pick', 'dyn', 'shuf']);
+          save.boosters[prize] = (save.boosters[prize] || 0) + 1;
+          coins += bonus;
+          save.daily = { day: r.L.day, streak, best };
+          unlock.textContent = `Daily Dig done! ${streak > 1 ? `${streak}-day streak! ` : ''}+${bonus} bonus coins and a free ${BOOSTERS[prize].name}.`;
+          spuds += 3;
+        } else {
+          save.daily.best = best;
+          unlock.textContent = 'You already got today\'s prize. Come back tomorrow for a new mine!';
+          spuds = Math.min(spuds, 3);
+        }
+      } else {
+        save.stars[r.n] = Math.max(before, stars);
+        save.best[r.n] = best;
+        if (r.n >= save.unlocked && r.n < LEVELS.length) {
+          save.unlocked = r.n + 1;
+          unlock.textContent = worldOf(r.n + 1) !== worldOf(r.n) ? `New mine unlocked: ${WORLDS[worldOf(r.n + 1)].name}!` : `Level ${r.n + 1} unlocked!`;
+        }
+        if (r.n === LEVELS.length && before === 0) unlock.textContent = 'You dug through every mine! You beat Gem Mine! Now go for 3 stars everywhere.';
       }
-      if (r.n === LEVELS.length && before === 0) unlock.textContent = 'You reached the Diamond Core! You beat Gem Mine! Now go for 3 stars everywhere.';
+      if (hasPerk('cart')) coins = Math.round(coins * 1.25);
+      save.coins += coins;
       persist();
-      const spuds = 2 + newStars * 3 + Math.floor(r.score / 2500);
       Potato.earn(spuds);
       Potato.score(totalStars());
-      $('r-title').textContent = stars === 3 ? 'Gem-tastic!' : 'Level complete!';
+      $('r-title').textContent = daily ? 'Daily Dig cleared!' : stars === 3 ? 'Gem-tastic!' : 'Level complete!';
       [...$('r-stars').children].forEach((s, i) => { s.className = i < stars ? 'on' : ''; });
       countUp($('r-score'), r.score, 900);
       $('r-best').textContent = best.toLocaleString();
       $('r-coins').textContent = `+${coins}`;
       $('r-note').className = 'note good';
-      $('r-note').textContent = record ? 'New high score!' : stars < 3 ? `Score ${r.L.s[stars === 1 ? 0 : 1].toLocaleString()} for ${stars + 1} stars.` : 'Perfect! All 3 stars!';
+      $('r-note').textContent = (record ? 'New high score! ' : '') + (stars < 3 ? `Score ${r.L.s[stars === 1 ? 0 : 1].toLocaleString()} for ${stars + 1} stars.` : 'Perfect! All 3 stars!') + (r.chestsOpened ? ` You opened ${r.chestsOpened} chest${r.chestsOpened > 1 ? 's' : ''}!` : '');
       $('r-spuds').textContent = Potato.inHub && spuds > 0 ? `+${spuds} Spuds` : '';
-      $('r-next-btn').hidden = !(r.n < LEVELS.length && r.n + 1 <= save.unlocked);
+      $('r-next-btn').hidden = daily || !(r.n < LEVELS.length && r.n + 1 <= save.unlocked);
       $('r-next-btn').textContent = `Level ${r.n + 1}`;
       showOverlay('results');
       sfx.fanfare();
       for (let i = 0; i < stars; i++) setTimeout(() => sfx.star(i), 300 + i * 250);
-      if (stars === 3) confetti();
+      if (stars === 3 || daily) confetti();
     }
 
     function showFail() {
@@ -1609,7 +1908,7 @@
 
     function showTitle() { mode = 'title'; run = null; setPills('t'); showOverlay('title'); }
 
-    const WORLD_GEM = [1, 4, 0, 'rainbow'];
+    const WORLD_GEM = [1, 4, 0, 'rainbow', 3];
     function iconCanvas(size, fn) {
       const c = document.createElement('canvas');
       c.width = c.height = size * 2;
@@ -1622,6 +1921,17 @@
       run = null;
       setPills('m');
       $('m-stars').textContent = `${totalStars()} / ${LEVELS.length * 3} ★`;
+      // today's Daily Dig
+      const D = dailyDef(), doneToday = save.daily.day === D.day;
+      const streakNow = doneToday || save.daily.day === D.day - 1 ? save.daily.streak : 0;
+      $('m-daily').className = 'daily' + (doneToday ? ' done' : '');
+      $('d-info').textContent = doneToday
+        ? `Done today! Streak: ${streakNow} day${streakNow === 1 ? '' : 's'}. Come back tomorrow for a new mine.`
+        : `Today: ${WORLDS[D.wi].name}, ${goalBanner(D).toLowerCase()}` + (streakNow ? ` Streak: ${streakNow}!` : '');
+      $('d-btn').textContent = doneToday ? 'Replay' : 'Dig!';
+      const di = $('d-icon');
+      di.innerHTML = '';
+      di.appendChild(iconCanvas(44, (s) => { ctx.drawImage(SPRITES.chest, -s * 0.1, -s * 0.1, s * 1.2, s * 1.2); }));
       const box = $('worlds');
       box.innerHTML = '';
       WORLDS.forEach((w, wi) => {
@@ -1673,6 +1983,7 @@
       if (g[0] === 'dirt') return 'dirt';
       if (g[0] === 'stone') return 'stone hits';
       if (g[0] === 'ice') return 'frozen gems';
+      if (g[0] === 'goo') return 'goo blobs';
       return 'gold';
     }
     function goalCard(g, n, left) {
@@ -1697,27 +2008,30 @@
     function showIntro(n) {
       mode = 'intro';
       introLevel = n;
-      const L = LEVELS[n - 1];
+      const L = levelDef(n);
       const pre = buildLevel(n);
-      const preview = { dirt: 0, stone: 0, gold: L.gold || 0, ice: pre.ice.size };
-      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) { preview.dirt += pre.cells[r][c].dirt; const p = pre.grid[r][c]; if (p && p.kind === 'stone') preview.stone += p.hp; }
-      $('i-title').textContent = `Level ${n}`;
-      $('i-sub').textContent = `${WORLDS[worldOf(n)].name} · ${L.moves + (hasPerk('boots') ? 2 : 0)} moves`;
+      const preview = { dirt: 0, stone: 0, gold: L.gold || 0, ice: pre.ice.size, goo: 0 };
+      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) { preview.dirt += pre.cells[r][c].dirt; const p = pre.grid[r][c]; if (p && p.kind === 'stone') preview.stone += p.hp; if (p && p.kind === 'goo') preview.goo++; }
+      const daily = n === 0;
+      $('i-title').textContent = daily ? 'Daily Dig' : `Level ${n}`;
+      $('i-sub').textContent = `${WORLDS[worldOf(n)].name} · ${L.moves + (hasPerk('boots') ? 2 : 0)} moves` + (L.chests ? ` · ${L.chests} chests` : '');
       const box = $('i-goals');
       box.innerHTML = '';
       for (const g of L.goals) box.appendChild(goalCard(g, goalTotal(g, preview), false));
-      const have = Number(save.stars[n]) || 0;
+      const have = daily ? 0 : Number(save.stars[n]) || 0;
       const t = $('i-targets');
       t.innerHTML = '';
+      const myBest = daily ? (save.daily.day === L.day ? save.daily.best : 0) : save.best[n];
       [['★', 'Finish all the goals'], ['★★', `Score ${L.s[0].toLocaleString()} points`], ['★★★', `Score ${L.s[1].toLocaleString()} points`]].forEach(([s, txt], k) => {
         const row = document.createElement('div');
         row.innerHTML = `<span class="s${k < have ? '' : ' off'}">${s}</span><span></span>`;
-        row.lastChild.textContent = txt + (k === 2 && save.best[n] ? ` (your best: ${Number(save.best[n]).toLocaleString()})` : '');
+        row.lastChild.textContent = txt + (k === 2 && myBest ? ` (your best: ${Number(myBest).toLocaleString()})` : '');
         t.appendChild(row);
       });
       const tip = $('i-tip');
-      tip.hidden = !L.tip;
-      if (L.tip) { tip.querySelector('b').textContent = have ? 'Tip' : 'New!'; tip.querySelector('span').textContent = L.tip; }
+      const tipText = daily ? (save.daily.day === L.day ? 'You already got today\'s prize, but you can dig again for a better score!' : 'Clear today\'s mine for bonus coins and a free booster. Play every day to build a streak!') : L.tip;
+      tip.hidden = !tipText;
+      if (tipText) { tip.querySelector('b').textContent = daily ? 'Daily' : have ? 'Tip' : 'New!'; tip.querySelector('span').textContent = tipText; }
       showOverlay('intro');
     }
 
@@ -1760,6 +2074,8 @@
 
     $('play-btn').addEventListener('click', () => { audio(); sfx.click(); showMap(); });
     $('t-shop-btn').addEventListener('click', () => showShop('title'));
+    $('t-daily-btn').addEventListener('click', () => { audio(); sfx.click(); showIntro(0); });
+    $('d-btn').addEventListener('click', () => { sfx.click(); showIntro(0); });
     $('m-shop-btn').addEventListener('click', () => showShop('map'));
     $('m-back-btn').addEventListener('click', showTitle);
     $('i-start-btn').addEventListener('click', () => startLevel(introLevel));
@@ -1785,7 +2101,46 @@
     // =====================================================================
     const PAUSE_BTN = { x: 952, y: 7, w: 40, h: 30 };
     const MUTE_BTN = { x: 906, y: 7, w: 40, h: 30 };
-    const BOOST_BTNS = { pick: { x: 92, y: 578, r: 30 }, dyn: { x: 207, y: 578, r: 30 }, shuf: { x: 322, y: 578, r: 30 } };
+    const BOOST_BTNS = { pick: { x: 86, y: 575, r: 30 }, dyn: { x: 166, y: 575, r: 30 }, shuf: { x: 247, y: 575, r: 30 } };
+    const POWER_BTN = { x: 327, y: 575, r: 30 };
+    // Where things sit on the panel (also used by the gems that fly to their goal). Filled in by setLayout.
+    let PL = null;
+    function setLayout(tall) {
+      portrait = tall;
+      const P = PANEL;
+      if (!tall) {
+        VW = 1000; VH = 640; BX = 418; BY = 74;
+        Object.assign(P, { x: 20, y: 58, w: 374, h: 558 });
+        PL = {
+          title: { x: P.x + 76, y: P.y + 36 }, world: { x: P.x + P.w - 26, y: P.y + 37 },
+          moves: { x: P.x + 78, y: P.y + 118, r: 46 },
+          score: { x: P.x + 142, w: P.w - 166, y: P.y + 80 }, bar: { y: P.y + 138 },
+          goals: { x: P.x + 24, w: P.w - 48, y: P.y + 194, h: 106, label: true },
+          miner: { x: P.x + 84, y: P.y + 462, s: 1 }, bubble: { x: P.x + 152, y: P.y + 352, w: 168 },
+          boostBar: { x: P.x + 26, y: 540, w: P.w - 52, h: 68 },
+        };
+      } else {
+        VW = 600; VH = 1110; BX = 36;
+        Object.assign(P, { x: 18, y: 54, w: 564, h: 290 });
+        BY = P.y + P.h + 32;
+        PL = {
+          title: { x: P.x + 80, y: P.y + 36 }, world: { x: P.x + P.w - 26, y: P.y + 37 },
+          moves: { x: P.x + 74, y: P.y + 122, r: 46 },
+          score: { x: P.x + 146, w: P.w - 170, y: P.y + 80 }, bar: { y: P.y + 136 },
+          goals: { x: P.x + 24, w: P.w - 48, y: P.y + 180, h: 98, label: false },
+          miner: { x: 78, y: 1100, s: 0.72 }, bubble: { x: 136, y: 1050, w: 360 },
+          boostBar: { x: 40, y: 936, w: 520, h: 72 },
+        };
+      }
+      const bb = PL.boostBar, slots = [BOOST_BTNS.pick, BOOST_BTNS.dyn, BOOST_BTNS.shuf, POWER_BTN];
+      slots.forEach((b, i) => { b.x = bb.x + (bb.w / 4) * (i + 0.5); b.y = bb.y + bb.h / 2 + 1; b.r = tall ? 32 : 30; });
+      PAUSE_BTN.x = VW - 48; MUTE_BTN.x = VW - 94;
+      // anything already on the board snaps to its new spot
+      if (run) {
+        for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) { const p = run.grid[r][c]; if (p) { p.anim = null; p.falling = false; p.vy = 0; p.x = cellX(c); p.y = cellY(r); } }
+        run.flyers = []; run.parts = []; run.fx = []; run.floaters = [];
+      }
+    }
     const inRect = (p, r) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
     function cellAt(p) {
       const c = Math.floor((p.x - BX) / CELL), r = Math.floor((p.y - BY) / CELL);
@@ -1797,6 +2152,7 @@
       if (inRect({ x: p.x, y: p.y + hudLift() }, PAUSE_BTN)) return { type: 'pause' };
       if (inRect({ x: p.x, y: p.y + hudLift() }, MUTE_BTN)) return { type: 'mute' };
       for (const [id, b] of Object.entries(BOOST_BTNS)) if (Math.hypot(p.x - b.x, p.y - b.y) <= b.r + 4) return { type: 'boost', id };
+      if (Math.hypot(p.x - POWER_BTN.x, p.y - POWER_BTN.y) <= POWER_BTN.r + 4) return { type: 'boost', id: 'drill' };
       const cell = cellAt(p);
       if (cell) return { type: 'cell', cell };
       return null;
@@ -1849,6 +2205,8 @@
       canvas.style.cursor = hover ? 'pointer' : 'default';
     });
     canvas.addEventListener('pointerup', () => { if (run) run.drag = null; });
+    canvas.addEventListener('pointercancel', () => { if (run) run.drag = null; });
+    canvas.addEventListener('pointerleave', () => { hover = null; });
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && mode === 'intro') { startLevel(introLevel); return; }
       if (mode === 'paused' && (e.key === 'Escape' || e.key === 'p' || e.key === 'P')) { pause(false); return; }
@@ -1878,6 +2236,7 @@
       else if (k === '1') useBooster('pick');
       else if (k === '2') useBooster('dyn');
       else if (k === '3') useBooster('shuf');
+      else if (k === '4' || k === 'd' || k === 'D') useBooster('drill');
     });
 
     // =====================================================================
@@ -1922,6 +2281,7 @@
       crystal: { stops: [[0, '#6b77c4'], [0.5, '#46509a'], [1, '#2a2f66']], edge: '#1a1d45', hi: 'rgba(200,230,255,0.4)' },
       basalt: { stops: [[0, '#4d3a38'], [0.5, '#33232a'], [1, '#1d1216']], edge: '#0e0809', hi: 'rgba(255,170,110,0.25)' },
       silver: { stops: [[0, '#e8eef2'], [0.45, '#a9b6bf'], [1, '#5d6b74']], edge: '#33404a', hi: 'rgba(255,255,255,0.6)' },
+      moss: { stops: [[0, '#6f8a52'], [0.5, '#4a6338'], [1, '#2a3b20']], edge: '#152010', hi: 'rgba(210,255,170,0.35)' },
     };
     function frameBox(style, x, y, w, h, r, thick, rnd) {
       const F2 = FRAME[style];
@@ -1948,6 +2308,10 @@
           ctx.stroke();
         }
         ctx.shadowBlur = 0;
+      } else if (style === 'moss') {
+        // mossy stone with little glowing dots
+        for (let i = 0; i < 40; i++) ellipse(x + rnd() * w, y + rnd() * h, 4 + rnd() * 10, 3 + rnd() * 6, rnd() < 0.5 ? 'rgba(20,40,10,0.25)' : 'rgba(150,220,110,0.14)');
+        for (let i = 0; i < 18; i++) { const mx = x + rnd() * w, my = y + rnd() * h; circle(mx, my, 1.5 + rnd() * 1.5, 'rgba(190,255,150,0.8)'); }
       } else if (style === 'silver') {
         ctx.fillStyle = 'rgba(255,255,255,0.25)';
         for (let i = 0; i < 6; i++) { const xx = x + rnd() * w; ctx.beginPath(); ctx.moveTo(xx, y); ctx.lineTo(xx + 30, y); ctx.lineTo(xx - 40, y + h); ctx.lineTo(xx - 70, y + h); ctx.closePath(); ctx.fill(); }
@@ -2088,6 +2452,26 @@
           ctx.fillRect(X0, 634, BGR.w, Y1 - 634);
           for (let i = 0; i < 60; i++) { const x = X0 + rnd() * BGR.w, y = 650 + rnd() * 200; ctx.fillStyle = 'rgba(60,15,8,0.65)'; ctx.beginPath(); ctx.ellipse(x, y, 20 + rnd() * 50, 5 + rnd() * 9, 0, 0, Math.PI * 2); ctx.fill(); }
           for (let i = 0; i < 12; i++) crystalCluster(X0 + rnd() * BGR.w, 90 + rnd() * 500, 6 + rnd() * 8, W2.crystal, rnd() < 0.5);
+        } else if (W2.frame === 'moss') {
+          // hanging vines, glowing mushrooms and a little stream
+          for (let i = 0; i < 46; i++) {
+            const x = X0 + rnd() * BGR.w, len = 60 + rnd() * 260, sway = (rnd() - 0.5) * 40;
+            ctx.strokeStyle = rnd() < 0.5 ? 'rgba(60,120,50,0.8)' : 'rgba(40,90,40,0.8)'; ctx.lineWidth = 2 + rnd() * 2;
+            ctx.beginPath(); ctx.moveTo(x, Y0); ctx.quadraticCurveTo(x + sway, Y0 + 220 + len * 0.5, x + sway * 0.4, 40 + len); ctx.stroke();
+            for (let k = 1; k <= 6; k++) { const t = 0.4 + k * 0.1, ly = Y0 + (40 + len - Y0) * t; ellipse(x + sway * 0.5 * t + (k % 2 ? 6 : -6), ly, 7, 3.5, "rgba(90,170,70,0.85)"); }
+          }
+          ctx.fillStyle = lin(0, 640, 0, 700, [[0, 'rgba(90,200,170,0.55)'], [1, 'rgba(20,80,70,0.5)']]);
+          ctx.fillRect(X0, 646, BGR.w, 30);
+          for (let i = 0; i < 40; i++) {
+            const x = X0 + rnd() * BGR.w, y = 630 + rnd() * 40, s = 8 + rnd() * 16;
+            ctx.fillStyle = '#d8e8c8'; ctx.fillRect(x - s * 0.15, y - s * 0.9, s * 0.3, s * 0.9);
+            ctx.fillStyle = rad(x, y - s, 1, s * 2.4, [[0, 'rgba(140,255,170,0.5)'], [1, 'rgba(140,255,170,0)']]);
+            ctx.beginPath(); ctx.arc(x, y - s, s * 2.4, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = lin(x, y - s * 1.5, x, y - s * 0.8, [[0, '#b8ffb0'], [1, '#3fbf6a']]);
+            ctx.beginPath(); ctx.ellipse(x, y - s * 0.9, s * 0.75, s * 0.55, 0, Math.PI, 0); ctx.fill();
+            circle(x - s * 0.25, y - s * 1.15, s * 0.1, 'rgba(255,255,255,0.8)');
+          }
+          for (let i = 0; i < 14; i++) crystalCluster(X0 + rnd() * BGR.w, 100 + rnd() * 480, 5 + rnd() * 7, W2.crystal, rnd() < 0.5);
         } else {
           // light pouring in from above and diamonds everywhere
           ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -2124,7 +2508,12 @@
       for (let i = 0; i < n; i++) {
         const sx = ((i * 0.6180339) % 1), sy = ((i * 0.7548776) % 1), ph = i * 1.37;
         let x, y, a, s;
-        if (W2.amb === 'ember') {
+        if (W2.amb === 'spore') {
+          // glowing spores drifting up like fireflies
+          const life = (t * (0.035 + (i % 5) * 0.008) + sy) % 1;
+          x = x0 + sx * w + Math.sin(t * 0.9 + ph) * 26; y = y0 + h - life * h * 1.05; a = Math.sin(life * Math.PI) * (0.6 + 0.4 * Math.sin(t * 3 + ph)); s = 1.5 + (i % 3);
+          circle(x, y, s * 3.2, `rgba(150,255,170,${0.16 * a})`); circle(x, y, s, `rgba(210,255,200,${0.9 * a})`);
+        } else if (W2.amb === 'ember') {
           const life = (t * (0.06 + (i % 5) * 0.012) + sy) % 1;
           x = x0 + sx * w + Math.sin(t * 1.3 + ph) * 18; y = y0 + h - life * h * 1.05; a = Math.sin(life * Math.PI); s = 1.5 + (i % 3);
           circle(x, y, s * 2.6, `rgba(255,120,40,${0.18 * a})`); circle(x, y, s, `rgba(255,${170 + (i % 4) * 20},80,${0.9 * a})`);
@@ -2190,9 +2579,10 @@
     }
 
     const panelCache = new Map();
-    function panelArt(wi) {
-      if (panelCache.has(wi)) return panelCache.get(wi);
-      const P = PANEL, BS = 2, pad = 12;
+    function panelArt(wi, w = PANEL.w, h = PANEL.h) {
+      const ck = wi + ":" + w + "x" + h;
+      if (panelCache.has(ck)) return panelCache.get(ck);
+      const P = { w, h }, BS = 2, pad = 12;
       const c = document.createElement('canvas');
       c.width = (P.w + 24) * BS; c.height = (P.h + 24) * BS;
       withCtx(c.getContext('2d'), () => {
@@ -2206,15 +2596,21 @@
         ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.fillRect(pad, pad, P.w, 46);
         ctx.restore();
         // header plaque line
-        ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(pad + 8, 56, P.w - pad * 2 - 16, 2);
+        if (h > 200) { ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.fillRect(pad + 8, 56, P.w - pad * 2 - 16, 2); }
         frameCorners(W2.frame, [[9, 9], [P.w - 9, 9], [9, P.h - 9], [P.w - 9, P.h - 9]], wi);
       });
-      panelCache.set(wi, c);
+      panelCache.set(ck, c);
       return c;
     }
 
-    function drawMiner(x, y, mood, t) {
-      const bounce = mood === 'cheer' ? Math.abs(Math.sin(t * 12)) * 10 : Math.sin(t * 2) * 1.5;
+    function drawMiner(x, y, mood, t, s = 1, swing = 0) {
+      ctx.save(); ctx.translate(x, y); ctx.scale(s, s); ctx.translate(-x, -y);
+      let bounce = mood === 'cheer' ? Math.abs(Math.sin(t * 12)) * 10 : Math.sin(t * 2) * 1.5;
+      // a little squash and stretch while he swings or hops
+      const hop = mood === 'cheer' ? Math.sin(t * 24) : 0;
+      const sw = swing > 0 ? 1 - swing / 0.45 : 0;
+      const squash = swing > 0 ? 1 + Math.sin(sw * Math.PI) * 0.06 : 1 + hop * 0.03;
+      ctx.translate(x, y); ctx.scale(1 / squash, squash); ctx.translate(-x, -y);
       const yy = y - bounce;
       ellipse(x, y + 4, 34, 8, 'rgba(0,0,0,0.3)');
       // legs and boots
@@ -2237,10 +2633,16 @@
       const armUp = mood === 'cheer';
       ctx.strokeStyle = '#e05a4a'; ctx.lineWidth = 11; ctx.lineCap = 'round';
       line(x - 22, yy - 74, armUp ? x - 36 : x - 32, armUp ? yy - 102 : yy - 48);
-      line(x + 22, yy - 74, armUp ? x + 34 : x + 30, armUp ? yy - 104 : yy - 50);
+      let hx = armUp ? x + 34 : x + 30, hy = armUp ? yy - 106 : yy - 48, rot = armUp ? -0.6 + Math.sin(t * 12) * 0.3 : 0.5;
+      if (!armUp && swing > 0) {
+        // wind up over the shoulder, then chop down
+        const up = sw < 0.35 ? sw / 0.35 : 1 - (sw - 0.35) / 0.65;
+        hx = x + 30 + up * 6; hy = yy - 50 - up * 44;
+        rot = sw < 0.35 ? 0.5 - up * 1.9 : -1.4 + (1 - up) * 2.3;
+      }
+      line(x + 22, yy - 74, hx, hy - 2);
       circle(armUp ? x - 36 : x - 32, armUp ? yy - 104 : yy - 46, 7, '#f1c27d');
-      const hx = armUp ? x + 34 : x + 30, hy = armUp ? yy - 106 : yy - 48;
-      ctx.save(); ctx.translate(hx, hy); ctx.rotate(armUp ? -0.6 + Math.sin(t * 12) * 0.3 : 0.5);
+      ctx.save(); ctx.translate(hx, hy); ctx.rotate(rot);
       ctx.strokeStyle = '#8a5a30'; ctx.lineWidth = 5; line(0, 10, 0, -36);
       ctx.fillStyle = lin(-20, -40, 20, -30, [[0, '#e6e9ee'], [1, '#7d8692']]);
       ctx.beginPath(); ctx.moveTo(-22, -30); ctx.quadraticCurveTo(0, -46, 22, -30); ctx.quadraticCurveTo(0, -38, -22, -30); ctx.fill();
@@ -2272,6 +2674,7 @@
       circle(x, yy - 124, 5, '#fffbe0');
       ctx.fillStyle = rad(x, yy - 124, 2, 40, [[0, 'rgba(255,250,200,0.55)'], [1, 'rgba(255,250,200,0)']]);
       ctx.beginPath(); ctx.arc(x, yy - 124, 40, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
     }
 
     function boosterIcon(id, x, y, r) {
@@ -2310,6 +2713,12 @@
         ctx.beginPath(); ctx.moveTo(x - 22, y - 10); ctx.lineTo(x + 22, y - 10); ctx.lineTo(x + 17, y + 10); ctx.lineTo(x - 17, y + 10); ctx.closePath(); ctx.fill();
         for (const dx of [-12, 0, 12]) coin(x + dx, y - 14, 7);
         circle(x - 11, y + 13, 5, '#2b2f36'); circle(x + 11, y + 13, 5, '#2b2f36');
+      } else if (id === 'battery') {
+        ctx.fillStyle = '#2b2f36'; rr(x - 11, y - 20, 22, 38, 5); ctx.fill();
+        ctx.fillStyle = '#9aa3ae'; rr(x - 5, y - 24, 10, 5, 2); ctx.fill();
+        ctx.fillStyle = lin(0, y - 16, 0, y + 14, [[0, '#ffd43b'], [1, '#ff8a3a']]); rr(x - 8, y - 2, 16, 17, 3); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(x + 2, y - 15); ctx.lineTo(x - 5, y + 1); ctx.lineTo(x, y + 1); ctx.lineTo(x - 2, y + 12); ctx.lineTo(x + 6, y - 4); ctx.lineTo(x + 1, y - 4); ctx.closePath(); ctx.fill();
+        drawDrill(x + 18, y + 10, 12);
       } else {
         ctx.fillStyle = lin(0, y - 20, 0, y + 16, [[0, '#a0703d'], [1, '#5b3a1e']]);
         ctx.beginPath(); ctx.moveTo(x - 12, y - 20); ctx.lineTo(x + 4, y - 20); ctx.lineTo(x + 4, y + 2); ctx.lineTo(x + 18, y + 6); ctx.quadraticCurveTo(x + 22, y + 16, x + 14, y + 16); ctx.lineTo(x - 12, y + 16); ctx.closePath(); ctx.fill();
@@ -2319,18 +2728,10 @@
       }
     }
 
-    // Where things sit on the side panel (also used by the gems that fly to their goal).
-    const PL = {
-      moves: { x: PANEL.x + 78, y: PANEL.y + 118, r: 46 },
-      score: { x: PANEL.x + 142, w: PANEL.w - 166, y: PANEL.y + 80 },
-      bar: { y: PANEL.y + 138 },
-      goals: { y: PANEL.y + 194, h: 106 },
-      miner: { x: PANEL.x + 84, y: PANEL.y + 462 },
-    };
     function goalRect(gi) {
       const n = run ? run.L.goals.length : 1;
-      const gw = (PANEL.w - 48 - (n - 1) * 10) / n;
-      return { x: PANEL.x + 24 + gi * (gw + 10), y: PL.goals.y, w: gw, h: PL.goals.h };
+      const gw = (PL.goals.w - (n - 1) * 10) / n;
+      return { x: PL.goals.x + gi * (gw + 10), y: PL.goals.y, w: gw, h: PL.goals.h };
     }
     function goalSlot(gi) { const g = goalRect(Math.max(0, gi)); return { x: g.x + g.w / 2, y: g.y + 38 }; }
     function starMarks(r) { return [r.L.s[0] * 0.55, r.L.s[0], r.L.s[1]]; }
@@ -2344,6 +2745,7 @@
       if (g[0] === 'dirt') return r.dirtTotal;
       if (g[0] === 'stone') return r.stonesTotal;
       if (g[0] === 'gold') return r.goldTotal;
+      if (g[0] === 'goo') return r.gooMax;
       return r.iceTotal;
     }
     function goalIconAt(g, x, y, s) {
@@ -2352,15 +2754,17 @@
       else if (g[0] === 'gold') ctx.drawImage(SPRITES.gold, x - s / 2, y - s / 2, s, s);
       else if (g[0] === 'ice') { ctx.drawImage(SPRITES.gem[4], x - s * 0.42, y - s * 0.42, s * 0.84, s * 0.84); ctx.drawImage(SPRITES.ice, x - s / 2, y - s / 2, s, s); }
       else if (g[0] === 'dirt') ctx.drawImage(DIRT_TILE[1], x - s * 0.36, y - s * 0.36, s * 0.72, s * 0.72);
+      else if (g[0] === 'goo') ctx.drawImage(SPRITES.goo, x - s / 2, y - s / 2, s, s);
       else { star(x, y + 2, s * 0.4, 'rgba(0,0,0,0.35)'); star(x, y, s * 0.4, '#ffd43b'); star(x - s * 0.06, y - s * 0.06, s * 0.16, 'rgba(255,255,255,0.6)'); }
     }
 
     function drawPanel() {
-      const r = run, P = PANEL, wi = worldOf(r.n), W2 = WORLDS[wi];
+      const r = run, P = PANEL, wi = r.wi, W2 = WORLDS[wi];
       ctx.drawImage(panelArt(wi), P.x - 12, P.y - 12, P.w + 24, P.h + 24);
+      if (portrait) { const T = TRAY(); ctx.drawImage(panelArt(wi, T.w, T.h), T.x - 12, T.y - 12, T.w + 24, T.h + 24); }
       // level name
-      outlined(`Level ${r.n}`, P.x + 76, P.y + 36, 25, '#ffffff', 'rgba(0,0,0,0.55)', 5);
-      label(W2.name.toUpperCase(), P.x + P.w - 26, P.y + 37, 12, W2.crystal[0], 'right', 900);
+      outlined(r.n ? `Level ${r.n}` : 'Daily Dig', PL.title.x, PL.title.y, 25, r.n ? '#ffffff' : '#ffe58a', 'rgba(0,0,0,0.55)', 5);
+      label(W2.name.toUpperCase(), PL.world.x, PL.world.y, 12, W2.crystal[0], 'right', 900);
       // moves
       const M = PL.moves;
       const low = r.moves <= 3 && !r.ended;
@@ -2403,7 +2807,7 @@
         if (lit) star(x - 2, by + 4, 4.5, 'rgba(255,255,255,0.7)');
       });
       // goals
-      label('GOALS', P.x + 26, PL.goals.y - 14, 12, 'rgba(255,255,255,0.6)', 'left', 900);
+      if (PL.goals.label) label('GOALS', PL.goals.x + 2, PL.goals.y - 14, 12, 'rgba(255,255,255,0.6)', 'left', 900);
       r.L.goals.forEach((g, i) => {
         const G2 = goalRect(i);
         const left = goalLeft(g), total = Math.max(1, goalTotalOf(r, g));
@@ -2430,7 +2834,7 @@
         }
       });
       // the miner
-      drawMiner(PL.miner.x, PL.miner.y, r.mascot.mood, time);
+      drawMiner(PL.miner.x, PL.miner.y, r.mascot.mood, time, PL.miner.s, r.mascot.swing);
       if (r.mascot.sayT > 0 && r.mascot.say) {
         const a = Math.min(1, r.mascot.sayT * 3), pop = Math.min(1, (2.6 - r.mascot.sayT) * 8);
         ctx.save();
@@ -2439,10 +2843,10 @@
         const words = r.mascot.say.split(' ');
         const lines = [];
         let cur = '';
-        for (const w of words) { const t = cur ? cur + ' ' + w : w; if (ctx.measureText(t).width > 168 && cur) { lines.push(cur); cur = w; } else cur = t; }
+        for (const w of words) { const t = cur ? cur + ' ' + w : w; if (ctx.measureText(t).width > PL.bubble.w && cur) { lines.push(cur); cur = w; } else cur = t; }
         lines.push(cur);
         const bw = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 28, bh = lines.length * 19 + 18;
-        const bx = P.x + 152, byy = P.y + 352 - bh / 2;
+        const bx = PL.bubble.x, byy = PL.bubble.y - bh / 2;
         ctx.translate(bx, byy + bh); ctx.scale(0.8 + pop * 0.2, 0.8 + pop * 0.2); ctx.translate(-bx, -(byy + bh));
         ctx.fillStyle = 'rgba(0,0,0,0.3)'; rr(bx + 2, byy + 4, bw, bh, 14); ctx.fill();
         ctx.fillStyle = '#ffffff';
@@ -2452,14 +2856,24 @@
         ctx.restore();
       }
       // boosters
-      ctx.fillStyle = 'rgba(0,0,0,0.3)'; rr(P.x + 26, 540, P.w - 52, 68, 34); ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1.5; rr(P.x + 26, 540, P.w - 52, 68, 34); ctx.stroke();
+      const BB = PL.boostBar;
+      ctx.fillStyle = 'rgba(0,0,0,0.3)'; rr(BB.x, BB.y, BB.w, BB.h, BB.h / 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1.5; rr(BB.x, BB.y, BB.w, BB.h, BB.h / 2); ctx.stroke();
+      const tooltip = (b, t2) => {
+        ctx.font = '800 13px Nunito, sans-serif';
+        const w = ctx.measureText(t2).width + 18;
+        const tx = clamp(b.x, w / 2 + 4, VW - w / 2 - 4);
+        ctx.fillStyle = 'rgba(20,16,26,0.92)'; rr(tx - w / 2, b.y - b.r - 30, w, 22, 11); ctx.fill();
+        label(t2, tx, b.y - b.r - 19, 13, '#fff');
+      };
       for (const [id, b] of Object.entries(BOOST_BTNS)) {
         const n = save.boosters[id] || 0;
         const active = r.booster === id, hot = hover && hover.type === 'boost' && hover.id === id;
-        const bs = active ? 1.08 + Math.sin(time * 8) * 0.03 : hot ? 1.05 : 1;
+        let bs = active ? 1.08 + Math.sin(time * 8) * 0.03 : hot ? 1.05 : 1;
+        const bumped = r.boostBump && r.boostBump.id === id;
+        if (bumped) bs *= 1 + Math.sin((r.boostBump.t / 0.6) * Math.PI) * 0.25;
         ctx.save(); ctx.translate(b.x, b.y); ctx.scale(bs, bs);
-        if (active) { ctx.fillStyle = rad(0, 0, 4, b.r + 18, [[0, 'rgba(255,210,90,0.6)'], [1, 'rgba(255,210,90,0)']]); ctx.beginPath(); ctx.arc(0, 0, b.r + 18, 0, Math.PI * 2); ctx.fill(); }
+        if (active || bumped) { ctx.fillStyle = rad(0, 0, 4, b.r + 18, [[0, 'rgba(255,210,90,0.6)'], [1, 'rgba(255,210,90,0)']]); ctx.beginPath(); ctx.arc(0, 0, b.r + 18, 0, Math.PI * 2); ctx.fill(); }
         circle(0, 3, b.r, 'rgba(0,0,0,0.45)');
         ctx.fillStyle = rad(-8, -10, 2, b.r, active ? [[0, '#ffe8a0'], [1, '#c27a12']] : hot ? [[0, '#6e628a'], [1, '#2d2737']] : [[0, '#564b70'], [1, '#221d2a']]);
         ctx.beginPath(); ctx.arc(0, 0, b.r, 0, Math.PI * 2); ctx.fill();
@@ -2473,13 +2887,42 @@
         label(String(n), b.x + b.r * 0.72, b.y + b.r * 0.72 + 1, 12, '#fff', 'center', 900);
         circle(b.x - b.r * 0.72, b.y - b.r * 0.72, 9, '#1a1520');
         label(BOOSTERS[id].key, b.x - b.r * 0.72, b.y - b.r * 0.72 + 1, 10, '#ffd43b', 'center', 900);
-        if (hot && !active) {
-          const t2 = `${BOOSTERS[id].name}${n ? '' : ' (buy in Shop)'}`;
-          ctx.font = '800 13px Nunito, sans-serif';
-          const w = ctx.measureText(t2).width + 18;
-          ctx.fillStyle = 'rgba(20,16,26,0.92)'; rr(b.x - w / 2, b.y - b.r - 30, w, 22, 11); ctx.fill();
-          label(t2, b.x, b.y - b.r - 19, 13, '#fff');
+        if (hot && !active) tooltip(b, `${BOOSTERS[id].name}${n ? '' : ' (buy in Shop)'}`);
+      }
+      // the Mega Drill: a ring fills up as you clear gems
+      {
+        const b = POWER_BTN, full = r.powerFull, active = r.booster === 'drill';
+        const hot = hover && hover.type === 'boost' && hover.id === 'drill';
+        const k = r.power / POWER_MAX;
+        let bs = active ? 1.08 + Math.sin(time * 8) * 0.03 : full ? 1 + Math.sin(time * 6) * 0.05 : hot ? 1.05 : 1;
+        if (r.powerFlash > 0) bs *= 1 + Math.sin(r.powerFlash * Math.PI) * 0.25;
+        ctx.save(); ctx.translate(b.x, b.y); ctx.scale(bs, bs);
+        if (full || active) {
+          ctx.fillStyle = rad(0, 0, 4, b.r + 22, [[0, 'rgba(255,150,70,0.7)'], [1, 'rgba(255,120,40,0)']]);
+          ctx.beginPath(); ctx.arc(0, 0, b.r + 22, 0, Math.PI * 2); ctx.fill();
         }
+        circle(0, 3, b.r, 'rgba(0,0,0,0.45)');
+        ctx.fillStyle = rad(-8, -10, 2, b.r, full || active ? [[0, '#ffd3a0'], [1, '#c2410c']] : [[0, '#4a3a52'], [1, '#1d1622']]);
+        ctx.beginPath(); ctx.arc(0, 0, b.r, 0, Math.PI * 2); ctx.fill();
+        // charge ring
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(0, 0, b.r - 3, 0, Math.PI * 2); ctx.stroke();
+        if (k > 0) {
+          ctx.strokeStyle = full ? '#fff3b0' : lin(-b.r, 0, b.r, 0, [[0, '#ff8a3a'], [1, '#ffd43b']]);
+          ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(0, 0, b.r - 3, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke();
+        }
+        ctx.lineCap = 'butt';
+        if (!full) ctx.globalAlpha = 0.55;
+        drawDrill(0, 0, b.r * 0.7, full ? time * 3 : 0);
+        ctx.globalAlpha = 1;
+        ctx.restore();
+        if (full && !active) {
+          for (let i = 0; i < 3; i++) { const a = time * 2.5 + (i * Math.PI * 2) / 3; sparkle4(b.x + Math.cos(a) * (b.r + 8), b.y + Math.sin(a) * (b.r + 8), 5, '#fff7d0'); }
+          outlined('READY!', b.x, b.y + b.r + 12, 13, '#ffe58a', 'rgba(60,20,0,0.8)', 4);
+        }
+        circle(b.x - b.r * 0.72, b.y - b.r * 0.72, 9, '#1a1520');
+        label('4', b.x - b.r * 0.72, b.y - b.r * 0.72 + 1, 10, '#ffd43b', 'center', 900);
+        if (hot && !active) tooltip(b, full ? 'Mega Drill: ready!' : `Mega Drill: clear ${POWER_MAX - r.power} more gems`);
       }
     }
 
@@ -2525,8 +2968,16 @@
         ctx.lineCap = 'butt';
       }
       ctx.restore();
-      if (run && run.booster) pillText(run.booster === 'pick' ? 'Tap a gem or stone to smash it! (Esc to cancel)' : 'Tap where the dynamite goes! (Esc to cancel)', 48, 'rgba(194,122,18,0.96)');
-      else if (run && run.n === 1 && !run.swapped && run.phase === 'idle') pillText('Drag a gem, or tap two gems next to each other, to swap them!', 48, 'rgba(60,30,100,0.94)');
+      const py = BY - 26;
+      if (run && run.booster) pillText(run.booster === 'pick' ? 'Tap a gem or stone to smash it! (Esc to cancel)' : run.booster === 'drill' ? 'Tap a spot to drill its row and column! (Esc to cancel)' : 'Tap where the dynamite goes! (Esc to cancel)', py, run.booster === 'drill' ? 'rgba(194,65,12,0.96)' : 'rgba(194,122,18,0.96)');
+      else if (run && run.n === 1 && !run.swapped && run.phase === 'idle') pillText(portrait ? 'Drag a gem to swap it with its neighbour!' : 'Drag a gem, or tap two gems next to each other, to swap them!', py, 'rgba(60,30,100,0.94)');
+      // coins from treasure chests fly up to the coin counter
+      if (run) for (const f of run.coinFly) {
+        if (f.t < 0) continue;
+        const k = Math.min(1, f.t / f.dur), e = k * k * (3 - 2 * k);
+        const tx = 174, ty = 22 - hudLift();
+        coin(f.x0 + (tx - f.x0) * e, f.y0 + (ty - f.y0) * e - Math.sin(k * Math.PI) * 80, 10 - k * 3);
+      }
     }
 
     // =====================================================================
@@ -2544,7 +2995,13 @@
         sx *= s; sy *= s; alpha = 1 - k * 0.4;
       }
       sx *= extraScale; sy *= extraScale;
-      const img = p.kind === 'stone' ? SPRITES.stone[Math.max(1, p.hp)] : p.kind === 'gold' ? SPRITES.gold : p.sp === 'rainbow' ? SPRITES.rainbow : SPRITES[p.sp || 'gem'][p.t];
+      let img = p.kind === 'stone' ? SPRITES.stone[Math.max(1, p.hp)] : p.kind === 'gold' ? SPRITES.gold : p.kind === 'goo' ? SPRITES.goo : p.kind === 'chest' ? SPRITES.chest : p.sp === 'rainbow' ? SPRITES.rainbow : SPRITES[p.sp || 'gem'][p.t];
+      if (p.kind === 'goo' && !p.clearing) {
+        // goo jiggles and blinks
+        const j = Math.sin(time2 * 3.2 + p.id) * 0.06;
+        sx *= 1 + j; sy *= 1 - j;
+        if ((time2 * 0.45 + p.id * 0.37) % 1 < 0.04) img = SPRITES.gooBlink;
+      } else if (p.kind === 'chest' && !p.clearing) { const j = Math.max(0, Math.sin(time2 * 2 + p.id)) ** 8 * 0.08; sx *= 1 + j; sy *= 1 + j; }
       const px = p.x + ox, py = p.y + oy + (p.land > 0 ? (CELL * (1 - sy)) / 2 : 0);
       ctx.save();
       ctx.globalAlpha = alpha;
@@ -2602,7 +3059,7 @@
 
     function drawBoard(time2) {
       const r = run;
-      const wi = worldOf(r.n);
+      const wi = r.wi;
       const art = boardArt(r.L.shape, wi);
       ctx.drawImage(art.c, BX - art.pad, BY - art.pad, N * CELL + art.pad * 2, N * CELL + art.pad * 2);
       // dirt
@@ -2624,6 +3081,11 @@
         const { r: hr, c: hc } = hover.cell;
         ctx.fillStyle = r.booster ? 'rgba(255,190,80,0.28)' : 'rgba(255,255,255,0.09)';
         if (r.booster === 'dyn') { rr(BX + (hc - 1) * CELL + 2, BY + (hr - 1) * CELL + 2, CELL * 3 - 4, CELL * 3 - 4, 12); ctx.fill(); ctx.strokeStyle = 'rgba(255,200,90,0.8)'; ctx.setLineDash([7, 5]); ctx.lineWidth = 2.5; ctx.stroke(); ctx.setLineDash([]); }
+        else if (r.booster === 'drill') {
+          ctx.fillStyle = `rgba(255,140,60,${0.22 + Math.sin(time2 * 8) * 0.06})`;
+          rr(BX + 2, BY + hr * CELL + 2, N * CELL - 4, CELL - 4, 10); ctx.fill();
+          rr(BX + hc * CELL + 2, BY + 2, CELL - 4, N * CELL - 4, 10); ctx.fill();
+        }
         else { rr(BX + hc * CELL + 2, BY + hr * CELL + 2, CELL - 4, CELL - 4, 10); ctx.fill(); }
       }
       if (r.sel) {
@@ -2733,6 +3195,27 @@
             }
           }
           ctx.restore();
+        } else if (f.type === 'chest') {
+          // a golden burst of light and the lid flipping away
+          ctx.save(); ctx.globalCompositeOperation = 'lighter';
+          ctx.fillStyle = rad(f.x, f.y, 2, CELL * (0.6 + k * 1.2), [[0, `rgba(255,240,170,${a * 0.9})`], [1, 'rgba(255,200,80,0)']]);
+          ctx.beginPath(); ctx.arc(f.x, f.y, CELL * (0.6 + k * 1.2), 0, Math.PI * 2); ctx.fill();
+          for (let i = 0; i < 8; i++) {
+            const ang = (i / 8) * Math.PI * 2 + k, len = CELL * (0.4 + k * 1.4);
+            ctx.strokeStyle = `rgba(255,230,140,${a * 0.8})`; ctx.lineWidth = 4 * a + 1;
+            line(f.x + Math.cos(ang) * CELL * 0.3, f.y + Math.sin(ang) * CELL * 0.3, f.x + Math.cos(ang) * len, f.y + Math.sin(ang) * len);
+          }
+          ctx.restore();
+          ctx.save(); ctx.globalAlpha = a; ctx.translate(f.x + k * 30, f.y - 20 - k * 70 + k * k * 60); ctx.rotate(-k * 4);
+          ctx.fillStyle = lin(0, -10, 0, 10, [[0, '#d08a48'], [1, '#93582a']]); rr(-22, -8, 44, 16, 6); ctx.fill();
+          ctx.fillStyle = '#ffc93b'; ctx.fillRect(-4, -8, 8, 16);
+          ctx.restore();
+        } else if (f.type === 'drill') {
+          ctx.save(); ctx.globalAlpha = a;
+          const bob = Math.sin(k * Math.PI);
+          ctx.translate(f.x, f.y - 30 * bob); ctx.scale(1 + bob * 0.5, 1 + bob * 0.5);
+          drawDrill(0, 0, 30, k * 8);
+          ctx.restore();
         } else if (f.type === 'pick') {
           ctx.save(); ctx.translate(f.x + 20, f.y - 20); ctx.rotate(-1.2 + k * 1.6); ctx.globalAlpha = a;
           boosterIcon('pick', 0, -10, 30);
@@ -2816,8 +3299,12 @@
         drawPiece({ kind: 'gem', t: d.t, sp: null, x: cellX(c), y, id: d.id, land: 0, pop: 0, wob: 0 }, time2, 1 + Math.sin(time2 * 2 + d.ph) * 0.03);
       }
       ctx.drawImage(panelArt(wi), PANEL.x - 12, PANEL.y - 12, PANEL.w + 24, PANEL.h + 24);
-      drawMiner(PANEL.x + PANEL.w / 2, PANEL.y + 470, Math.sin(time2 * 0.7) > 0.8 ? 'cheer' : 'idle', time2);
+      if (portrait) { const T = TRAY(); ctx.drawImage(panelArt(wi, T.w, T.h), T.x - 12, T.y - 12, T.w + 24, T.h + 24); }
+      const mx = portrait ? PL.miner.x : PANEL.x + PANEL.w / 2, my = portrait ? PL.miner.y : PANEL.y + 470;
+      drawMiner(mx, my, Math.sin(time2 * 0.7) > 0.8 ? 'cheer' : 'idle', time2, PL.miner.s);
     }
+    // the box under the board that holds the boosters on tall screens
+    function TRAY() { return { x: PANEL.x, y: BY + N * CELL + 22, w: PANEL.w, h: VH - (BY + N * CELL + 22) - 6 }; }
 
     // =====================================================================
     // Frame
@@ -2825,30 +3312,46 @@
     let W = 0, H = 0, dpr = 1;
     function resize() {
       dpr = Math.min(2, window.devicePixelRatio || 1);
-      W = window.innerWidth; H = window.innerHeight;
+      W = Math.max(1, window.innerWidth); H = Math.max(1, window.innerHeight);
       canvas.width = Math.round(W * dpr);
       canvas.height = Math.round(H * dpr);
+      const tall = H > W * 1.15;
+      if (tall !== portrait || !PL) setLayout(tall);
       const s = Math.min(W / VW, H / VH);
       view = { s, ox: (W - VW * s) / 2, oy: (H - VH * s) / 2 };
     }
-    window.addEventListener('resize', resize);
+    // redraw straight away so the canvas never shows blank between a resize and the next frame
+    let started = false;
+    window.addEventListener('resize', () => { resize(); if (started) frame(performance.now() / 1000); });
     resize();
 
+    // the cave wall drifts a little with the pointer, which gives the scene some depth
+    const para = { x: 0, y: 0 };
+    function bgPlace() {
+      return portrait ? { x: -350, y: 168, k: 1.3 } : { x: 0, y: 0, k: 1 };
+    }
     function frame(time2) {
       const r = run;
-      const wi = r ? worldOf(r.n) : mode === 'intro' ? worldOf(introLevel) : worldOf(Math.min(save.unlocked, LEVELS.length));
+      const wi = r ? r.wi : mode === 'intro' ? worldOf(introLevel) : worldOf(Math.min(save.unlocked, LEVELS.length));
       const W2 = WORLDS[wi];
+      const bp = bgPlace();
+      const tx = clamp(pointer.x / VW - 0.5, -0.6, 0.6), ty = clamp(pointer.y / VH - 0.5, -0.6, 0.6);
+      if (pointer.x > -900) { para.x += (tx - para.x) * 0.05; para.y += (ty - para.y) * 0.05; }
+      const px = -para.x * 16 + Math.sin(time2 * 0.13) * 4, py = -para.y * 10 + Math.cos(time2 * 0.11) * 3;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const yTop = view.oy + BGR.y * view.s;
+      const yTop = view.oy + (bp.y + (BGR.y + py) * bp.k) * view.s;
       ctx.fillStyle = shade(W2.top, -10);
       ctx.fillRect(0, 0, W, Math.max(0, yTop + 4));
       ctx.fillStyle = W2.bot;
       ctx.fillRect(0, Math.max(0, yTop), W, H);
       ctx.setTransform(dpr * view.s, 0, 0, dpr * view.s, dpr * view.ox, dpr * view.oy);
-      // the visible area in game units (wider or taller than the 1000x640 play area on most screens)
+      // the visible area in game units (wider or taller than the play area on most screens)
       const x0 = -view.ox / view.s, y0 = -view.oy / view.s, vw = W / view.s, vh = H / view.s;
-      ctx.drawImage(background(wi), BGR.x, BGR.y, BGR.w, BGR.h);
-      drawAmbient(wi, time2, x0, y0, vw, vh);
+      ctx.save();
+      ctx.translate(bp.x, bp.y); ctx.scale(bp.k, bp.k);
+      ctx.drawImage(background(wi), BGR.x + px, BGR.y + py, BGR.w, BGR.h);
+      drawAmbient(wi, time2, (x0 - bp.x) / bp.k, (y0 - bp.y) / bp.k, vw / bp.k, vh / bp.k);
+      ctx.restore();
       ctx.save();
       if (r) {
         if (r.shake > 0) ctx.translate((Math.random() - 0.5) * r.shake, (Math.random() - 0.5) * r.shake);
@@ -2859,7 +3362,7 @@
       ctx.restore();
       drawHud();
       if (r && r.flash > 0) { ctx.fillStyle = `rgba(255,250,235,${Math.min(0.5, r.flash * 0.7)})`; ctx.fillRect(x0, y0, vw, vh); }
-      ctx.fillStyle = rad(VW / 2, VH / 2, 360, Math.max(760, vw * 0.7), [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.38)']]);
+      ctx.fillStyle = rad(VW / 2, VH / 2, Math.min(VW, VH) * 0.56, Math.max(760, vw * 0.7, vh * 0.6), [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.38)']]);
       ctx.fillRect(x0, y0, vw, vh);
     }
 
@@ -2879,6 +3382,7 @@
       startLevel, showMap, showIntro, showShop, showTitle,
       trySwap, findMove, findGroups, goalLeft, goalsDone, useBooster,
       allMoves: () => allMovesIn(run.grid, run.cells),
+      dailyDef, levelDef, spreadGoo, chargeDrill: () => { if (run) { run.power = POWER_MAX - 1; } },
       step: (dt = 1 / 60, n = 1) => { for (let i = 0; i < n; i++) update(dt); },
       draw: (t = performance.now() / 1000) => frame(t),
     };
@@ -2927,6 +3431,7 @@
 
     drawEmblem();
     showTitle();
+    started = true;
     requestAnimationFrame(loop);
   })();
   </script>
