@@ -13,13 +13,11 @@ const Jobs = (() => {
   const W = World;
   const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
-  const TYPES = {
-    breakdown: { title: 'Broken-down car', banner: 'NEW CALL!', rule: 'Get there before the rivals do' },
-    vip: { title: 'VIP car', banner: 'VIP CALL!', rule: '2x pay - every crash while towing costs you 15%' },
-    parked: { title: 'Illegally parked car', banner: 'PARKING CALL!', rule: 'No rivals - but the owner will chase you' },
-    crash: { title: 'Crash scene', banner: 'CRASH SCENE!', rule: 'Police on site - drive by the rules nearby' },
-    big: { title: 'Broken-down bus', banner: 'BIG ONE!', rule: '2.5x pay - heavy and slow to tow' },
-  };
+  // title, banner and rule come from the translation table (i18n.js), e.g. jt_vip_t / jt_vip_b / jt_vip_r
+  const TYPES = {};
+  for (const id of ['breakdown', 'vip', 'parked', 'crash', 'big']) {
+    TYPES[id] = { get title() { return tl(`jt_${id}_t`); }, get banner() { return tl(`jt_${id}_b`); }, get rule() { return tl(`jt_${id}_r`); } };
+  }
 
   // Angry car owners drive like cops: grippy, no drifting.
   const OWNER_STATS = {
@@ -102,7 +100,7 @@ const Jobs = (() => {
       if (type === 'parked') j.sign = { x: x + R.x * 34, y: y + R.y * 34 };
 
       g.callsMade++;
-      g.toast(TYPES[type].banner, `${TYPES[type].title} - worth $${j.startReward}`, '#ffd23f');
+      g.toast(TYPES[type].banner, tl('call_sub', { title: TYPES[type].title, m: '$' + j.startReward }), '#ffd23f');
       Sound.call();
       return;
     }
@@ -127,7 +125,7 @@ const Jobs = (() => {
       g.rivals.push(r);
     }
     const names = pool.map((c) => c.name).join(' & ');
-    g.toast('RIVALS ROLLING!', `${names} ${pool.length > 1 ? 'are' : 'is'} heading for your car`, '#ff6b5a');
+    g.toast(tl('rivals_t'), tl(pool.length > 1 ? 'rivals_many' : 'rivals_one', { names }), '#ff6b5a');
     Sound.alarm();
   }
 
@@ -159,8 +157,8 @@ const Jobs = (() => {
     r.maxSpeed *= 0.85;
     for (const o of g.rivals) if (o.state === 'toJob') sendHome(o);
     g.jobsLost++;
-    Extras.streakLost(g, 'a rival got that one');
-    g.toast('TOO SLOW!', `${r.company.name} hooked the car first`, '#ff6b5a');
+    Extras.streakLost(g, 'rival');
+    g.toast(tl('too_slow'), tl('too_slow_sub', { name: r.company.name }), '#ff6b5a');
     Sound.lose();
     endJob(g, 3.5);
   }
@@ -190,12 +188,12 @@ const Jobs = (() => {
     if (j.type === 'parked') {
       j.ownerTimer = 2.5;
       j.ownerAway = 0;
-      g.toast('UH OH...', 'The owner saw you - get it to the yard before they catch you!', '#ff6b5a');
+      g.toast(tl('uhoh'), tl('uhoh_sub'), '#ff6b5a');
       return;
     }
-    const tag = j.elapsed < 18 ? 'LIGHTNING FAST!' : j.elapsed < 30 ? 'NICE TIMING!' : 'HOOKED!';
-    const extra = j.type === 'vip' ? " - don't scratch it!" : j.type === 'big' ? ' - it is heavy, take it easy' : '';
-    g.toast(tag, `$${j.payout} locked in${extra}`, '#5ee07a');
+    const tag = tl(j.elapsed < 18 ? 'hk_fast' : j.elapsed < 30 ? 'hk_nice' : 'hk_ok');
+    const lockKey = j.type === 'vip' ? 'locked_vip' : j.type === 'big' ? 'locked_big' : 'locked';
+    g.toast(tag, tl(lockKey, { m: '$' + j.payout }), '#5ee07a');
   }
 
   // A crash while towing a VIP car knocks money off the payout.
@@ -206,7 +204,7 @@ const Jobs = (() => {
     if (j.type !== 'vip') return;
     const before = j.condition;
     j.condition = Math.max(K.vip.minCondition, j.condition - K.vip.hitDamage * (g.stats.vipDamageMul || 1));
-    if (j.condition < before) g.notice(`VIP car damaged! Condition ${Math.round(j.condition * 100)}%`, '#ff6b5a');
+    if (j.condition < before) g.notice(tl('vip_dmg', { n: Math.round(j.condition * 100) }), '#ff6b5a');
   }
 
   function deliver(g) {
@@ -225,8 +223,8 @@ const Jobs = (() => {
     if (!j.towCrashes) g.track.cleanTows++;
     g.yardCars.push(j.car.color);
     g.float(t.x, t.y - 40, `+$${total}`, '#5ee07a');
-    const note = (j.type === 'vip' ? ` (${Math.round(j.condition * 100)}% condition)` : '') + (mul > 1 ? ` x${mul.toFixed(1)} streak` : '');
-    g.toast('DELIVERED!', `+$${jobPay} job${note} + $${C.towFee} tow fee`, '#5ee07a');
+    const note = (j.type === 'vip' ? tl('note_cond', { n: Math.round(j.condition * 100) }) : '') + (mul > 1 ? tl('note_streak', { m: mul.toFixed(1) }) : '');
+    g.toast(tl('delivered'), tl('deliv_sub', { pay: '$' + jobPay, note, fee: '$' + C.towFee }), '#5ee07a');
     Sound.cash();
     t.towing = null;
     endJob(g, 2.5);
@@ -251,7 +249,7 @@ const Jobs = (() => {
     o.x = sp.x; o.y = sp.y;
     Police.toChase(o);
     g.owner = o;
-    g.notice('The owner is coming after you!', '#ff6b5a');
+    g.notice(tl('owner_coming'), '#ff6b5a');
     Sound.honk();
   }
 
@@ -271,13 +269,13 @@ const Jobs = (() => {
     j.grab = close ? j.grab + dt / K.parked.ownerGrabSeconds : Math.max(0, j.grab - dt * 0.5);
     j.ownerAway = dist(o, t) > K.parked.ownerGiveUpRange ? j.ownerAway + dt : 0;
     if (j.grab >= 1) {
-      g.toast('CAUGHT!', 'The owner took their car back', '#ff6b5a');
+      g.toast(tl('caught'), tl('caught_sub'), '#ff6b5a');
       Sound.lose();
       loseTow(g);
     } else if (j.ownerAway >= K.parked.ownerGiveUpSeconds) {
       o.leaving = true;
       o.ghostly = true;
-      g.notice('The owner gave up!', '#5ee07a');
+      g.notice(tl('owner_gaveup'), '#5ee07a');
     }
   }
 

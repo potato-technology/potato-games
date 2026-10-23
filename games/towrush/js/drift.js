@@ -56,7 +56,7 @@ const Drift = (() => {
     d.count++;
     d.best = Math.max(d.best, s);
     t.nitro = Math.min(1, t.nitro + s * D.nitroPerPoint);
-    const label = s >= 4000 ? 'INSANE DRIFT!' : s >= 1500 ? 'GREAT DRIFT!' : s >= 500 ? 'NICE DRIFT' : 'DRIFT';
+    const label = tl(s >= 4000 ? 'd_insane' : s >= 1500 ? 'd_great' : s >= 500 ? 'd_nice' : 'd_drift');
     d.flash = { label, score: s, cash, life: 2 };
     g.float(t.x, t.y - 40, `+$${cash}`, '#ffd23f');
     Sound.driftBank(s);
@@ -66,7 +66,7 @@ const Drift = (() => {
   function crash(g) {
     const d = g.drift;
     if (d.points <= 0 || (!d.active && d.grace <= 0)) return;
-    d.flash = { label: 'DRIFT FAILED', score: score(d), cash: 0, life: 1.6, failed: true };
+    d.flash = { label: tl('d_fail'), score: score(d), cash: 0, life: 1.6, failed: true };
     d.points = 0;
     d.time = 0;
     d.combo = 1;

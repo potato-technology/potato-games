@@ -42,13 +42,13 @@ const Extras = (() => {
     const K = PK.kinds[p.kind];
     let text = '', color = '#fff';
     if (p.kind === 'cash') { g.money += K.value; g.earned += K.value; text = `+$${K.value}`; color = '#5ee07a'; }
-    else if (p.kind === 'nitro') { t.nitro = Math.min(1, t.nitro + K.amount); text = '+NITRO'; color = '#7af0ff'; }
-    else if (p.kind === 'shield') { t.shield = true; text = 'SHIELD!'; color = '#9fd8ff'; g.notice('Bumper shield: your next crash is free', '#9fd8ff'); }
+    else if (p.kind === 'nitro') { t.nitro = Math.min(1, t.nitro + K.amount); text = tl('pk_nitro'); color = '#7af0ff'; }
+    else if (p.kind === 'shield') { t.shield = true; text = tl('pk_shield'); color = '#9fd8ff'; g.notice(tl('pk_shield_note'), '#9fd8ff'); }
     else if (p.kind === 'jammer') {
       g.jammer = K.seconds;
-      text = 'JAMMER!'; color = '#c69bff';
-      if (g.wanted) { Police.endChase(g); g.toast('JAMMED!', 'The cops lost your signal', '#c69bff'); }
-      else g.notice(`Siren jammer: cops ignore you for ${K.seconds}s`, '#c69bff');
+      text = tl('pk_jammer'); color = '#c69bff';
+      if (g.wanted) { Police.endChase(g); g.toast(tl('jammed'), tl('jammed_sub'), '#c69bff'); }
+      else g.notice(tl('jammer_note', { n: K.seconds }), '#c69bff');
     } else if (p.kind === 'clock') {
       if (g.time > 0) g.time += K.seconds;
       text = `+${K.seconds}s`; color = '#ffd23f';
@@ -108,6 +108,8 @@ const Extras = (() => {
     }
     return out;
   }
+  // The contract's goal in the player's language.
+  const ctText = (c) => tl('ct_' + c.id);
 
   function updateContracts(g) {
     for (const c of g.contracts) {
@@ -116,7 +118,7 @@ const Extras = (() => {
         c.done = true;
         g.money += c.reward;
         g.contractCash += c.reward;
-        g.toast('CONTRACT DONE!', `${c.text}  +$${c.reward}`, '#ffd23f');
+        g.toast(tl('ct_done'), `${ctText(c)}  +$${c.reward}`, '#ffd23f');
         g.float(g.truck.x, g.truck.y - 60, `+$${c.reward}`, '#ffd23f');
         Sound.contract();
       }
@@ -135,7 +137,8 @@ const Extras = (() => {
   const streakMul = (n) => Math.min(C.streak.max, 1 + C.streak.step * n);
 
   function streakLost(g, why) {
-    if (g.streak > 0) g.notice(`Streak lost${why ? ' - ' + why : ''}`, '#ff8a7a');
+    // why is a short id: 'busted' or 'rival'
+    if (g.streak > 0) g.notice(why ? tl('streak_lost_why', { why: tl('why_' + why) }) : tl('streak_lost'), '#ff8a7a');
     g.streak = 0;
   }
 
@@ -149,7 +152,7 @@ const Extras = (() => {
       const extra = Vehicles.spawnTraffic(R.extraTraffic, g.truck, 700, g.traffic);
       for (const f of extra) { f.rush = true; f.alpha = 0; f.fadeIn = true; }
       g.traffic.push(...extra);
-      g.toast('RUSH HOUR!', `Busy streets - calls pay +${Math.round((R.payMul - 1) * 100)}% for ${R.seconds}s`, '#ff9f43');
+      g.toast(tl('rush'), tl('rush_sub', { p: Math.round((R.payMul - 1) * 100), s: R.seconds }), '#ff9f43');
       Sound.rush();
       // the call that's already out gets the bonus too
       if (g.job.state === 'call') { g.job.startReward = Math.round(g.job.startReward * R.payMul); g.job.rushBonus = true; }
@@ -157,7 +160,7 @@ const Extras = (() => {
     if (g.rush.left > 0) {
       g.rush.left -= dt;
       if (g.rush.left <= 0) {
-        g.notice('Rush hour is over', '#c9ced8');
+        g.notice(tl('rush_over'), '#c9ced8');
         for (const f of g.traffic) if (f.rush) f.fadeOut = true;
       }
     }
@@ -188,5 +191,5 @@ const Extras = (() => {
     if (playing) updateContracts(g);
   }
 
-  return { reset, update, finishContracts, pickContracts, streakMul, streakLost, rushOn, LABEL, PICK_COLOR };
+  return { reset, update, finishContracts, pickContracts, streakMul, streakLost, rushOn, LABEL, PICK_COLOR, ctText };
 })();

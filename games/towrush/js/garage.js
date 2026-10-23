@@ -131,16 +131,16 @@ const Garage = (() => {
       card.className = 'upgrade' + (c === null ? ' maxed' : save.bank >= c ? ' can-buy' : '');
       const pips = [0, 1, 2].map((k) => `<span class="pip${k < lvl ? ' on' : ''}"></span>`).join('');
       card.innerHTML = `
-        <div class="up-head"><span class="up-title"><span class="up-icon">${ICONS[u.id] || ""}</span><span class="up-name">${u.name}</span></span><span class="pips">${pips}</span></div>
-        <p class="up-desc">${u.desc}</p>
-        <p class="up-next">${c === null ? 'Fully upgraded' : `Next: ${u.levels[lvl]}`}</p>`;
+        <div class="up-head"><span class="up-title"><span class="up-icon">${ICONS[u.id] || ""}</span><span class="up-name">${tl(`up_${u.id}_n`)}</span></span><span class="pips">${pips}</span></div>
+        <p class="up-desc">${tl(`up_${u.id}_d`)}</p>
+        <p class="up-next">${c === null ? tl('up_full') : tl('up_next', { x: tl(`up_${u.id}_${lvl + 1}`) })}</p>`;
       const btn = document.createElement('button');
       btn.className = 'buy';
       if (c === null) {
-        btn.textContent = 'MAXED';
+        btn.textContent = tl('up_max');
         btn.disabled = true;
       } else {
-        btn.textContent = `Buy ${money(c)}`;
+        btn.textContent = tl('up_buy', { m: money(c) });
         btn.disabled = save.bank < c;
         btn.addEventListener('click', () => {
           Sound.init();

@@ -43,16 +43,20 @@ const Police = (() => {
   }
 
   // ---------- breaking the rules ----------
+  // The reasons stay in English inside the game; this shows them in the player's language.
+  const REASON_KEY = { 'Ran a red light': 'why_red', 'Driving on the wrong side': 'why_wrong', 'Speeding': 'why_speed', 'Crashing into cars': 'why_crash', 'Ramming a police car': 'why_ram' };
+  const reasonText = (reason) => (REASON_KEY[reason] ? tl(REASON_KEY[reason]) : reason);
+
   function violate(g, reason, range = P.seeRange) {
     if (g.jail > 0) return;
-    if (g.jammer > 0) { if (!g.wanted && (g.rules.cd[reason] || 0) <= g.clock) { g.rules.cd[reason] = g.clock + 4; g.notice(`${reason}! The jammer hid you.`, "#c69bff"); } return; }
+    if (g.jammer > 0) { if (!g.wanted && (g.rules.cd[reason] || 0) <= g.clock) { g.rules.cd[reason] = g.clock + 4; g.notice(tl('jam_hid', { reason: reasonText(reason) }), "#c69bff"); } return; }
     const rs = g.rules;
     if ((rs.cd[reason] || 0) > g.clock) return;
     rs.cd[reason] = g.clock + 4;
     if (g.wanted) return;
     const witnesses = g.police.filter((p) => (p.mode === 'patrol' || p.mode === 'scene') && dist(p, g.truck) < range);
     if (!witnesses.length) {
-      if (reason !== 'Speeding') g.notice(`${reason}! No cops saw it.`, '#ffae00');
+      if (reason !== 'Speeding') g.notice(tl('no_cops', { reason: reasonText(reason) }), '#ffae00');
       return;
     }
     startChase(g, reason, witnesses);
@@ -64,7 +68,7 @@ const Police = (() => {
     for (const p of g.police) {
       if ((p.mode === 'patrol' || p.mode === 'scene') && (witnesses.includes(p) || dist(p, g.truck) < P.joinRange)) toChase(p);
     }
-    g.toast('POLICE!', `${reason} - lose them or get arrested`, '#4d8dff');
+    g.toast(tl('police_t'), tl('chase_sub', { reason: reasonText(reason) }), '#4d8dff');
     Sound.whistle();
   }
 
@@ -204,7 +208,7 @@ const Police = (() => {
     if (g.wanted.escape >= (g.stats.escapeSeconds || P.escapeSeconds) || !chasers.length) {
       endChase(g);
       g.track.escapes++;
-      g.toast('ESCAPED!', 'You lost the cops', '#5ee07a');
+      g.toast(tl('escaped'), tl('escaped_sub'), '#5ee07a');
       return;
     }
 
@@ -232,7 +236,7 @@ const Police = (() => {
     t.y = W.station.y + W.station.h / 2;
     t.vx = t.vy = t.speed = t.slide = t.yaw = t.steer = 0;
     g.rearPrev = null;
-    g.toast('BUSTED!', `${P.jailSeconds} seconds in jail - the shift clock keeps ticking`, '#ff6b5a');
+    g.toast(tl('busted'), tl('busted_sub', { n: P.jailSeconds }), '#ff6b5a');
     Sound.busted();
   }
 
@@ -248,7 +252,7 @@ const Police = (() => {
     g.rules.inter = null;
     g.rules.px = t.x;
     g.rules.py = t.y;
-    g.toast('RELEASED', 'Drive carefully this time', '#c9ced8');
+    g.toast(tl('released'), tl('released_sub'), '#c9ced8');
   }
 
   // For the police scanner: is a cop close enough to see you break a rule right now?
@@ -264,5 +268,5 @@ const Police = (() => {
     return near === Infinity ? 0 : clamp(1 - near / 1400, 0.15, 1);
   }
 
-  return { reset, update, checkRules, violate, updateJail, sirenLevel, chase, toChase, makeSceneCop, endChase, canSee };
+  return { reset, update, checkRules, violate, updateJail, sirenLevel, chase, toChase, makeSceneCop, endChase, canSee, reasonText };
 })();

@@ -88,7 +88,7 @@
   let game = makeGame();
   let upcoming = Extras.pickContracts(); // the contracts for your next shift (shown on the menus)
   function showUpcoming() {
-    const html = upcoming.map((c) => `<div class="ct"><i>★</i><span>${c.text}</span><b>+${Render.money(c.reward)}</b></div>`).join("");
+    const html = upcoming.map((c) => `<div class="ct"><i>★</i><span>${Extras.ctText(c)}</span><b>+${Render.money(c.reward)}</b></div>`).join("");
     document.querySelectorAll(".next-contracts").forEach((el) => (el.innerHTML = html));
   }
 
@@ -157,12 +157,12 @@
     const g = game;
     if (!(g.jail > 0)) return;
     const bail = g.stats.bail || C.bail;
-    if (g.money + g.bankAtStart < bail) { g.notice(`Bail is ${Render.money(bail)} - you can't afford it`, "#ff6b5a"); return; }
+    if (g.money + g.bankAtStart < bail) { g.notice(tl('bail_cant', { m: Render.money(bail) }), "#ff6b5a"); return; }
     g.money -= bail;
     g.bailPaid += bail;
     g.jail = 0.001;
     Sound.cash();
-    g.notice(`Paid ${Render.money(bail)} bail`, '#ffd23f');
+    g.notice(tl('bail_paid', { m: Render.money(bail) }), '#ffd23f');
   }
 
   function togglePause() {
@@ -172,7 +172,7 @@
 
   function toggleMute() {
     const m = Sound.toggleMute();
-    document.querySelectorAll('.mute-label').forEach((el) => (el.textContent = m ? 'Sound: off (M)' : 'Sound: on (M)'));
+    document.querySelectorAll('.mute-label').forEach((el) => { el.dataset.i18n = m ? 'snd_off' : 'snd_on'; el.textContent = tl(el.dataset.i18n); });
   }
 
   function loadBest() {
@@ -196,8 +196,8 @@
     // 1 to 3 stars for a good shift, and a fun rank to go with them
     const stars = C.shiftStars.filter((s) => g.money >= s).length;
     [...$('ov-stars').children].forEach((s, i) => { s.className = i < stars ? 'on' : ''; });
-    $('ov-rank').textContent = ['Tow Rookie', 'Road Runner', 'Tow Pro', 'Tow Legend'][stars] + (stars < 3 ? ` · next star at ${Render.money(C.shiftStars[stars])}` : '');
-    $('ov-title').textContent = stars === 3 ? 'Legendary shift!' : stars ? 'Shift over' : 'Shift over... keep at it!';
+    $('ov-rank').textContent = tl('rank' + stars) + (stars < 3 ? tl('next_star', { m: Render.money(C.shiftStars[stars]) }) : '');
+    $('ov-title').textContent = tl(stars === 3 ? 'ov_legend' : stars ? 'ov_over' : 'ov_keep');
     if (stars > 0) Sound.cash();
     $('ov-earned').textContent = Render.money(g.earned);
     $('ov-repairs').textContent = g.repairs ? '-' + Render.money(g.repairs) : '$0';
@@ -207,10 +207,10 @@
     $('ov-drift').textContent = Render.money(g.drift.cash);
     $('ov-best-drift').textContent = g.drift.best.toLocaleString();
     $('ov-bail').textContent = g.bailPaid ? '-' + Render.money(g.bailPaid) : '$0';
-    $('ov-streak').textContent = g.track.bestStreak ? g.track.bestStreak + ' in a row' : '-';
+    $('ov-streak').textContent = g.track.bestStreak ? tl('in_row', { n: g.track.bestStreak }) : '-';
     $('ov-pickups').textContent = g.track.pickups;
-    $("ov-contracts").innerHTML = g.contracts.map((c) => `<div class="ct${c.done ? " done" : ""}"><i>${c.done ? "✔" : "✖"}</i><span>${c.text}</span><b>${c.done ? "+" : ""}${Render.money(c.reward)}</b></div>`).join("");
-    $('ov-best').textContent = isBest ? 'New personal best!' : `Best shift: ${Render.money(best.money)}`;
+    $("ov-contracts").innerHTML = g.contracts.map((c) => `<div class="ct${c.done ? " done" : ""}"><i>${c.done ? "✔" : "✖"}</i><span>${Extras.ctText(c)}</span><b>${c.done ? "+" : ""}${Render.money(c.reward)}</b></div>`).join("");
+    $('ov-best').textContent = isBest ? tl('new_best') : tl('best_shift', { m: Render.money(best.money) });
     $('ov-best').classList.toggle('new-best', isBest);
     Garage.deposit(g.money);
     $('ov-bank').textContent = Render.money(Garage.bank);
@@ -220,21 +220,23 @@
       Potato.score(Math.round(g.money));
       if (spuds > 0) Potato.earn(spuds);
     }
-    $('ov-spuds').textContent = window.Potato && Potato.inHub ? `+${spuds} Spuds` : '';
+    $('ov-spuds').textContent = window.Potato && Potato.inHub ? tl('spuds', { n: spuds }) : '';
     showUpcoming();
     show("over", true);
   }
 
   function showBankOnTitle() {
     const best = loadBest();
-    $('title-best').textContent = best ? `Best shift: ${Render.money(best.money)} (${best.jobs} jobs)` : '';
-    $('title-bank').textContent = `Bank: ${Render.money(Garage.bank)}`;
+    $('title-best').textContent = best ? tl('best_title', { m: Render.money(best.money), n: best.jobs }) : '';
+    $('title-bank').textContent = tl('bank_title', { m: Render.money(Garage.bank) });
     showUpcoming();
   }
   // Playing from the Potato hub: greet the driver and earn Spuds.
   if (window.Potato && Potato.inHub) {
-    Potato.onReady((p) => { $('title-driver').textContent = `Driver: ${p.name} - every $50 you make is 1 Spud`; });
+    Potato.onReady((p) => { $('title-driver').textContent = tl('driver', { name: p.name }); });
   }
+  // The hub may hand over the language with its hello, so refresh the menu text then.
+  if (window.Potato) Potato.onReady(() => { if (mode === 'title') showBankOnTitle(); });
   showBankOnTitle();
 
   // ---------- update ----------
@@ -310,7 +312,7 @@
         t.shield = false;
         t.crashCd = 0.6;
         g.shake = Math.min(8, impact / 40);
-        g.float(t.x, t.y - 30, "SHIELD!", "#9fd8ff");
+        g.float(t.x, t.y - 30, tl('shield_float'), "#9fd8ff");
         Sound.shieldPop();
         addParticle(g, { type: "ring", color: "#9fd8ff", x: t.x, y: t.y, vx: 0, vy: 0, life: 0.5, max: 0.5 });
       }
@@ -355,7 +357,7 @@
       Jobs.update(g, dt);
       if (g.time <= 0) {
         if (g.job.state === 'towing') {
-          if (!g.overtime) { g.overtime = true; g.toast('OVERTIME!', 'Shift is over - deliver this last car', '#ffae00'); }
+          if (!g.overtime) { g.overtime = true; g.toast(tl('overtime'), tl('overtime_sub'), '#ffae00'); }
         } else {
           endShift();
         }
@@ -683,7 +685,7 @@
   $('btn-garage-start').addEventListener('click', start);
   $('btn-garage-back').addEventListener('click', closeGarage);
   $('btn-reset').addEventListener('click', () => {
-    if (confirm('Reset your bank and all upgrades?')) { Garage.reset(); Garage.renderUI(); }
+    if (confirm(tl('reset_confirm'))) { Garage.reset(); Garage.renderUI(); }
   });
   $('btn-resume').addEventListener('click', togglePause);
   document.querySelectorAll('.mute-label').forEach((el) => el.addEventListener('click', toggleMute));

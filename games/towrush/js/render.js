@@ -3,8 +3,9 @@ const Render = (() => {
   const C = CONFIG;
   const W = World;
   const TAU = Math.PI * 2;
-  const FONT = "'Nunito', 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif";
-  const DISPLAY = "'Fredoka', 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif";
+  const CJK = cjkFont(); // Korean, Japanese and Chinese letters (see i18n.js)
+  const FONT = "'Nunito', 'Trebuchet MS', 'Segoe UI', " + CJK;
+  const DISPLAY = "'Fredoka', 'Trebuchet MS', 'Segoe UI', " + CJK;
 
   function rr(ctx, x, y, w, h, r) {
     ctx.beginPath();
@@ -516,7 +517,7 @@ const Render = (() => {
     ctx.font = `bold 26px ${DISPLAY}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(towing ? 'DROP OFF HERE' : 'YOUR TOW YARD', z.x + z.w / 2, z.y + 40);
+    ctx.fillText(tl(towing ? 'r_dropoff' : 'r_yard'), z.x + z.w / 2, z.y + 40, z.w - 20);
 
     // impounded cars you've hauled in
     g.yardCars.slice(-16).forEach((color, k) => {
@@ -595,7 +596,7 @@ const Render = (() => {
     ctx.font = `bold 40px ${DISPLAY}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('POLICE', x + w / 2 + 30, y + bh / 2);
+    ctx.fillText(tl('r_police'), x + w / 2 + 30, y + bh / 2, w - 90);
     // jail bars on the roof while you're locked up
     if (g.jail > 0) {
       ctx.fillStyle = '#1b1d22';
@@ -1255,8 +1256,14 @@ const Render = (() => {
     ctx.stroke();
   }
 
-  function text(ctx, s, x, y, size, color, align = 'left', weight = 'bold') {
-    ctx.font = size >= 22 ? `600 ${size}px ${DISPLAY}` : `${weight === 'bold' ? 800 : 600} ${size}px ${FONT}`;
+  // maxW (optional): shrink the text until it fits that width (longer languages, small screens).
+  function text(ctx, s, x, y, size, color, align = 'left', weight = 'bold', maxW) {
+    const setFont = (px) => (ctx.font = px >= 22 ? `600 ${px}px ${DISPLAY}` : `${weight === 'bold' ? 800 : 600} ${px}px ${FONT}`);
+    setFont(size);
+    if (maxW > 0) {
+      const w = ctx.measureText(s).width;
+      if (w > maxW) setFont(Math.max(8, Math.floor((size * maxW) / w * 10) / 10));
+    }
     ctx.fillStyle = color;
     ctx.textAlign = align;
     ctx.textBaseline = 'middle';
@@ -1367,7 +1374,7 @@ const Render = (() => {
     ctx.restore();
     const meters = Math.round(Math.hypot(goal.x - g.truck.x, goal.y - g.truck.y) / 8);
     const lx = ax - Math.cos(ang) * 40, ly = ay - Math.sin(ang) * 34;
-    text(ctx, `${goal.label} ${meters}m`, lx, ly, 14, '#fff', 'center');
+    text(ctx, `${tl(goal.label === 'CAR' ? 'goal_car' : 'goal_yard')} ${meters}m`, lx, ly, 14, '#fff', 'center');
   }
 
   let jobBottom = 0;
@@ -1380,49 +1387,49 @@ const Render = (() => {
     if (j.state === 'waiting') {
       panel(ctx, x, y, w, 52);
       jobBottom = y + 52;
-      text(ctx, g.time > 0 ? 'Waiting for the next call...' : 'Shift over!', x + w / 2, y + 26, 18, '#c9ced8', 'center');
+      text(ctx, tl(g.time > 0 ? 'r_wait' : 'r_shiftover'), x + w / 2, y + 26, 18, '#c9ced8', 'center', 'bold', w - 24);
       return;
     }
     const type = Jobs.TYPES[j.type];
     if (j.state === 'call') {
       const others = g.rivals.filter((r) => r.state === 'toJob');
-      for (const r of others) lines.push({ color: r.company.color, s: `${r.company.name}: ${Math.round(Math.hypot(r.x - j.car.x, r.y - j.car.y) / 8)}m away` });
+      for (const r of others) lines.push({ color: r.company.color, s: tl('r_away', { name: r.company.name, n: Math.round(Math.hypot(r.x - j.car.x, r.y - j.car.y) / 8) }) });
       const h = 98 + lines.length * 20;
       panel(ctx, x, y, w, h);
       jobBottom = y + h;
-      text(ctx, `CALL: ${type.title}`, x + 16, y + 22, 15, '#ff8a7a');
+      text(ctx, tl('r_call', { title: type.title }), x + 16, y + 22, 15, '#ff8a7a', 'left', 'bold', w - 150);
       text(ctx, money(j.reward), x + w - 16, y + 30, 32, j.reward > j.startReward * 0.5 ? '#5ee07a' : '#ffd23f', 'right');
       const you = Math.round(Math.hypot(g.truck.x - j.car.x, g.truck.y - j.car.y) / 8);
-      text(ctx, `You: ${you}m away`, x + 16, y + 46, 14, '#ffd23f');
-      text(ctx, type.rule, x + 16, y + 66, 13, '#7af0ff', 'left', 'normal');
-      if (j.type === 'parked') text(ctx, 'No rivals on this one', x + 16, y + 86, 14, '#c9ced8', 'left', 'normal');
-      else if (!j.dispatched) text(ctx, `Rivals head out in ${Math.ceil(j.rivalTimer)}s`, x + 16, y + 86, 14, '#c9ced8', 'left', 'normal');
-      else if (!lines.length) text(ctx, 'Rivals turned back', x + 16, y + 86, 14, '#c9ced8', 'left', 'normal');
-      lines.forEach((l, k) => text(ctx, l.s, x + 16, y + 86 + k * 20, 14, l.color));
+      text(ctx, tl('r_you', { n: you }), x + 16, y + 46, 14, '#ffd23f', 'left', 'bold', w - 150);
+      text(ctx, type.rule, x + 16, y + 66, 13, '#7af0ff', 'left', 'normal', w - 32);
+      if (j.type === 'parked') text(ctx, tl('r_norivals'), x + 16, y + 86, 14, '#c9ced8', 'left', 'normal', w - 32);
+      else if (!j.dispatched) text(ctx, tl('r_rivalsin', { n: Math.ceil(j.rivalTimer) }), x + 16, y + 86, 14, '#c9ced8', 'left', 'normal', w - 32);
+      else if (!lines.length) text(ctx, tl('r_turned'), x + 16, y + 86, 14, '#c9ced8', 'left', 'normal', w - 32);
+      lines.forEach((l, k) => text(ctx, l.s, x + 16, y + 86 + k * 20, 14, l.color, 'left', 'bold', w - 32));
       return;
     }
     // towing
     const extra = j.type === 'vip' || j.type === 'parked' || j.type === 'big';
     panel(ctx, x, y, w, extra ? 90 : 64);
     jobBottom = y + (extra ? 90 : 64);
-    text(ctx, g.overtime ? 'OVERTIME: finish the tow!' : 'Haul it to your yard', x + 16, y + 22, 16, '#5ee07a');
+    text(ctx, tl(g.overtime ? 'r_overtime' : 'r_haul'), x + 16, y + 22, 16, '#5ee07a', 'left', 'bold', w - 120);
     const pay = j.type === 'vip' ? Math.round(j.payout * j.condition) : j.payout;
-    text(ctx, `Payout ${money(pay)} + ${money(C.towFee)} fee`, x + 16, y + 44, 14, '#c9ced8', 'left', 'normal');
+    text(ctx, tl('r_payout', { a: money(pay), b: money(C.towFee) }), x + 16, y + 44, 14, '#c9ced8', 'left', 'normal', w - 120);
     const meters = Math.round(Math.hypot(g.truck.x - (W.yard.x + W.yard.w / 2), g.truck.y - (W.yard.y + W.yard.h / 2)) / 8);
     text(ctx, `${meters}m`, x + w - 16, y + 32, 26, '#fff', 'right');
     if (j.type === 'vip') {
       const c = j.condition;
-      bar(ctx, x + 16, y + 62, w - 32, 'Condition', c, c > 0.7 ? '#5ee07a' : c > 0.45 ? '#ffd23f' : '#ff6b5a');
+      bar(ctx, x + 16, y + 62, w - 32, tl('r_cond'), c, c > 0.7 ? '#5ee07a' : c > 0.45 ? '#ffd23f' : '#ff6b5a');
     } else if (j.type === 'parked') {
-      if (g.owner && !g.owner.leaving) bar(ctx, x + 16, y + 62, w - 32, 'Owner', j.grab, '#ff503c');
-      else text(ctx, j.ownerTimer > 0 ? 'The owner is coming...' : 'The owner gave up', x + 16, y + 68, 13, j.ownerTimer > 0 ? '#ff8a7a' : '#5ee07a', 'left', 'normal');
+      if (g.owner && !g.owner.leaving) bar(ctx, x + 16, y + 62, w - 32, tl('r_owner'), j.grab, '#ff503c');
+      else text(ctx, tl(j.ownerTimer > 0 ? 'r_owner_coming' : 'r_owner_gaveup'), x + 16, y + 68, 13, j.ownerTimer > 0 ? '#ff8a7a' : '#5ee07a', 'left', 'normal', w - 32);
     } else if (j.type === 'big') {
-      text(ctx, 'Heavy load - brake early for corners', x + 16, y + 68, 13, '#7af0ff', 'left', 'normal');
+      text(ctx, tl('r_heavy'), x + 16, y + 68, 13, '#7af0ff', 'left', 'normal', w - 32);
     }
   }
 
   function bar(ctx, x, y, w, label, value, color) {
-    text(ctx, label, x, y + 6, 13, '#c9ced8', 'left', 'normal');
+    text(ctx, label, x, y + 6, 13, '#c9ced8', 'left', 'normal', 66);
     ctx.fillStyle = 'rgba(255,255,255,0.12)';
     rr(ctx, x + 72, y, w - 72, 12, 6);
     ctx.fill();
@@ -1442,10 +1449,10 @@ const Render = (() => {
     ctx.lineWidth = 3;
     rr(ctx, x, y, w, 92, 12);
     ctx.stroke();
-    text(ctx, 'POLICE CHASE', x + 16, y + 20, 18, flip ? '#ff6b5a' : '#6f9dff');
-    text(ctx, g.wanted.reason, x + w - 16, y + 20, 13, '#c9ced8', 'right', 'normal');
-    bar(ctx, x + 16, y + 40, w - 32, 'Escape', g.wanted.escape / (g.stats.escapeSeconds || C.police.escapeSeconds), '#5ee07a');
-    bar(ctx, x + 16, y + 64, w - 32, 'Busted', g.bust, '#ff503c');
+    text(ctx, tl('r_chase'), x + 16, y + 20, 18, flip ? '#ff6b5a' : '#6f9dff', 'left', 'bold', (w - 32) * 0.55);
+    text(ctx, Police.reasonText(g.wanted.reason), x + w - 16, y + 20, 13, '#c9ced8', 'right', 'normal', (w - 32) * 0.43);
+    bar(ctx, x + 16, y + 40, w - 32, tl('r_escape'), g.wanted.escape / (g.stats.escapeSeconds || C.police.escapeSeconds), '#5ee07a');
+    bar(ctx, x + 16, y + 64, w - 32, tl('r_busted'), g.bust, '#ff503c');
   }
 
   function drawNitro(ctx, g, sh) {
@@ -1453,8 +1460,8 @@ const Render = (() => {
     const x = 200, y = sh - 66, w = 150;
     panel(ctx, x, y, w, 50);
     const glow = t.boosting && Math.floor(g.clock * 12) % 2 === 0;
-    text(ctx, 'NITRO', x + 12, y + 16, 12, glow ? '#ffd23f' : '#c9ced8', 'left', 'bold');
-    text(ctx, t.nitro > 0.05 ? (touchUI ? 'tap NITRO' : 'SHIFT') : 'drift to fill', x + w - 12, y + 16, 11, '#8a909c', 'right', 'normal');
+    text(ctx, tl('r_nitro'), x + 12, y + 16, 12, glow ? '#ffd23f' : '#c9ced8', 'left', 'bold', 52);
+    text(ctx, t.nitro > 0.05 ? (touchUI ? tl('r_tapnitro') : 'SHIFT') : tl('r_fill'), x + w - 12, y + 16, 11, '#8a909c', 'right', 'normal', w - 82);
     nitroBar(ctx, g, x + 12, y + 28, w - 24, 12);
   }
 
@@ -1492,7 +1499,7 @@ const Render = (() => {
       ctx.font = `bold 16px ${FONT}`;
       ctx.lineWidth = 4;
       ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-      const label = g.truck.towing ? 'TOW DRIFT' : 'DRIFT';
+      const label = tl(g.truck.towing ? 'r_towdrift' : 'd_drift');
       ctx.strokeText(label, 0, -30);
       ctx.fillStyle = '#ffd23f';
       ctx.fillText(label, 0, -30);
@@ -1530,7 +1537,7 @@ const Render = (() => {
       ctx.fillText(f.label, cx, cy - 10);
       ctx.font = `bold 18px ${FONT}`;
       ctx.lineWidth = 4;
-      const sub = f.failed ? `lost ${f.score.toLocaleString()} points` : `${f.score.toLocaleString()} pts   +$${f.cash}   +nitro`;
+      const sub = f.failed ? tl('r_lostpts', { n: f.score.toLocaleString() }) : tl('r_pts', { n: f.score.toLocaleString(), c: '$' + f.cash });
       ctx.strokeText(sub, cx, cy + 22);
       ctx.fillStyle = '#fff';
       ctx.fillText(sub, cx, cy + 22);
@@ -1551,7 +1558,7 @@ const Render = (() => {
     ctx.fillRect(0, sh * 0.82, sw, 12);
     const w = Math.min(380, sw - 40), x = (sw - w) / 2, y = sh / 2 - 110;
     panel(ctx, x, y, w, 214);
-    text(ctx, 'IN JAIL', sw / 2, y + 38, 36, '#ff6b5a', 'center');
+    text(ctx, tl('r_jail'), sw / 2, y + 38, 36, '#ff6b5a', 'center', 'bold', w - 30);
     // countdown ring
     const k = Math.max(0, g.jail / C.police.jailSeconds);
     ctx.strokeStyle = 'rgba(255,255,255,0.12)';
@@ -1560,12 +1567,12 @@ const Render = (() => {
     ctx.strokeStyle = '#ff6b5a';
     ctx.beginPath(); ctx.arc(sw / 2, y + 96, 30, -Math.PI / 2, -Math.PI / 2 + TAU * k); ctx.stroke();
     text(ctx, `${Math.ceil(g.jail)}`, sw / 2, y + 97, 30, '#fff', 'center');
-    text(ctx, 'seconds until you get out', sw / 2, y + 142, 15, '#c9ced8', 'center', 'normal');
-    text(ctx, 'The shift clock is still ticking...', sw / 2, y + 164, 13, '#8a909c', 'center', 'normal');
+    text(ctx, tl('r_jail_secs'), sw / 2, y + 142, 15, '#c9ced8', 'center', 'normal', w - 24);
+    text(ctx, tl('r_jail_tick'), sw / 2, y + 164, 13, '#8a909c', 'center', 'normal', w - 24);
     const bail = g.stats.bail || C.bail;
     const canPay = g.money + g.bankAtStart >= bail;
-    const how = touchUI ? 'Tap HOOK' : 'Press B';
-    text(ctx, canPay ? `${how} to pay ${money(bail)} bail` : `Bail is ${money(bail)} - not enough cash`, sw / 2, y + 194, 16, canPay ? '#ffd23f' : '#8a909c', 'center');
+    const payKey = touchUI ? 'r_bail_tap' : 'r_bail_key';
+    text(ctx, tl(canPay ? payKey : 'r_bail_no', { m: money(bail) }), sw / 2, y + 194, 16, canPay ? '#ffd23f' : '#8a909c', 'center', 'bold', w - 24);
   }
 
   // Text that shrinks to fit the screen.
@@ -1582,7 +1589,7 @@ const Render = (() => {
     if (!list || !list.length) return;
     const h = 30 + list.length * 22;
     panel(ctx, x, y, w, h);
-    text(ctx, 'CONTRACTS', x + 12, y + 15, 11, '#f4c20d', 'left', 'bold');
+    text(ctx, tl('r_contracts'), x + 12, y + 15, 11, '#f4c20d', 'left', 'bold', w - 60);
     const doneN = list.filter((c) => c.done).length;
     text(ctx, `${doneN}/${list.length}`, x + w - 12, y + 15, 11, '#8a909c', 'right', 'bold');
     list.forEach((c, k) => {
@@ -1596,26 +1603,27 @@ const Render = (() => {
         ctx.beginPath(); ctx.moveTo(x + 13.5, cy); ctx.lineTo(x + 17, cy + 3.5); ctx.lineTo(x + 23, cy - 4); ctx.stroke();
       }
       ctx.font = `600 12px ${FONT}`;
-      let label = c.text;
+      const full = Extras.ctText(c);
+      let label = full;
       const room = w - 44 - (c.need > 1 && !c.done ? 44 : 0) - (c.endOnly ? 40 : 0);
       while (ctx.measureText(label + '...').width > room && label.length > 4) label = label.slice(0, -1);
-      if (label !== c.text) label = label.trimEnd() + '...';
+      if (label !== full) label = label.trimEnd() + '...';
       text(ctx, label, x + 32, cy, 12, c.done ? '#7fdc98' : '#dfe3ea', 'left', 'normal');
       if (c.need > 1 && !c.done) {
         const shown = c.id === 'driftcash' ? `$${cur}` : `${cur}/${c.need}`;
         text(ctx, shown, x + w - 12, cy, 12, '#ffd23f', 'right', 'bold');
-      } else if (c.endOnly && !c.done) text(ctx, g.arrests ? 'failed' : 'so far', x + w - 12, cy, 11, g.arrests ? '#ff6b5a' : '#8a909c', 'right', 'normal');
+      } else if (c.endOnly && !c.done) text(ctx, tl(g.arrests ? 'r_failed' : 'r_sofar'), x + w - 12, cy, 11, g.arrests ? '#ff6b5a' : '#8a909c', 'right', 'normal');
     });
   }
 
   // Shield / jammer / cop-light chips, just above the speedometer.
   function drawStatus(ctx, g, x, y) {
     const chips = [];
-    if (g.truck.shield) chips.push({ s: 'SHIELD', c: '#9fd8ff', k: 'shield' });
-    if (g.jammer > 0) chips.push({ s: `JAMMER ${Math.ceil(g.jammer)}s`, c: '#c69bff', k: 'jammer' });
+    if (g.truck.shield) chips.push({ s: tl('r_shield'), c: '#9fd8ff', k: 'shield' });
+    if (g.jammer > 0) chips.push({ s: tl('r_jammer', { n: Math.ceil(g.jammer) }), c: '#c69bff', k: 'jammer' });
     if (g.stats.copLight && !(g.jail > 0) && !g.wanted) {
       const seen = Police.canSee(g);
-      chips.push({ s: seen ? 'COP WATCHING' : 'NO COPS NEAR', c: seen ? '#ff6b5a' : '#5ee07a', cop: true, seen });
+      chips.push({ s: tl(seen ? 'r_copwatch' : 'r_nocops'), c: seen ? '#ff6b5a' : '#5ee07a', cop: true, seen });
     }
     let cx = x;
     for (const ch of chips) {
@@ -1646,7 +1654,7 @@ const Render = (() => {
     panel(ctx, 16, 16, 190, 66);
     const ms = fitFont(ctx, money(g.money), 28, DISPLAY, g.streak > 0 ? 112 : 160);
     text(ctx, money(g.money), 30, 40, ms, g.money < 0 ? '#ff6b5a' : '#5ee07a');
-    text(ctx, `Jobs ${g.jobsDone}   Lost ${g.jobsLost}`, 30, 66, 13, '#c9ced8', 'left', 'normal');
+    text(ctx, tl('r_jobs', { a: g.jobsDone, b: g.jobsLost }), 30, 66, 13, '#c9ced8', 'left', 'normal', narrow ? 126 : 166);
     if (g.streak > 0) {
       const m = Extras.streakMul(g.streak);
       const hot = m >= C.streak.max;
@@ -1670,8 +1678,8 @@ const Render = (() => {
       ctx.lineWidth = 3;
       rr(ctx, sw - 136, 16, 120, 66, 12);
       ctx.stroke();
-      text(ctx, `RUSH HOUR ${Math.ceil(g.rush.left)}s`, sw - 76, 31, 11, '#ff9f43', 'center', 'bold');
-    } else text(ctx, 'SHIFT', sw - 76, 32, 12, '#c9ced8', 'center', 'normal');
+      text(ctx, tl('r_rush', { n: Math.ceil(g.rush.left) }), sw - 76, 31, 11, '#ff9f43', 'center', 'bold', 108);
+    } else text(ctx, tl('r_shift'), sw - 76, 32, 12, '#c9ced8', 'center', 'normal', 108);
     text(ctx, clock, sw - 76, 56, 28, tLeft <= 30 && Math.floor(g.clock * 2) % 2 ? '#ff6b5a' : '#fff', 'center');
     drawJobPanel(ctx, g, sw);
     if (!narrow) drawContracts(ctx, g, 16, 92, sw >= 1100 ? 280 : 236);
@@ -1717,7 +1725,7 @@ const Render = (() => {
     const hook = Jobs.canHook(g);
     if (hook) {
       const ok = hook === 'ok';
-      const msg = ok ? (touchUI ? 'Tap HOOK to hook the car' : 'Press  E  to hook the car') : 'Slow down to hook!';
+      const msg = tl(ok ? (touchUI ? 'r_hook_tap' : 'r_hook_key') : 'r_slow');
       const w = Math.min(300, sw - 32), x = (sw - w) / 2, y = tiny ? sh / 2 + 70 : sh - 120;
       const pulse = ok ? 0.85 + 0.15 * Math.sin(g.clock * 10) : 1;
       ctx.globalAlpha = pulse;

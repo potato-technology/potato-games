@@ -643,7 +643,14 @@
     get lang() { return lang; },
     LANGS,
     tr,
-    font: "'Apple SD Gothic Neo', 'Malgun Gothic', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK KR', 'Noto Sans CJK JP', 'Noto Sans CJK SC', sans-serif",
+    // Put the current language's fonts first, so Japanese kana don't render in a Korean font (and so on).
+    get font() {
+      const ko = "'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans CJK KR'";
+      const ja = "'Hiragino Sans', 'Yu Gothic', 'Meiryo', 'Noto Sans CJK JP'";
+      const zh = "'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC'";
+      const order = lang === 'ja' ? [ja, zh, ko] : lang === 'zh' ? [zh, ja, ko] : [ko, ja, zh];
+      return order.join(', ') + ', sans-serif';
+    },
     save(key, value) {
       try { localStorage.setItem(storageKey(key), JSON.stringify(value)); } catch (e) {}
     },
