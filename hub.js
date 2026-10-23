@@ -545,6 +545,16 @@ const CATALOG = {
     { id: 'tophat', name: 'Top Hat', price: 180 },
     { id: 'crown', name: 'Crown', price: 350 },
     { id: 'halo', name: 'Halo', price: 600 },
+    { id: 'bunny', name: 'Bunny Ears', price: 60 },
+    { id: 'propeller', name: 'Propeller Cap', price: 90 },
+    { id: 'flowercrown', name: 'Flower Crown', price: 110 },
+    { id: 'cowboy', name: 'Cowboy Hat', price: 140 },
+    { id: 'pirate', name: 'Pirate Hat', price: 160 },
+    { id: 'grad', name: 'Graduation Cap', price: 200 },
+    { id: 'viking', name: 'Viking Helmet', price: 260 },
+    { id: 'wizard', name: 'Wizard Hat', price: 420 },
+    // Secret: only unlocked with the Potato King's redeem code, never sold in the shop.
+    { id: 'kingcrown', name: 'Potato King Crown', price: 0, secret: true },
   ],
   color: [
     { id: '#c9925a', name: 'Russet', price: 0 },
@@ -555,14 +565,44 @@ const CATALOG = {
     { id: '#5fbf98', name: 'Minty', price: 90 },
     { id: '#4a63c9', name: 'Blueberry', price: 120 },
     { id: '#f2f2f2', name: 'Mashed', price: 200 },
+    { id: '#f28bb5', name: 'Bubblegum', price: 70 },
+    { id: '#9ad15b', name: 'Lime', price: 70 },
+    { id: '#3fb6c9', name: 'Ocean', price: 100 },
+    { id: '#2e3557', name: 'Midnight', price: 150 },
   ],
   face: [
     { id: 'happy', name: 'Happy', price: 0 },
     { id: 'sleepy', name: 'Sleepy', price: 25 },
     { id: 'shock', name: 'Shocked', price: 25 },
     { id: 'grumpy', name: 'Grumpy', price: 35 },
+    { id: 'wink', name: 'Wink', price: 40 },
+    { id: 'silly', name: 'Silly', price: 50 },
     { id: 'cool', name: 'Shades', price: 80 },
+    { id: 'love', name: 'Heart Eyes', price: 120 },
+    { id: 'star', name: 'Star Eyes', price: 150 },
   ],
+  acc: [
+    { id: 'none', name: 'Nothing', price: 0 },
+    { id: 'bowtie', name: 'Bow Tie', price: 40 },
+    { id: 'flower', name: 'Flower', price: 45 },
+    { id: 'glasses', name: 'Glasses', price: 60 },
+    { id: 'mustache', name: 'Mustache', price: 70 },
+    { id: 'scarf', name: 'Cozy Scarf', price: 90 },
+    { id: 'balloon', name: 'Balloon', price: 110 },
+    { id: 'backpack', name: 'Backpack', price: 130 },
+    { id: 'monocle', name: 'Fancy Monocle', price: 160 },
+    { id: 'headphones', name: 'Headphones', price: 180 },
+    { id: 'medal', name: 'Gold Medal', price: 250 },
+    { id: 'cape', name: 'Hero Cape', price: 320 },
+    { id: 'wings', name: 'Angel Wings', price: 500 },
+  ],
+};
+
+// ---------- redeem codes ----------
+// Only the SHA-256 of each code is stored here, so the codes themselves never appear in this file.
+// Codes are matched in upper case with spaces and dashes removed.
+const REDEEM_CODES = {
+  d888b54f9fca69fb553382570066cf5ff3becfa64091a980953061f7d60d1c97: { part: 'hat', id: 'kingcrown' },
 };
 
 // ---------- profile (saved in this browser) ----------
@@ -573,10 +613,11 @@ const MAX_EARN_PER_GAME = 300; // a single game session can't hand out more than
 function freshProfile() {
   return {
     name: 'Guest' + Math.floor(1000 + Math.random() * 9000),
-    color: '#c9925a', hat: 'cap', face: 'happy',
+    color: '#c9925a', hat: 'cap', face: 'happy', acc: 'none',
     spuds: STARTING_SPUDS,
-    owned: Object.fromEntries(Object.entries(CATALOG).map(([k, items]) => [k, items.filter((i) => i.price === 0).map((i) => i.id)])),
+    owned: Object.fromEntries(Object.entries(CATALOG).map(([k, items]) => [k, items.filter((i) => i.price === 0 && !i.secret).map((i) => i.id)])),
     games: {},
+    redeemed: [],
   };
 }
 function loadProfile() {
@@ -596,7 +637,77 @@ function saveProfile() {
 }
 saveProfile();
 
-const avatarOf = (p = profile) => ({ name: p.name, color: p.color, hat: p.hat, face: p.face });
+const avatarOf = (p = profile) => ({ name: p.name, color: p.color, hat: p.hat, face: p.face, acc: p.acc });
+
+// ---------- language ----------
+let lang = Potato.lang;
+function t(key, vars) {
+  let s = HUB_I18N[lang]?.[key] ?? HUB_I18N.en[key] ?? key;
+  if (vars) s = s.replace(/\{(\w+)\}/g, (m, k) => (vars[k] != null ? vars[k] : m));
+  return s;
+}
+// A game's title/desc/controls/label in the current language (English lives in GAMES).
+function gameText(game, field) {
+  const tr = typeof GAME_I18N !== 'undefined' ? GAME_I18N[game.id]?.[lang] : null;
+  if (tr && tr[field]) return tr[field];
+  return field === 'label' ? game.score.label : game[field];
+}
+function itemName(part, item) {
+  return (typeof ITEM_I18N !== 'undefined' && ITEM_I18N[lang]?.[part + '.' + item.id]) || item.name;
+}
+// Score strings come out of each game's English format(); swap their unit words.
+const UNIT_WORDS = { pts: 'unit.pts', fish: 'unit.fish', hops: 'unit.hops', cups: 'unit.cups', gems: 'unit.gems', floors: 'unit.floors', pins: 'unit.pins', gold: 'unit.gold' };
+function localizeScore(s) {
+  if (lang === 'en') return s;
+  let m = /^Level (.+)$/.exec(s);
+  if (m) return t('unit.level', { n: m[1] });
+  m = /^Floor (.+)$/.exec(s);
+  if (m) return t('unit.floor', { n: m[1] });
+  m = /^(.+) (pts|fish|hops|cups|gems|floors|pins|gold)$/.exec(s);
+  if (m) return t(UNIT_WORDS[m[2]], { n: m[1] });
+  return s;
+}
+function applyI18n() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-html]').forEach((el) => { el.innerHTML = t(el.dataset.i18nHtml); });
+  document.querySelectorAll('[data-i18n-title]').forEach((el) => { el.title = t(el.dataset.i18nTitle); });
+  const current = Potato.LANGS.find((l) => l.code === lang);
+  document.getElementById('lang-name').textContent = current ? current.name : 'English';
+  document.getElementById('lang-btn').title = t('lang.title');
+}
+function setLang(code) {
+  lang = code;
+  try { localStorage.setItem('potato.lang', code); } catch (e) {}
+  applyI18n();
+  render();
+}
+
+// language picker
+const langBtn = document.getElementById('lang-btn');
+const langMenu = document.getElementById('lang-menu');
+function closeLangMenu() {
+  langMenu.hidden = true;
+  langBtn.setAttribute('aria-expanded', 'false');
+}
+langBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (!langMenu.hidden) { closeLangMenu(); return; }
+  langMenu.replaceChildren(...Potato.LANGS.map((l) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('role', 'option');
+    b.setAttribute('aria-selected', l.code === lang);
+    b.lang = l.code;
+    b.textContent = l.name;
+    b.addEventListener('click', () => { closeLangMenu(); setLang(l.code); });
+    return b;
+  }));
+  langMenu.hidden = false;
+  langBtn.setAttribute('aria-expanded', 'true');
+});
+document.addEventListener('click', (e) => { if (!langMenu.hidden && !langMenu.contains(e.target)) closeLangMenu(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLangMenu(); });
 
 // ---------- helpers ----------
 const $ = (s) => document.querySelector(s);
@@ -612,7 +723,7 @@ function formatBig(n) {
   return Math.floor(n).toLocaleString();
 }
 function formatScore(game, v) {
-  return game.score.format ? game.score.format(v) : Math.floor(v).toLocaleString();
+  return localizeScore(game.score.format ? game.score.format(v) : Math.floor(v).toLocaleString());
 }
 function toast(text, bad) {
   const el = document.createElement('div');
@@ -658,24 +769,21 @@ function gameCard(game) {
       <p class="card-title"></p>
       <div class="card-meta"></div>
     </div>`;
-  btn.querySelector('.card-title').textContent = game.title;
+  btn.querySelector('.card-title').textContent = gameText(game, 'title');
   const meta = btn.querySelector('.card-meta');
+  const tag = (text) => { const s = document.createElement('span'); s.textContent = text; return s; };
   if (stats.plays) {
-    meta.innerHTML = `<span>${stats.plays} play${stats.plays === 1 ? '' : 's'}</span>`;
-    if (stats.best != null) {
-      const s = document.createElement('span');
-      s.textContent = game.score.label + ': ' + formatScore(game, stats.best);
-      meta.appendChild(s);
-    }
+    meta.appendChild(tag(stats.plays === 1 ? t('card.plays1') : t('card.plays', { n: stats.plays })));
+    if (stats.best != null) meta.appendChild(tag(gameText(game, 'label') + ': ' + formatScore(game, stats.best)));
   } else {
-    meta.innerHTML = '<span>New — not played yet</span>';
+    meta.appendChild(tag(t('card.new')));
   }
   paintThumb(btn.querySelector('canvas'), game);
   btn.addEventListener('click', () => openDetails(game));
   return btn;
 }
 function renderPlay() {
-  $('#hero-title').textContent = `Hey, ${profile.name}!`;
+  $('#hero-title').textContent = t('hero.hi', { name: profile.name });
   paintAvatar($('#hero-avatar'));
 
   const grid = $('#game-grid');
@@ -695,14 +803,24 @@ function openDetails(game) {
   detailsGame = game;
   const stats = profile.games[game.id] || {};
   paintThumb($('#details-thumb'), game);
-  $('#details-title').textContent = game.title;
-  $('#details-by').textContent = 'by ' + game.by;
-  $('#details-desc').textContent = game.desc;
-  $('#details-controls').innerHTML = '<strong>Controls:</strong> ' + game.controls;
-  $('#details-stats').innerHTML = `
-    <div class="stat"><span>Your plays</span>${stats.plays || 0}</div>
-    <div class="stat"><span>${game.score.label}</span>${stats.best != null ? formatScore(game, stats.best) : '—'}</div>
-    <div class="stat"><span>Spuds earned here</span>${(stats.earned || 0).toLocaleString()}</div>`;
+  $('#details-title').textContent = gameText(game, 'title');
+  $('#details-by').textContent = t('details.by', { who: game.by });
+  $('#details-desc').textContent = gameText(game, 'desc');
+  $('#details-controls').innerHTML = '<strong></strong> ' + gameText(game, 'controls');
+  $('#details-controls strong').textContent = t('details.controls');
+  const stat = (label, value) => {
+    const d = document.createElement('div');
+    d.className = 'stat';
+    const s = document.createElement('span');
+    s.textContent = label;
+    d.append(s, value);
+    return d;
+  };
+  $('#details-stats').replaceChildren(
+    stat(t('details.plays'), String(stats.plays || 0)),
+    stat(gameText(game, 'label'), stats.best != null ? formatScore(game, stats.best) : '—'),
+    stat(t('details.earned'), (stats.earned || 0).toLocaleString()),
+  );
   $('#details').showModal();
   $('#details-play').focus();
 }
@@ -724,7 +842,7 @@ function launch(game) {
   stats.lastPlayed = Date.now();
   saveProfile();
 
-  $('#game-name').textContent = game.title;
+  $('#game-name').textContent = gameText(game, 'title');
   $('#session-earn').textContent = '0';
   $('#game-layer').hidden = false;
   document.body.style.overflow = 'hidden';
@@ -738,7 +856,7 @@ function leaveGame() {
   frame.src = 'about:blank';
   $('#game-layer').hidden = true;
   document.body.style.overflow = '';
-  if (earned > 0) toast(`You earned ${earned} Spuds in ${game.title}!`);
+  if (earned > 0) toast(t('toast.earned', { n: earned, game: gameText(game, 'title') }));
   render();
 }
 $('#leave-btn').addEventListener('click', leaveGame);
@@ -753,7 +871,7 @@ window.addEventListener('message', (e) => {
   const stats = profile.games[game.id];
 
   if (d.type === 'potato:ready') {
-    frame.contentWindow.postMessage({ type: 'potato:hello', player: avatarOf() }, '*');
+    frame.contentWindow.postMessage({ type: 'potato:hello', player: avatarOf(), lang }, '*');
   } else if (d.type === 'potato:earn') {
     const want = Math.max(0, Math.floor(Number(d.amount) || 0));
     const amount = Math.min(want, MAX_EARN_PER_GAME - current.earned);
@@ -791,14 +909,15 @@ function itemTile(part, item, mode) {
   const equipped = profile[part] === item.id;
   const owned = profile.owned[part].includes(item.id);
   if (mode === 'equip' && equipped) el.classList.add('equipped');
+  if (item.secret) el.classList.add('secret');
   el.innerHTML = `<canvas width="176" height="176"></canvas><span class="item-name"></span>`;
-  el.querySelector('.item-name').textContent = item.name;
+  el.querySelector('.item-name').textContent = itemName(part, item);
   paintAvatar(el.querySelector('canvas'), previewWith(part, item.id));
 
   if (mode === 'equip') {
     const tag = document.createElement('span');
     tag.className = 'item-tag';
-    tag.textContent = equipped ? 'Wearing' : 'Wear';
+    tag.textContent = equipped ? t('item.wearing') : t('item.wear');
     el.appendChild(tag);
     el.addEventListener('click', () => {
       profile[part] = item.id;
@@ -809,7 +928,7 @@ function itemTile(part, item, mode) {
     if (owned) {
       const tag = document.createElement('span');
       tag.className = 'item-tag';
-      tag.textContent = 'Owned';
+      tag.textContent = t('item.owned');
       el.appendChild(tag);
     } else {
       const price = document.createElement('span');
@@ -817,16 +936,16 @@ function itemTile(part, item, mode) {
       price.innerHTML = '<span class="spud-coin"></span>' + item.price;
       const buy = document.createElement('button');
       buy.className = 'btn primary';
-      buy.textContent = 'Buy';
+      buy.textContent = t('item.buy');
       buy.disabled = profile.spuds < item.price;
-      buy.title = buy.disabled ? `You need ${item.price - profile.spuds} more Spuds` : '';
+      buy.title = buy.disabled ? t('item.need', { n: item.price - profile.spuds }) : '';
       buy.addEventListener('click', () => {
         if (profile.spuds < item.price) return;
         profile.spuds -= item.price;
         profile.owned[part].push(item.id);
         profile[part] = item.id; // put it on right away
         saveProfile();
-        toast(`Bought ${item.name}! You're wearing it now.`);
+        toast(t('toast.bought', { item: itemName(part, item) }));
         render();
       });
       el.append(price, buy);
@@ -852,22 +971,52 @@ $('#name-input').addEventListener('input', (e) => {
   profile.name = name;
   saveProfile();
   renderHeader();
-  $('#hero-title').textContent = `Hey, ${profile.name}!`;
+  $('#hero-title').textContent = t('hero.hi', { name: profile.name });
 });
 
 // ---------- shop page ----------
 let shopPart = 'hat';
 function renderShop() {
   document.querySelectorAll('#shop-tabs button').forEach((b) => b.setAttribute('aria-selected', b.dataset.part === shopPart));
-  $('#shop-grid').replaceChildren(...CATALOG[shopPart].map((i) => itemTile(shopPart, i, 'shop')));
+  $('#shop-grid').replaceChildren(...CATALOG[shopPart].filter((i) => !i.secret).map((i) => itemTile(shopPart, i, 'shop')));
 }
 document.querySelectorAll('#shop-tabs button').forEach((b) => b.addEventListener('click', () => {
   shopPart = b.dataset.part;
   renderShop();
 }));
 
+// ---------- redeem codes ----------
+async function sha256Hex(text) {
+  const bytes = new TextEncoder().encode(text);
+  const hash = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+$('#redeem-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = $('#redeem-input');
+  const code = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!code) { toast(t('redeem.empty'), true); return; }
+  if (!window.crypto?.subtle) { toast(t('redeem.unsupported'), true); return; }
+  const hash = await sha256Hex(code);
+  const reward = REDEEM_CODES[hash];
+  if (!reward) { toast(t('redeem.bad'), true); return; }
+  if (!Array.isArray(profile.redeemed)) profile.redeemed = [];
+  const item = CATALOG[reward.part].find((i) => i.id === reward.id);
+  if (profile.redeemed.includes(hash) && profile.owned[reward.part].includes(reward.id)) {
+    toast(t('redeem.used'), true);
+    return;
+  }
+  if (!profile.redeemed.includes(hash)) profile.redeemed.push(hash);
+  if (!profile.owned[reward.part].includes(reward.id)) profile.owned[reward.part].push(reward.id);
+  profile[reward.part] = reward.id; // put it on right away
+  saveProfile();
+  input.value = '';
+  toast(t('redeem.ok', { item: itemName(reward.part, item) }));
+  render();
+});
+
 // ---------- routing ----------
-const PAGES = ['play', 'avatar', 'shop', 'about'];
+const PAGES = ['play', 'avatar', 'shop', 'about', 'comments'];
 function currentPage() {
   const h = location.hash.slice(1);
   return PAGES.includes(h) ? h : 'play';
@@ -881,6 +1030,7 @@ function render() {
   if (page === 'avatar') renderAvatar();
   if (page === 'shop') renderShop();
   if (page === 'about') renderAbout();
+  if (page === 'comments') window.PotatoComments?.render();
   fillAds();
 }
 
@@ -898,10 +1048,11 @@ window.addEventListener('resize', fillAds);
 
 // ---------- about page ----------
 function renderAbout() {
-  // The Potato King himself: golden potato, crown, shades.
-  paintAvatar($('#about-avatar'), { color: '#e3c06a', hat: 'crown', face: 'cool' });
+  // The Potato King himself: golden potato, his own crown, shades and cape.
+  paintAvatar($('#about-avatar'), { color: '#e3c06a', hat: 'kingcrown', face: 'cool', acc: 'cape' });
   $('#about-games').textContent = GAMES.length;
 }
 window.addEventListener('hashchange', render);
 document.fonts?.ready.then(render);
+applyI18n();
 render();

@@ -1,0 +1,31 @@
+rules_version = '2';
+
+// Rules for the Potato Games comments database (Firebase Firestore).
+// Paste this whole file into Firebase: Firestore Database > Rules > Publish.
+//
+// Anyone can read comments and post a new one, but:
+//  - a comment can only have the expected fields, with short, sensible sizes
+//  - the worst words and links are refused here too (the website checks a much longer list first)
+//  - nobody can edit or delete comments from the website; a parent deletes bad ones in the Firebase console
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /comments/{commentId} {
+      allow read: if true;
+
+      allow create: if request.resource.data.keys().hasOnly(['name', 'text', 'game', 'lang', 'look', 'created'])
+        && request.resource.data.keys().hasAll(['name', 'text', 'game', 'created'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 1 && request.resource.data.name.size() <= 20
+        && request.resource.data.text is string
+        && request.resource.data.text.size() >= 2 && request.resource.data.text.size() <= 300
+        && request.resource.data.game is string && request.resource.data.game.size() <= 30
+        && (!('lang' in request.resource.data) || (request.resource.data.lang is string && request.resource.data.lang.size() <= 5))
+        && (!('look' in request.resource.data) || (request.resource.data.look is string && request.resource.data.look.size() <= 60))
+        && request.resource.data.created == request.time
+        && !request.resource.data.text.lower().matches('.*(fuck|shit|bitch|cunt|nigg|fagg|whore|slut|porn|http|www[.]|[.]com|discord|snapchat|instagram|씨발|시발|병신|死ね|傻逼).*')
+        && !request.resource.data.name.lower().matches('.*(fuck|shit|bitch|cunt|nigg|fagg|whore|slut|porn|http|www[.]|[.]com|씨발|시발|병신|死ね|傻逼).*');
+
+      allow update, delete: if false;
+    }
+  }
+}
