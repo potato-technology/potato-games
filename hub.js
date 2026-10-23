@@ -602,7 +602,7 @@ const CATALOG = {
 // Only the SHA-256 of each code is stored here, so the codes themselves never appear in this file.
 // Codes are matched in upper case with spaces and dashes removed.
 const REDEEM_CODES = {
-  d888b54f9fca69fb553382570066cf5ff3becfa64091a980953061f7d60d1c97: { part: 'hat', id: 'kingcrown' },
+  '1a521d0ff3c87e37b0ad29aa628a07bfa6b5fe0dd894f3e640bd82e5007275f3': { part: 'hat', id: 'kingcrown' },
 };
 
 // ---------- profile (saved in this browser) ----------
